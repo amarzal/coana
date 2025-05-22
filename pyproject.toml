@@ -1,0 +1,27 @@
+[project]
+name = "coana"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Andrés Marzal", email = "amarzal@uji.es" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "loguru>=0.7.3",
+    "openpyxl>=3.1.5",
+    "polars>=1.29.0",
+    "pyyaml>=6.0.2",
+    "typer[all]>=0.15.2",
+    "xlsxwriter>=3.2.3",
+]
+
+[project.scripts]
+coana = "coana:main"
+
+[tool.uv.build-backend.data]
+data = "config"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
