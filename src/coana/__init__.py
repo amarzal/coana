@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from typing import Annotated
 
+import polars as pl
 import typer
 from loguru import logger
 from typer import Typer
@@ -9,6 +10,7 @@ from typer import Typer
 from coana.estructuras import Estructuras
 from coana.ficheros import Ficheros
 from coana.misc.traza import Traza
+from coana.uji.nóminas import Nóminas
 from coana.uji.traductor_entrada_intermedio import TraductorEntradaIntermedio
 
 app = Typer(pretty_exceptions_show_locals=False)
@@ -21,6 +23,17 @@ logger.add(
     format="{elapsed.seconds}.{elapsed.microseconds}|<blue>{level}</blue>|<cyan>{name}</cyan>:<green>{line}</green>| <bold>{message}</bold>",
     colorize=True,
 )
+
+@app.command()
+def dev() -> None:
+    datos = Path("../coana_data/2024")
+    logger.trace(f"EJECUCIÓN DE DESARROLLO con {datos}")
+    ficheros = Ficheros(datos)
+    nóminas = Nóminas.carga()
+    df = nóminas.df.filter(pl.col("CUANTIA") != 0)
+    destino = ficheros.nóminas.with_name(ficheros.nóminas.stem + "_sin_ceros" + ficheros.nóminas.suffix)
+    df.write_excel(destino)
+
 
 
 @app.command()

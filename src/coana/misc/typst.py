@@ -8,6 +8,7 @@ from coana.árbol import Árbol
 
 def preámbulo() -> str:
     return """
+#import "@preview/use-tabler-icons:0.12.0": tabler-icon
 #set text(font: "Fira Sans", size: 8pt, lang: "es")
 #show raw: set text(font: "Fira Code", size: 9pt)
 #set heading(numbering: "1.1")

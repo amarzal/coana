@@ -30,7 +30,7 @@ class Nóminas:
         df = carga_excel_o_csv(ficheros.nóminas)
         df = df.with_columns(
             pl.col(Nóminas.col_identificador).cast(pl.Utf8),
-            pl.col(Nóminas.col_importe).replace("", "0").cast(pl.Float64),
+            #pl.col(Nóminas.col_importe).replace("", "0").cast(pl.Float64),
             pl.col(Nóminas.col_categoría_personal).cast(pl.Utf8),
         )
         logger.trace("Suprimiendo línea con cuantía == 0")
@@ -45,3 +45,6 @@ class Nóminas:
         logger.trace(f"Etiquetando {columna} en nóminas")
         self.df = etiquetador("nóminas", columna, Nóminas.col_identificador, self.df)
         logger.trace(f"Etiquetada {columna} en nóminas")
+
+    def análisis_de_previsión_social(self) -> None:
+        logger.trace("Análisis de previsiones sociales")

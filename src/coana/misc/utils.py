@@ -17,6 +17,8 @@ def carga_excel_o_csv(fichero: Path) -> pl.DataFrame:
         return pl.read_excel(fichero, engine="openpyxl")
     elif fichero.suffix == ".csv":
         return pl.read_csv(fichero)
+    elif fichero.suffix == ".parquet":
+        return pl.read_parquet(fichero)
     else:
         raise ValueError(f"Formato de fichero no soportado: {fichero}")
 

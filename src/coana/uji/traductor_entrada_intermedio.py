@@ -6,6 +6,7 @@ from coana.etiquetador import Etiquetador
 from coana.ficheros import Ficheros
 from coana.uji.apuntes import Apuntes
 from coana.uji.nóminas import Nóminas
+from coana.uji.previsión_social_funcionarios import PrevisionesSocialesFuncionarios
 
 
 @dataclass
@@ -28,6 +29,8 @@ class TraductorEntradaIntermedio:
         apuntes.guarda(ficheros.traza_apuntes_etiquetados)
 
         nóminas = Nóminas.carga()
+        nóminas.análisis_de_previsión_social()
+
         etq_ec_nóminas = Etiquetador.carga(ficheros.etiquetador_elemento_de_coste_para_nóminas)
         nóminas.etiqueta("ELEMENTO_DE_COSTE", etq_ec_nóminas)
 

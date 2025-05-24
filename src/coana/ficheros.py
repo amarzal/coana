@@ -1,12 +1,11 @@
-import json
-import pprint
 from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
-from re import A
 from typing import cast
 
+import polars as pl
 import yaml
+from loguru import logger
 
 from coana.misc.utils import Singleton
 
@@ -35,6 +34,7 @@ class Ficheros(metaclass=Singleton):
             con_raíz = self.raíz_datos / directorio
             if not con_raíz.exists():
                 con_raíz.mkdir(parents=True)
+
         for clave, fichero in list(self.ficheros.items()):
             con_raíz = self.raíz_datos / fichero
             ficheros = sorted(Path(".").glob(str(con_raíz)))
@@ -42,6 +42,16 @@ class Ficheros(metaclass=Singleton):
                 self.ficheros[clave] = ficheros[-1]
             else:
                 self.ficheros[clave] = con_raíz
+
+        # Convierte todos los ficheros xlsx en ficheros parquet siempre que el xlsx sea más reciente que el parquet
+        for clave, fichero in list(self.ficheros.items()):
+            if fichero.suffix == ".xlsx":
+                parquet = fichero.with_suffix(".parquet")
+                if not parquet.exists() or fichero.stat().st_mtime > parquet.stat().st_mtime:
+                    logger.trace(f"Convirtiendo {fichero} a {parquet} para carga rápida")
+                    df = pl.read_excel(fichero, engine="openpyxl")
+                    df.write_parquet(parquet)
+                self.ficheros[clave] = parquet
 
     def para_traza(self) -> str:
         def añade_directorio(piezas: tuple[str, ...], dónde: DiccionarioDeDiccionarios):
@@ -64,7 +74,6 @@ class Ficheros(metaclass=Singleton):
         for fichero in self.ficheros.values():
             añade_fichero(fichero.parts, como_árbol)
 
-
         s = StringIO()
         s.write("= Directorios y ficheros con datos\n")
         s.write(self._tree_to_directory_string(como_árbol))
@@ -84,8 +93,21 @@ class Ficheros(metaclass=Singleton):
             return self.raíz_datos / self.directorios[name]
         raise AttributeError(f'El fichero manifesto.yaml en {self.raíz_datos} no ha definido "{name}"')
 
-
     def _tree_to_directory_string(self, tree):
+        iconos = {
+            "directory": "folder",
+            "file": "folder",
+            ".txt": "file-type-txt",
+            ".pdf": "file-type-pdf",
+            ".doc": "file-word",
+            ".docx": "file-word",
+            ".xls": "file-type-xls",
+            ".xlsx": "file-type-xls",
+            ".ppt": "file-type-ppt",
+            ".tree": "binary-tree",
+            ".typ": "file-typography",
+        }
+
         def go(tree, prefix="", is_last=True):
             if not tree:
                 return ""
@@ -112,7 +134,14 @@ class Ficheros(metaclass=Singleton):
                     next_prefix = prefix + "│   "
 
                 # Add current item
-                result.append(current_prefix + name)
+                sufijo =  Path(name).suffix
+                if sufijo != "":
+                    icono = f'#tabler-icon(\"{iconos.get(sufijo, "file")}\")'
+                else:
+                    icono = '#tabler-icon("folder")'
+                if current_prefix != "":
+                    current_prefix = f"`{current_prefix}`"
+                result.append(f'[{current_prefix}{icono}`{name}`]')
 
                 # If it's a directory (not None), recursively add its contents
                 if subtree is not None:
@@ -120,14 +149,15 @@ class Ficheros(metaclass=Singleton):
                     if subtree_str:
                         result.append(subtree_str)
 
-            result = [result[0]] + [line[4:] for line in result[1:]]
+            #result = [result[0]] + [line[4:] for line in result[1:]]
 
             return "\n".join(result)
 
         t = go(tree)
         s = StringIO()
-        s.write("#grid(columns: 1, inset: (y: 0.4em),\n")
+        s.write("#{set text(size: 7pt);show raw: set text(size: 7pt)\n")
+        s.write("grid(columns: 1, inset: (y: 0.3em),\n")
         for x in t.split("\n"):
-            s.write(f"`{x}`,\n")
-        s.write(")\n")
+            s.write(f"{x},\n")
+        s.write(")}\n")
         return s.getvalue()
