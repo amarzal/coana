@@ -76,7 +76,7 @@ def uji(ruta_datos: Annotated[Path, typer.Argument(help="Ruta a los datos")]) ->
     nóminas.guarda(ficheros.fichero("traza_nóminas_etiquetadas").path)
 
     # Cálculo de previsiones sociales
-    psf = PrevisiónSocialFuncionarios.carga()
+    psf = PrevisiónSocialFuncionarios.calcula(nóminas)
     psf.guarda(ficheros.fichero("traza_previsiones_sociales_funcionarios_etiquetadas").path)
 
     traza.guarda()

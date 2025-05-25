@@ -5,7 +5,6 @@ from pathlib import Path
 import polars as pl
 from loguru import logger
 
-from coana.ficheros import Ficheros
 from coana.uji.nóminas import Nóminas
 
 
@@ -14,10 +13,8 @@ class PrevisiónSocialFuncionarios:
     df: pl.DataFrame
 
     @classmethod
-    def carga(cls) -> "PrevisiónSocialFuncionarios":
-        ficheros = Ficheros()
-        logger.trace("Cargando nóminas para cálculo de la previsión social de funcionarios")
-        nóminas = Nóminas.carga()
+    def calcula(cls, nóminas: Nóminas) -> "PrevisiónSocialFuncionarios":
+        logger.trace("Procesando nóminas para cálculo de la previsión social de funcionarios")
 
         porcentaje_seguridad_social = 0.236 + 0.055 + 0.006 + 0.0058
         importe_máximo_anual_ss = 4909.50 * 12
@@ -27,24 +24,7 @@ class PrevisiónSocialFuncionarios:
         ss_anual = {}
 
         # Para el Dataframe resultante
-        filas = {
-            "id": [],
-            "per_id": [],
-            "fecha": [],
-            "importe": [],
-            "concepto_retributivo": [],
-            "proyecto": [],
-            "subproyecto": [],
-            "aplicación_presupuestaria": [],
-            "programa_presupuestario": [],
-            "línea": [],
-            "tipo_línea": [],
-            "centro": [],
-            "subcentro": [],
-            "categoría_perceptor": [],
-            "ubicación": [],
-            "horas_semanales": [],
-        }
+        filas = { key:[] for key in nóminas.df.columns }
 
         for persona in personas:
             df = nóminas.df.filter(pl.col("per_id") == persona)
