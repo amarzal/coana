@@ -31,6 +31,3 @@ class Nóminas:
         logger.trace(f"Etiquetando {columna} en nóminas")
         self.df = etiquetador("nóminas", columna, "id", self.df)
         logger.trace(f"Etiquetada {columna} en nóminas")
-
-    def análisis_de_previsión_social(self) -> None:
-        logger.trace("Análisis de previsiones sociales")

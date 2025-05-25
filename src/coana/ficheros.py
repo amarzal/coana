@@ -37,7 +37,7 @@ class Fichero:
         else:
             raise ValueError(f"Formato de fichero no soportado: {self.path}")
         self.cols = {}
-        for (key, value) in cols.items():
+        for key, value in cols.items():
             value = value.strip()
             (columna_excel, tipo) = value.split(" ") if " " in value else (value, "str")
             self.cols[key] = (columna_excel, tipo)
@@ -46,15 +46,25 @@ class Fichero:
         return str(self.path)
 
     def carga_dataframe(self) -> pl.DataFrame:
-        match self.tipo:
-            case "excel":
-                df = pl.read_excel(self.path, engine="openpyxl")
-            case "csv":
-                df = pl.read_csv(self.path)
-            case "parquet":
-                df = pl.read_parquet(self.path)
-            case _:
-                raise ValueError(f"Formato de fichero no soportado: {self.path}")
+        if self.tipo not in ("excel", "csv", "parquet"):
+            raise ValueError(f"Formato de fichero no soportado: {self.path}")
+        if not self.path.exists():
+            raise FileNotFoundError(f"El fichero {self.path} no existe")
+
+        parquet_path = self.path.with_suffix(".parquet")
+        if self.tipo in ("excel", "csv"):
+            if not parquet_path.exists() or self.path.stat().st_mtime > parquet_path.stat().st_mtime:
+                logger.trace(f"Convirtiendo {self.path} a {parquet_path} para carga rápida")
+                if self.tipo == "excel":
+                    df = pl.read_excel(self.path, engine="openpyxl")
+                else:
+                    df = pl.read_csv(self.path)
+                df.write_parquet(parquet_path)
+                self.path = parquet_path
+                self.tipo = "parquet"
+                logger.trace(f"Se ha convertido {self.path} en {parquet_path}: {df.shape} filas")
+
+        df = pl.read_parquet(parquet_path)
         for columna, (columna_excel, tipo) in self.cols.items():
             match tipo:
                 case "str":
@@ -106,6 +116,7 @@ class Fichero:
         árbol.fichero = self.path
         return árbol
 
+
 @dataclass
 class Directorio:
     path: Path
@@ -126,7 +137,6 @@ class Ficheros(metaclass=Singleton):
 
         # Los paths del manifesto pueden utilizar claves de directorios y hay que formar bien las rutas
         for key, value in manifesto.items():
-            print(key, value)
             if "path" not in value:
                 raise ValueError(f"El fichero manifesto.yaml en {self.raíz_datos} no ha definido la ruta de {key}")
             path = Path("")
@@ -153,23 +163,6 @@ class Ficheros(metaclass=Singleton):
             ficheros = sorted(Path(".").glob(str(fichero.path)))
             if ficheros:
                 self.ficheros[clave].path = ficheros[-1]
-
-        # Convierte todos los ficheros xlsx en ficheros parquet siempre que el xlsx sea más reciente que el parquet
-        for clave, fichero in list(self.ficheros.items()):
-            if fichero.tipo in ["excel", "csv"]:
-                parquet_path = fichero.path.with_suffix(".parquet")
-                if not parquet_path.exists() or fichero.path.stat().st_mtime > parquet_path.stat().st_mtime:
-                    logger.trace(f"Convirtiendo {fichero.path} a {parquet_path} para carga rápida")
-                    if fichero.tipo == "excel":
-                        df = pl.read_excel(fichero.path, engine="openpyxl")
-                    elif fichero.tipo == "csv":
-                        df = pl.read_csv(fichero.path)
-                    else:
-                        raise ValueError(f"Formato de fichero no soportado: {fichero}")
-                    df.write_parquet(parquet_path)
-                    logger.trace(f"Se ha convertido {fichero.path} en {parquet_path}: {df.shape} filas")
-                self.ficheros[clave].path = parquet_path
-                self.ficheros[clave].tipo = "parquet"
 
     def para_traza(self) -> str:
         def añade_directorio(piezas: tuple[str, ...], dónde: DiccionarioDeDiccionarios):
@@ -292,7 +285,7 @@ class Ficheros(metaclass=Singleton):
         t = go(tree)
         s = StringIO()
         s.write("#{set text(size: 7pt);show raw: set text(size: 7pt)\n")
-        s.write("grid(columns: 1, inset: (y: 0.3em),\n")
+        s.write("grid(columns: 1, inset: (y: 0.15em),\n")
         for x in t.split("\n"):
             s.write(f"{x},\n")
         s.write(")}\n")

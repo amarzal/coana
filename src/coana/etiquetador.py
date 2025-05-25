@@ -6,7 +6,6 @@ from typing import Any, Iterator
 import polars as pl
 
 import coana.misc.typst as ty
-from coana.ficheros import Ficheros
 from coana.misc.euro import E
 from coana.misc.traza import Traza
 from coana.misc.utils import num, porcentaje

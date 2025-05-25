@@ -11,7 +11,6 @@ def preámbulo() -> str:
     return """
 #import "@preview/use-tabler-icons:0.12.0": tabler-icon
 #set text(font: "Fira Sans", size: 8pt, lang: "es")
-#show raw: set text(font: "Fira Code", size: 8pt)
 #set heading(numbering: "1.1")
 #set page(numbering: "1")
 #outline()
@@ -30,7 +29,7 @@ def dataframe_a_tabla(df: pl.DataFrame, alignment: tuple[str, ...] = ("right",))
     cols = df.columns
     for col in cols:
         if df[col].dtype == pl.Decimal:
-            df = df.with_columns(pl.col(col).map_elements(lambda x: str(E(x))).alias(col))
+            df = df.with_columns(pl.col(col).map_elements(lambda x: str(E(x)), return_dtype=pl.Utf8).alias(col))
     df = df.select(cols)
     s = StringIO()
     align_str = ", ".join(alignment )
