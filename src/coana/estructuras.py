@@ -16,10 +16,14 @@ class Estructuras(metaclass=Singleton):
 
     def __init__(self) -> None:
         ficheros = Ficheros()
-        self.centros_de_coste_por_finalidad = Árbol.carga(ficheros.centros_de_coste_por_finalidad)
-        self.centros_de_coste_por_comportamiento = Árbol.carga(ficheros.centros_de_coste_por_comportamiento)
-        self.elementos_de_coste = Árbol.carga(ficheros.elementos_de_coste)
-        self.actividades = Árbol.carga(ficheros.actividades)
+        cc_finalidad = ficheros.fichero("centros_de_coste_por_finalidad")
+        cc_comportamiento = ficheros.fichero("centros_de_coste_por_comportamiento")
+        ec = ficheros.fichero("elementos_de_coste")
+        ac = ficheros.fichero("actividades")
+        self.centros_de_coste_por_finalidad = cc_finalidad.carga_árbol()
+        self.centros_de_coste_por_comportamiento = cc_comportamiento.carga_árbol()
+        self.elementos_de_coste = ec.carga_árbol()
+        self.actividades = ac.carga_árbol()
 
     def traza(self) -> None:
         traza = Traza()

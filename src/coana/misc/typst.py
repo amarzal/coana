@@ -3,6 +3,7 @@ from typing import Any
 
 import polars as pl
 
+from coana.misc.euro import E
 from coana.árbol import Árbol
 
 
@@ -10,7 +11,7 @@ def preámbulo() -> str:
     return """
 #import "@preview/use-tabler-icons:0.12.0": tabler-icon
 #set text(font: "Fira Sans", size: 8pt, lang: "es")
-#show raw: set text(font: "Fira Code", size: 9pt)
+#show raw: set text(font: "Fira Code", size: 8pt)
 #set heading(numbering: "1.1")
 #set page(numbering: "1")
 #outline()
@@ -26,6 +27,11 @@ def align(contenido: Any, align: str = "center") -> str:
 
 
 def dataframe_a_tabla(df: pl.DataFrame, alignment: tuple[str, ...] = ("right",)) -> str:
+    cols = df.columns
+    for col in cols:
+        if df[col].dtype == pl.Decimal:
+            df = df.with_columns(pl.col(col).map_elements(lambda x: str(E(x))).alias(col))
+    df = df.select(cols)
     s = StringIO()
     align_str = ", ".join(alignment )
     s.write(f"table(columns: {len(df.columns)}, align: ({align_str}),")

@@ -1,13 +1,15 @@
 from dataclasses import dataclass, field
+from decimal import Decimal
 from pathlib import Path
 from typing import Any, Iterator
 
 import polars as pl
 
 import coana.misc.typst as ty
+from coana.ficheros import Ficheros
 from coana.misc.euro import E
 from coana.misc.traza import Traza
-from coana.misc.utils import carga_excel_o_csv, num, porcentaje
+from coana.misc.utils import num, porcentaje
 
 traza = Traza()
 
@@ -15,22 +17,19 @@ traza = Traza()
 @dataclass
 class Etiquetador:
     reglas: pl.DataFrame
-    columnas_de_filtrado: list[str] = field(default_factory=list)
+    columnas_de_filtrado: list[str] = field(init=False)
 
-    @classmethod
-    def carga(cls, fichero: Path) -> "Etiquetador":
-        df = carga_excel_o_csv(fichero)
-        df = df.sort("PRIORIDAD", descending=True)
-        columnas_de_filtrado = df.columns[2:]
-        return cls(df, columnas_de_filtrado)
+    def __post_init__(self) -> None:
+        self.reglas = self.reglas.sort("prioridad", descending=True)
+        self.columnas_de_filtrado = self.reglas.columns[2:]
 
     def __call__(
-        self, tipo_registro: str, columna: str, col_identificador: str, df: pl.DataFrame, col_importe: str = "CUANTIA"
+        self, tipo_registro: str, columna: str, col_identificador: str, df: pl.DataFrame, col_importe: str = "importe"
     ) -> pl.DataFrame:
         "Genera un nuevo DataFrame con una columna `columna` a la que se asigna una etiqueta para cada fila."
         usos = [0] * len(self.reglas)
-        importes = [0] * len(self.reglas)
-        importe_total = df.select(col_importe).sum().item()
+        importes = [Decimal("0.00")] * len(self.reglas)
+        importe_total = df.select("importe").sum().item()
         pendientes = df.clone()
         etiquetados = df.clear().with_columns(pl.Series(name=columna, values=[], dtype=pl.Utf8))
         for i, regla in enumerate(self.reglas.iter_rows(named=True)):
@@ -44,18 +43,14 @@ class Etiquetador:
             pendientes = pendientes.filter(~pl.col(col_identificador).is_in(ids))
             etiquetados = pl.concat([
                 etiquetados,
-                seleccionados.with_columns(pl.lit(regla["ETIQUETA"]).alias(columna)),
+                seleccionados.with_columns(pl.lit(regla["etiqueta"]).alias(columna)),
             ])
         etiquetados = pl.concat([etiquetados, pendientes.with_columns(pl.lit(None).alias(columna))])
         reglas_usos_importes = self.reglas.with_columns(
-            pl.Series("USOS", usos),
-            pl.Series("IMPORTE", importes),
+            pl.Series("usos", usos),
+            pl.Series("importe", importes),
         )
-        importe_etiquetado = reglas_usos_importes.select("IMPORTE").sum().item()
-        reglas_usos_importes = reglas_usos_importes.with_columns(
-            pl.Series("IMPORTE", [str(E(i)) for i in importes]),
-            pl.Series("USOS", [num(u) for u in usos]),
-        )
+        importe_etiquetado = reglas_usos_importes.select("importe").sum().item()
 
         traza(f"= Asignación de etiqueta `{columna}` a {tipo_registro}")
         traza(f"== Etiquetas `{columna}` asignadas")
@@ -70,14 +65,14 @@ class Etiquetador:
         pendientes_resumen = (
             pendientes.group_by(self.columnas_de_filtrado)
             .agg(
-                pl.count().alias("Registros"),
-                pl.col(col_importe).sum().alias("Importe"),
+                pl.count().alias("registros"),
+                pl.col(col_importe).sum().alias("importe"),
             )
-            .sort(by=pl.col("Registros"), descending=True)
+            .sort(by=pl.col("registros"), descending=True)
         )
         pendientes_resumen = pendientes_resumen.with_columns(
-            pl.Series("Registros", [num(r) for r in pendientes_resumen["Registros"]]),
-            pl.Series("Importe", [str(E(i)) for i in pendientes_resumen["Importe"]]),
+            pl.Series("registros", [num(r) for r in pendientes_resumen["registros"]]),
+            pl.Series("importe", [str(E(i)) for i in pendientes_resumen["importe"]]),
         )
         traza(str(ty.S(ty.dataframe_a_tabla(pendientes_resumen))))
 

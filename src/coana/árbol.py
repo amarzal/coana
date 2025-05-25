@@ -29,38 +29,6 @@ class Árbol:
             else:
                 self.padre[ident] = None
 
-    @classmethod
-    def carga(cls, fichero: Path, indent_spaces: int = 4) -> "Árbol":
-        logger.trace(f"Cargando árbol de {fichero}")
-        parent_dir = fichero.parent
-        tree = StringIO()
-        with open(fichero, "r") as f:
-            for línea in f.readlines():
-                indent = len(línea) - len(línea.lstrip(" "))
-                if indent % indent_spaces != 0:
-                    raise ValueError(f"Indentación incorrecta en {fichero}: {línea}")
-                indent //= indent_spaces
-                if "|" not in línea:
-                    raise ValueError(f"No se encuentra '|' en {fichero}: {línea}")
-                desc, label = map(str.strip, línea.split("|"))
-                children_filename = parent_dir / f"{label.lower()}.tree"
-                tree.write(f"{' ' * indent}{desc} | {label}\n")
-                if children_filename.exists():
-                    logger.trace(f"  Cargando hijos de {label} desde {children_filename}")
-                    with open(children_filename, "r") as fc:
-                        for child_line in fc.readlines():
-                            child_indent = len(child_line) - len(child_line.lstrip(" "))
-                            if child_indent % indent_spaces != 0:
-                                raise ValueError(f"Indentación incorrecta en {children_filename}: {child_line}")
-                            child_indent = indent + 1 + child_indent // indent_spaces
-                            if "|" not in child_line:
-                                raise ValueError(f"No se encuentra '|' en {children_filename}: {child_line}")
-                            desc, label = map(str.strip, child_line.split("|"))
-                            tree.write(f"{' ' * child_indent}{desc} | {label}\n")
-        árbol = Árbol.desde_texto_sangrado(tree.getvalue())
-        árbol.fichero = fichero
-        return árbol
-
     def como_texto_sangrado(self, indent_spaces: int = 4) -> str:
         t = StringIO()
         for ruta in sorted(self.ruta2identificador):

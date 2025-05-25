@@ -1,3 +1,5 @@
+import textwrap
+from calendar import c
 from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
@@ -6,52 +8,168 @@ from typing import cast
 import polars as pl
 import yaml
 from loguru import logger
+from typing_extensions import Literal
 
 from coana.misc.utils import Singleton
+from coana.árbol import Árbol
 
 type DiccionarioDeDiccionarios = dict[str, None | DiccionarioDeDiccionarios]
+
+
+@dataclass
+class Fichero:
+    path: Path
+    cols: dict[str, tuple[str, str]]
+    tipo: Literal["excel", "csv", "parquet", "tree", "typst"] = field(init=False)
+
+    def __init__(self, path: Path, cols: dict[str, str]) -> None:
+        self.path = path
+        if self.path.suffix == ".xlsx":
+            self.tipo = "excel"
+        elif self.path.suffix == ".csv":
+            self.tipo = "csv"
+        elif self.path.suffix == ".parquet":
+            self.tipo = "parquet"
+        elif self.path.suffix == ".tree":
+            self.tipo = "tree"
+        elif self.path.suffix == ".typ":
+            self.tipo = "typst"
+        else:
+            raise ValueError(f"Formato de fichero no soportado: {self.path}")
+        self.cols = {}
+        for (key, value) in cols.items():
+            value = value.strip()
+            (columna_excel, tipo) = value.split(" ") if " " in value else (value, "str")
+            self.cols[key] = (columna_excel, tipo)
+
+    def __str__(self) -> str:
+        return str(self.path)
+
+    def carga_dataframe(self) -> pl.DataFrame:
+        match self.tipo:
+            case "excel":
+                df = pl.read_excel(self.path, engine="openpyxl")
+            case "csv":
+                df = pl.read_csv(self.path)
+            case "parquet":
+                df = pl.read_parquet(self.path)
+            case _:
+                raise ValueError(f"Formato de fichero no soportado: {self.path}")
+        for columna, (columna_excel, tipo) in self.cols.items():
+            match tipo:
+                case "str":
+                    df = df.with_columns(pl.col(columna_excel).cast(pl.Utf8).alias(columna))
+                case "int":
+                    df = df.with_columns(pl.col(columna_excel).cast(pl.Int64).alias(columna))
+                case "float":
+                    df = df.with_columns(pl.col(columna_excel).cast(pl.Float64).alias(columna))
+                case "euro":
+                    df = df.with_columns(pl.col(columna_excel).round(2).cast(pl.Decimal(scale=2)).alias(columna))
+                case "date":
+                    df = df.with_columns(pl.col(columna_excel).cast(pl.Date).alias(columna))
+                case _:
+                    df = df.with_columns(pl.col(columna_excel).cast(pl.Utf8).alias(columna))
+        if self.cols:
+            df = df.select(list(self.cols.keys()))
+        return df
+
+    def carga_árbol(self, indent_spaces: int = 4) -> "Árbol":
+        if self.tipo != "tree":
+            raise ValueError(f"El fichero {self.path} no es un árbol")
+        logger.trace(f"Cargando árbol de {self.path}")
+        parent_dir = self.path.parent
+        tree = StringIO()
+        with open(self.path, "r") as f:
+            for línea in f.readlines():
+                indent = len(línea) - len(línea.lstrip(" "))
+                if indent % indent_spaces != 0:
+                    raise ValueError(f"Indentación incorrecta en {self.path}: {línea}")
+                indent //= indent_spaces
+                if "|" not in línea:
+                    raise ValueError(f"No se encuentra '|' en {self.path}: {línea}")
+                desc, label = map(str.strip, línea.split("|"))
+                children_filename = parent_dir / f"{label.lower()}.tree"
+                tree.write(f"{' ' * indent}{desc} | {label}\n")
+                if children_filename.exists():
+                    logger.trace(f"  Cargando hijos de {label} desde {children_filename}")
+                    with open(children_filename, "r") as fc:
+                        for child_line in fc.readlines():
+                            child_indent = len(child_line) - len(child_line.lstrip(" "))
+                            if child_indent % indent_spaces != 0:
+                                raise ValueError(f"Indentación incorrecta en {children_filename}: {child_line}")
+                            child_indent = indent + 1 + child_indent // indent_spaces
+                            if "|" not in child_line:
+                                raise ValueError(f"No se encuentra '|' en {children_filename}: {child_line}")
+                            desc, label = map(str.strip, child_line.split("|"))
+                            tree.write(f"{' ' * child_indent}{desc} | {label}\n")
+        árbol = Árbol.desde_texto_sangrado(tree.getvalue())
+        árbol.fichero = self.path
+        return árbol
+
+@dataclass
+class Directorio:
+    path: Path
+    desc: str
+
 
 @dataclass
 class Ficheros(metaclass=Singleton):
     raíz_datos: Path = field(default_factory=lambda: Path(""))
-    ficheros: dict[str, Path] = field(default_factory=dict)
-    directorios: dict[str, Path] = field(default_factory=dict)
+    ficheros: dict[str, Fichero] = field(default_factory=dict)
+    directorios: dict[str, Directorio] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.raíz_datos == Path(""):
             raise ValueError("No se ha definido la raíz de los datos")
 
-        config = yaml.load(open(self.raíz_datos / "manifesto.yaml"), Loader=yaml.FullLoader)
+        manifesto = yaml.load(open(self.raíz_datos / "manifesto.yaml"), Loader=yaml.FullLoader)
 
-        for key, value in config.items():
-            path = Path.joinpath(*[self.directorios.get(word, Path(word)) for word in value.split("/")])
+        # Los paths del manifesto pueden utilizar claves de directorios y hay que formar bien las rutas
+        for key, value in manifesto.items():
+            print(key, value)
+            if "path" not in value:
+                raise ValueError(f"El fichero manifesto.yaml en {self.raíz_datos} no ha definido la ruta de {key}")
+            path = Path("")
+            for part in Path(value["path"]).parts:
+                path = path / (self.directorios[part].path if part in self.directorios else Path(part))
             if path.suffix == "":  # Es un directorio
-                self.directorios[key] = path
+                self.directorios[key] = Directorio(path, value.get("desc", ""))
             else:  # Es un fichero, pero nos lo pueden haber expresado con un glob
-                self.ficheros[key] = path
+                self.ficheros[key] = Fichero(path, cols=value.get("cols", {}))
 
+        # Todas las rutas son relativas a la raíz de los datos
+        for key, value in list(self.ficheros.items()):
+            self.ficheros[key].path = self.raíz_datos / value.path
+        for key, value in list(self.directorios.items()):
+            self.directorios[key].path = self.raíz_datos / value.path
+
+        # Los directorios se crean si no existen
         for directorio in self.directorios.values():
-            con_raíz = self.raíz_datos / directorio
-            if not con_raíz.exists():
-                con_raíz.mkdir(parents=True)
+            if not directorio.path.exists():
+                directorio.path.mkdir(parents=True)
 
+        # El fichero se puede expresar con un glob y hay que encontrar el fichero que coincide. Si hay varios, se toma el último
         for clave, fichero in list(self.ficheros.items()):
-            con_raíz = self.raíz_datos / fichero
-            ficheros = sorted(Path(".").glob(str(con_raíz)))
+            ficheros = sorted(Path(".").glob(str(fichero.path)))
             if ficheros:
-                self.ficheros[clave] = ficheros[-1]
-            else:
-                self.ficheros[clave] = con_raíz
+                self.ficheros[clave].path = ficheros[-1]
 
         # Convierte todos los ficheros xlsx en ficheros parquet siempre que el xlsx sea más reciente que el parquet
         for clave, fichero in list(self.ficheros.items()):
-            if fichero.suffix == ".xlsx":
-                parquet = fichero.with_suffix(".parquet")
-                if not parquet.exists() or fichero.stat().st_mtime > parquet.stat().st_mtime:
-                    logger.trace(f"Convirtiendo {fichero} a {parquet} para carga rápida")
-                    df = pl.read_excel(fichero, engine="openpyxl")
-                    df.write_parquet(parquet)
-                self.ficheros[clave] = parquet
+            if fichero.tipo in ["excel", "csv"]:
+                parquet_path = fichero.path.with_suffix(".parquet")
+                if not parquet_path.exists() or fichero.path.stat().st_mtime > parquet_path.stat().st_mtime:
+                    logger.trace(f"Convirtiendo {fichero.path} a {parquet_path} para carga rápida")
+                    if fichero.tipo == "excel":
+                        df = pl.read_excel(fichero.path, engine="openpyxl")
+                    elif fichero.tipo == "csv":
+                        df = pl.read_csv(fichero.path)
+                    else:
+                        raise ValueError(f"Formato de fichero no soportado: {fichero}")
+                    df.write_parquet(parquet_path)
+                    logger.trace(f"Se ha convertido {fichero.path} en {parquet_path}: {df.shape} filas")
+                self.ficheros[clave].path = parquet_path
+                self.ficheros[clave].tipo = "parquet"
 
     def para_traza(self) -> str:
         def añade_directorio(piezas: tuple[str, ...], dónde: DiccionarioDeDiccionarios):
@@ -70,28 +188,46 @@ class Ficheros(metaclass=Singleton):
 
         como_árbol: DiccionarioDeDiccionarios = {}
         for directorio in self.directorios.values():
-            añade_directorio((self.raíz_datos / directorio).parts, como_árbol)
+            añade_directorio(directorio.path.parts, como_árbol)
         for fichero in self.ficheros.values():
-            añade_fichero(fichero.parts, como_árbol)
+            añade_fichero(fichero.path.parts, como_árbol)
 
         s = StringIO()
-        s.write("= Directorios y ficheros con datos\n")
+        s.write(f"= Directorios y ficheros con datos (`{self.raíz_datos}/manifesto.yaml`)\n")
         s.write(self._tree_to_directory_string(como_árbol))
         s.write("- Directorios\n")
         for clave in sorted(self.directorios):
-            s.write(f"  - *{clave}*: `{self.__getattr__(clave)}`\n")
+            s.write(f"  - `{clave}`\n")
+            s.write(f"    - path: `{self.directorios[clave].path}`\n")
+            if self.directorios[clave].desc:
+                s.write("    - desc:\n")
+                desc = textwrap.dedent(self.directorios[clave].desc)
+                for línea in desc.split("\n"):
+                    s.write(f"      {línea}\n")
         s.write("- Ficheros\n")
         for clave in sorted(self.ficheros):
-            s.write(f"  - *{clave}*: `{self.__getattr__(clave)}`\n")
+            s.write(f"  - `{clave}`\n")
+            s.write(f"    - path: `{self.ficheros[clave].path}`\n")
+            if self.ficheros[clave].cols:
+                s.write("    - cols:\n")
+                s.write("#align(center, table(columns: 3, align: left, stroke: none,\n")
+                s.write("table.header(table.hline(), [*Columna*], [*Columna Excel*], [*Tipo*], table.hline()),\n")
+                for columna, (columna_excel, tipo) in self.ficheros[clave].cols.items():
+                    s.write(f"[`{columna}`], [`{columna_excel}`], [`{tipo}`],\n")
+                s.write("table.hline()\n")
+                s.write("    ))\n")
 
         return s.getvalue()
 
-    def __getattr__(self, name: str) -> Path:
-        if name in self.ficheros:
-            return self.ficheros[name]
-        if name in self.directorios:
-            return self.raíz_datos / self.directorios[name]
-        raise AttributeError(f'El fichero manifesto.yaml en {self.raíz_datos} no ha definido "{name}"')
+    def fichero(self, name: str) -> Fichero:
+        if name not in self.ficheros:
+            raise ValueError(f'El fichero manifesto.yaml en {self.raíz_datos} no ha definido "{name}"')
+        return self.ficheros[name]
+
+    def directorio(self, name: str) -> Directorio:
+        if name not in self.directorios:
+            raise ValueError(f'El fichero manifesto.yaml en {self.raíz_datos} no ha definido "{name}"')
+        return self.directorios[name]
 
     def _tree_to_directory_string(self, tree):
         iconos = {
@@ -134,14 +270,14 @@ class Ficheros(metaclass=Singleton):
                     next_prefix = prefix + "│   "
 
                 # Add current item
-                sufijo =  Path(name).suffix
+                sufijo = Path(name).suffix
                 if sufijo != "":
-                    icono = f'#tabler-icon(\"{iconos.get(sufijo, "file")}\")'
+                    icono = f'#tabler-icon("{iconos.get(sufijo, "file")}")'
                 else:
                     icono = '#tabler-icon("folder")'
                 if current_prefix != "":
                     current_prefix = f"`{current_prefix}`"
-                result.append(f'[{current_prefix}{icono}`{name}`]')
+                result.append(f"[{current_prefix}{icono}`{name}`]")
 
                 # If it's a directory (not None), recursively add its contents
                 if subtree is not None:
@@ -149,7 +285,7 @@ class Ficheros(metaclass=Singleton):
                     if subtree_str:
                         result.append(subtree_str)
 
-            #result = [result[0]] + [line[4:] for line in result[1:]]
+            # result = [result[0]] + [line[4:] for line in result[1:]]
 
             return "\n".join(result)
 

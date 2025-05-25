@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pathlib import Path
 
 import polars as pl
@@ -12,18 +13,8 @@ class Singleton(type):
         return cls._instances[cls]
 
 
-def carga_excel_o_csv(fichero: Path) -> pl.DataFrame:
-    if fichero.suffix == ".xlsx":
-        return pl.read_excel(fichero, engine="openpyxl")
-    elif fichero.suffix == ".csv":
-        return pl.read_csv(fichero)
-    elif fichero.suffix == ".parquet":
-        return pl.read_parquet(fichero)
-    else:
-        raise ValueError(f"Formato de fichero no soportado: {fichero}")
-
-def porcentaje(número: float, sobre: float, decimales: int = 2) -> str:
-    return f'{número / sobre * 100:_.{decimales}f} %'.replace('.', ',').replace('_', '.')
+def porcentaje(número: float | Decimal, sobre: float | Decimal, decimales: int = 2) -> str:
+    return f'{float(número) / float(sobre) * 100:_.{decimales}f} %'.replace('.', ',').replace('_', '.')
 
 def num(número: float | int, decimales: int = 0) -> str:
     match número:

@@ -18,6 +18,6 @@ class Traza(metaclass=Singleton):
 
     def guarda(self):
         ficheros = Ficheros()
-        with open(ficheros.traza, "w") as f:
+        with open(ficheros.fichero("traza").path, "w") as f:
             f.write(ty.preámbulo())
             f.write(self.text.getvalue())
