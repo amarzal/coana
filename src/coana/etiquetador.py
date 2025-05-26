@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from decimal import Decimal
 from pathlib import Path
@@ -9,6 +10,7 @@ import coana.misc.typst as ty
 from coana.misc.euro import E
 from coana.misc.traza import Traza
 from coana.misc.utils import num, porcentaje
+from coana.árbol import Árbol
 
 traza = Traza()
 
@@ -23,7 +25,7 @@ class Etiquetador:
         self.columnas_de_filtrado = self.reglas.columns[2:]
 
     def __call__(
-        self, tipo_registro: str, columna: str, col_identificador: str, df: pl.DataFrame, col_importe: str = "importe"
+        self, tipo_registro: str, columna: str, col_identificador: str, df: pl.DataFrame, árbol: Árbol, col_importe: str = "importe"
     ) -> pl.DataFrame:
         "Genera un nuevo DataFrame con una columna `columna` a la que se asigna una etiqueta para cada fila."
         usos = [0] * len(self.reglas)
@@ -32,6 +34,9 @@ class Etiquetador:
         pendientes = df.clone()
         etiquetados = df.clear().with_columns(pl.Series(name=columna, values=[], dtype=pl.Utf8))
         for i, regla in enumerate(self.reglas.iter_rows(named=True)):
+            if regla["etiqueta"] != "SUPRIMIR" and regla["etiqueta"] not in árbol:
+                raise ValueError(f"Etiqueta {regla['etiqueta']} no válida en {árbol.fichero}")
+
             seleccionados = pendientes
             for col in self.columnas_de_filtrado:  # Es como un AND
                 if regla[col] is not None:

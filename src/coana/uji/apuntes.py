@@ -9,6 +9,7 @@ from coana.elementos_de_coste import ElementosDeCoste
 from coana.etiquetador import Etiquetador
 from coana.ficheros import Ficheros
 from coana.misc.euro import E
+from coana.árbol import Árbol
 
 
 @dataclass
@@ -26,9 +27,9 @@ class Apuntes:
     def guarda(self, fichero: Path) -> None:
         self.df.write_excel(fichero)
 
-    def etiqueta(self, etiqueta: str, etiquetador: Etiquetador) -> None:
+    def etiqueta(self, etiqueta: str, etiquetador: Etiquetador, árbol: Árbol) -> None:
         logger.trace(f"Etiquetando {etiqueta} en apuntes")
-        self.df = etiquetador("apuntes", etiqueta, 'id', self.df)
+        self.df = etiquetador("apuntes", etiqueta, 'id', self.df, árbol)
         logger.trace(f"Etiquetada {etiqueta} en apuntes")
 
     def a_elementos_de_coste(self) -> ElementosDeCoste:

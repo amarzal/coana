@@ -5,7 +5,12 @@ from pathlib import Path
 import polars as pl
 from loguru import logger
 
+from coana.misc.euro import E
+from coana.misc.traza import Traza
+from coana.misc.utils import num, porc
 from coana.uji.nóminas import Nóminas
+
+traza = Traza()
 
 
 @dataclass
@@ -15,10 +20,24 @@ class PrevisiónSocialFuncionarios:
     @classmethod
     def calcula(cls, nóminas: Nóminas) -> "PrevisiónSocialFuncionarios":
         logger.trace("Procesando nóminas para cálculo de la previsión social de funcionarios")
+        traza("= Previsión social de funcionarios")
 
         porcentaje_seguridad_social = 0.236 + 0.055 + 0.006 + 0.0058
-        importe_máximo_anual_ss = 4909.50 * 12
+        importe_máximo_anual_ss = 4720.50 * 12 # 4909.50 * 12
         solo_pdi_funcs = nóminas.df.filter(pl.col("categoría_perceptor").is_in(["CU", "TU", "TEU", "CEU"]))
+
+        traza(f"""
+            #align(center,
+                table(columns: 2, align: (left, right), stroke: none,
+                    table.hline(),
+                    [Porcentaje de seguridad social], [{porc(porcentaje_seguridad_social, 1)} %],
+                    [Base máxima seguridad social], [{E(importe_máximo_anual_ss)} euros],
+                    [Tope seguridad social], [{E(importe_máximo_anual_ss * porcentaje_seguridad_social)} euros],
+                    table.hline(),
+                )
+            )
+            """)
+
 
         personas = solo_pdi_funcs['per_id'].unique()
         ss_anual = {}
@@ -44,6 +63,26 @@ class PrevisiónSocialFuncionarios:
 
         df = pl.DataFrame(filas)
         df = df.with_columns(pl.col("importe").round(2).cast(pl.Decimal(scale=2)))
+        traza(f"""
+            #align(center,
+                table(columns: 3, align: (left, right, right), stroke: none,
+                    table.header(
+                        table.hline(),
+                        [*Figura*],
+                        [*Personas*],
+                        [*Importe*],
+                        table.hline(),
+                    ),
+                    [*CU*], [{num(len(df.filter(pl.col('categoría_perceptor') == 'CU')['per_id'].unique()))}], [{E(df.filter(pl.col('categoría_perceptor') == 'CU')['importe'].sum())} euros],
+                    [*TU*], [{num(len(df.filter(pl.col('categoría_perceptor') == 'TU')['per_id'].unique()))}], [{E(df.filter(pl.col('categoría_perceptor') == 'TU')['importe'].sum())} euros],
+                    [*TEU*], [{num(len(df.filter(pl.col('categoría_perceptor') == 'TEU')['per_id'].unique()))}], [{E(df.filter(pl.col('categoría_perceptor') == 'TEU')['importe'].sum())} euros],
+                    [*CEU*], [{num(len(df.filter(pl.col('categoría_perceptor') == 'CEU')['per_id'].unique()))}], [{E(df.filter(pl.col('categoría_perceptor') == 'CEU')['importe'].sum())} euros],
+                    table.hline(),
+                    [*Total*], [{num(len(df['per_id'].unique()))}], [{E(df['importe'].sum())} euros],
+                    table.hline(),
+                )
+            )
+            """)
         return cls(df)
 
     def guarda(self, fichero: Path) -> None:

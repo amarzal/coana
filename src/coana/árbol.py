@@ -57,6 +57,8 @@ class Árbol:
             descr, ident = map(str.strip, line.split("|"))
             if ident == "":
                 raise ValueError(f"Identificador vacío en la línea {line}")
+            if ident.encode('ascii', 'ignore').decode() != ident:
+                raise ValueError(f"Identificador {ident} no válido en la línea {line}")
             if ident != "SUPRIMIR":
                 identificador[tuple(ruta_actual)] = ident
                 descripción[tuple(ruta_actual)] = descr

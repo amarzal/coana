@@ -7,6 +7,7 @@ from loguru import logger
 
 from coana.etiquetador import Etiquetador
 from coana.ficheros import Ficheros
+from coana.árbol import Árbol
 
 # ID	ID_COSTE	PER_ID	EXPEDIENTE	ACTIVIDAD	EXP_GRE	EXP_GRE_EJERCICIO	FECHA	CUANTIA	CODIGO_CONCEPTO_RETRIBUTIVO	NOMBRE_CONCEPTO_RETRIBUTIVO	TIPO	PROYECTO	NOMBRE_PROYECTO	SUBPROYECTO	NOMBRE_SUBPROYECTO	ID_APLICACION	NOMBRE_APLICACION	CAPITULO	PROGRAMA	ID_LINEA	NOMBRE_LINEA	ID_TIPO_LINEA	NOMBRE_TIPO_LINEA	CENTRO	DESCRIPCION_CENTRO	ID_SUBCENTRO	NOMBRE_SUBCENTRO	CONTRATO	TIPO_CONTRATO	TIPO_PERCEPTOR	ID_CATEGORIA_PER	COAN_CPER_ID	COAN_SS_ID	NOMBRE_CATEGORIA_PER	N_PLAZA	PLAZA_ID	ID_CENTRO_ESTRUCTURAL	NOMBRE_CENTRO_ESTRUCTURAL	ID_UBICACION	NOMBRE_UBICACION	COAN_CENTRO_ID	ID_AREA	NOMBRE_AREA	HORAS_PLAZA	HORAS_TRABAJO	CATEGORIA_PLAZA	DENOMINACION_PLAZA	GRUPO	NIVEL	ESPECIFICO
 
@@ -27,7 +28,7 @@ class Nóminas:
     def guarda(self, fichero: Path) -> None:
         self.df.write_excel(fichero)
 
-    def etiqueta(self, columna: str, etiquetador: Etiquetador) -> None:
+    def etiqueta(self, columna: str, etiquetador: Etiquetador, árbol: Árbol) -> None:
         logger.trace(f"Etiquetando {columna} en nóminas")
-        self.df = etiquetador("nóminas", columna, "id", self.df)
+        self.df = etiquetador("nóminas", columna, "id", self.df, árbol)
         logger.trace(f"Etiquetada {columna} en nóminas")
