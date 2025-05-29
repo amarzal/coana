@@ -1,15 +1,16 @@
 import textwrap
-from calendar import c
 from dataclasses import dataclass, field
 from io import StringIO
 from pathlib import Path
-from typing import cast
+from re import I
+from typing import Any, TypedDict, cast
 
 import polars as pl
 import yaml
 from loguru import logger
 from typing_extensions import Literal
 
+from coana.misc.traza import Traza
 from coana.misc.utils import Singleton
 from coana.árbol import Árbol
 
@@ -56,7 +57,7 @@ class Fichero:
             if not parquet_path.exists() or self.path.stat().st_mtime > parquet_path.stat().st_mtime:
                 logger.trace(f"Convirtiendo {self.path} a {parquet_path} para carga rápida")
                 if self.tipo == "excel":
-                    df = pl.read_excel(self.path, engine="openpyxl")
+                    df = pl.read_excel(self.path)
                 else:
                     df = pl.read_csv(self.path)
                 df.write_parquet(parquet_path)
@@ -122,21 +123,29 @@ class Directorio:
     path: Path
     desc: str
 
+class ConfiguraciónPrevisiónSocialDeFuncionarios(TypedDict):
+    porcentaje_previsión_social: float
+    base_máxima_cotización: float
 
 @dataclass
-class Ficheros(metaclass=Singleton):
-    raíz_datos: Path = field(default_factory=lambda: Path(""))
+class Configuración(metaclass=Singleton):
+    raíz_datos: Path = field()
     ficheros: dict[str, Fichero] = field(default_factory=dict)
     directorios: dict[str, Directorio] = field(default_factory=dict)
+    traza: Traza = field(init=False)
+    cfg: dict[str, Any] = field(init=False)
 
-    def __post_init__(self) -> None:
+    def __init__(self, raíz_datos: Path) -> None:
+        self.raíz_datos = raíz_datos
         if self.raíz_datos == Path(""):
             raise ValueError("No se ha definido la raíz de los datos")
 
-        manifesto = yaml.load(open(self.raíz_datos / "manifesto.yaml"), Loader=yaml.FullLoader)
+        self.cfg = yaml.load(open(self.raíz_datos / "configuracion.yaml"), Loader=yaml.FullLoader)
 
         # Los paths del manifesto pueden utilizar claves de directorios y hay que formar bien las rutas
-        for key, value in manifesto.items():
+        ficheros_y_directorios = cast(dict[str, Any], self.cfg.get("ficheros"))
+        self.ficheros, self.directorios = {}, {}
+        for key, value in ficheros_y_directorios.items():
             if "path" not in value:
                 raise ValueError(f"El fichero manifesto.yaml en {self.raíz_datos} no ha definido la ruta de {key}")
             path = Path("")
@@ -164,7 +173,19 @@ class Ficheros(metaclass=Singleton):
             if ficheros:
                 self.ficheros[clave].path = ficheros[-1]
 
-    def para_traza(self) -> str:
+        ruta_traza = self.ficheros.get("traza", None)
+        self.traza = Traza(ruta_traza.path if ruta_traza is not None else None)
+        self._traza()
+
+    @property
+    def año(self) -> int:
+        return cast(int, self.cfg.get("año"))
+
+    @property
+    def previsión_social_funcionarios(self) -> ConfiguraciónPrevisiónSocialDeFuncionarios:
+        return cast(ConfiguraciónPrevisiónSocialDeFuncionarios, self.cfg.get("previsión_social_funcionarios"))
+
+    def _traza(self) -> None:
         def añade_directorio(piezas: tuple[str, ...], dónde: DiccionarioDeDiccionarios):
             if not piezas:
                 return
@@ -203,14 +224,15 @@ class Ficheros(metaclass=Singleton):
             s.write(f"    - path: `{self.ficheros[clave].path}`\n")
             if self.ficheros[clave].cols:
                 s.write("    - cols:\n")
-                s.write("#align(center, table(columns: 3, align: left, stroke: none,\n")
+                s.write("#align(center, table(columns: 3, align: left, inset: (y: 0.3em), stroke: none,\n")
                 s.write("table.header(table.hline(), [*Columna*], [*Columna Excel*], [*Tipo*], table.hline()),\n")
                 for columna, (columna_excel, tipo) in self.ficheros[clave].cols.items():
                     s.write(f"[`{columna}`], [`{columna_excel}`], [`{tipo}`],\n")
                 s.write("table.hline()\n")
                 s.write("    ))\n")
 
-        return s.getvalue()
+        assert self.traza is not None
+        self.traza(s.getvalue())
 
     def fichero(self, name: str) -> Fichero:
         if name not in self.ficheros:

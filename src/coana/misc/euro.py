@@ -1,7 +1,7 @@
 import math
 from dataclasses import dataclass
 from functools import total_ordering
-from typing import Self
+from typing import ClassVar, Self
 
 
 def _round_half_up(n, decimals=0):

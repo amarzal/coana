@@ -10,8 +10,6 @@ from coana.misc.traza import Traza
 from coana.misc.utils import num, porc
 from coana.uji.nóminas import Nóminas
 
-traza = Traza()
-
 
 @dataclass
 class PrevisiónSocialFuncionarios:
@@ -48,7 +46,7 @@ class PrevisiónSocialFuncionarios:
         for persona in personas:
             df = nóminas.df.filter(pl.col("per_id") == persona)
             importe_anual_percibido = df['importe'].sum()
-            apls = df['aplicación_presupuestaria'].unique()
+            apls = df['aplicación'].unique()
             hay_pagos_a_ss = any(apli.startswith("12") for apli in apls)
             columnas_copiadas = [col for col in nóminas.df.columns if col not in ['id', 'importe', 'concepto_retributivo']]
             if not hay_pagos_a_ss:

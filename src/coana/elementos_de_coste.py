@@ -2,10 +2,9 @@ from dataclasses import dataclass, field
 from typing import Iterator
 
 from loguru import logger
-from openpyxl import Workbook
 
+from coana.configuración import Configuración
 from coana.elemento_de_coste import ElementoDeCoste
-from coana.ficheros import Ficheros
 
 
 @dataclass

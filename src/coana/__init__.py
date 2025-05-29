@@ -1,6 +1,7 @@
 import calendar
 import datetime
 import sys
+from logging import config
 from pathlib import Path
 from pprint import pp
 from typing import Annotated
@@ -11,13 +12,16 @@ from dateutil.relativedelta import relativedelta
 from loguru import logger
 from typer import Typer
 
+from coana.configuración import Configuración
 from coana.estructuras import Estructuras
-from coana.ficheros import Ficheros
+from coana.maestros import Maestros
 from coana.misc.traza import Traza
 from coana.uji.apuntes import Apuntes
-from coana.uji.etiquetadores import EtiquetadoresUJI
+from coana.uji.etiquetador import Regla, ReglasEtiquetador
+from coana.uji.etiquetadores import ReglasEtiquetado
 from coana.uji.nóminas import Nóminas
 from coana.uji.previsión_social_funcionarios import PrevisiónSocialFuncionarios
+from coana.uji.uji import UJI
 
 app = Typer(pretty_exceptions_show_locals=False)
 
@@ -29,6 +33,7 @@ logger.add(
     format="{elapsed.seconds}.{elapsed.microseconds}|<blue>{level}</blue>|<cyan>{name}</cyan>:<green>{line}</green>| <bold>{message}</bold>",
     colorize=True,
 )
+
 
 
 @app.command()
@@ -84,43 +89,53 @@ def dev() -> None:
     )
     print(df)
 
+
 @app.command()
 def uji(ruta_datos: Annotated[Path, typer.Argument(help="Ruta a los datos")]) -> None:
-    traza = Traza()
-    logger.trace(f"Cargando datos de {ruta_datos}")
-    ficheros = Ficheros(ruta_datos)
-    traza(ficheros.para_traza())
 
-    estructuras = Estructuras()
-    estructuras.traza()
-    etiquetadores = EtiquetadoresUJI()
+    cfg = Configuración(ruta_datos)
+    print(cfg)
 
-    # Carga y etiquetado de apuntes presupuestarios
-    apuntes = Apuntes.carga()
+    uji = UJI(cfg)
 
-    logger.trace("Etiquetando apuntes con elementos de coste")
-    apuntes.etiqueta("elemento_de_coste", etiquetadores.elemento_de_coste_para_apuntes, estructuras.elementos_de_coste)
+    # ficheros = Ficheros(ruta_datos)
+    # ficheros.traza()
+    # logger.trace(f"Cargado el manifesto.yaml de {ruta_datos}")
 
-    logger.trace("Etiquetando apuntes con centros de coste")
-    apuntes.etiqueta("centro_de_coste", etiquetadores.centro_de_coste_para_apuntes, estructuras.centros_de_coste_por_finalidad)
-    # TODO: Etiquetar con actividades
-    apuntes.guarda(ficheros.fichero("traza_apuntes_etiquetados").path)
+    # logger.trace(f"Cargando estructuras {ruta_datos}...")
+    # estructuras = Estructuras()
+    # estructuras.traza()
+    # logger.trace(f"Cargadas las estructuras de {ruta_datos}")
 
-    # Carga y etiquetado de nóminas
-    nóminas = Nóminas.carga()
+    # logger.trace(f"Cargando etiquetadores {ruta_datos}...")
+    # etiquetadores = EtiquetadoresUJI()
 
-    nóminas.etiqueta("elemento_de_coste", etiquetadores.elemento_de_coste_para_nóminas, estructuras.elementos_de_coste)
-    nóminas.etiqueta("centro_de_coste", etiquetadores.centro_de_coste_para_nóminas, estructuras.centros_de_coste_por_finalidad)
+    # # Carga y etiquetado de apuntes presupuestarios
+    # apuntes = Apuntes.carga()
 
-    nóminas.guarda(ficheros.fichero("traza_nóminas_etiquetadas").path)
+    # logger.trace("Etiquetando apuntes con elementos de coste")
+    # apuntes.etiqueta("elemento_de_coste", etiquetadores.elemento_de_coste_para_apuntes, estructuras.elementos_de_coste)
 
-    # Cálculo de previsiones sociales
-    psf = PrevisiónSocialFuncionarios.calcula(nóminas)
-    psf.guarda(ficheros.fichero("traza_previsiones_sociales_funcionarios_etiquetadas").path)
+    # logger.trace("Etiquetando apuntes con centros de coste")
+    # apuntes.etiqueta("centro_de_coste", etiquetadores.centro_de_coste_para_apuntes, estructuras.centros_de_coste_por_finalidad)
+    # # TODO: Etiquetar con actividades
+    # apuntes.guarda(ficheros.fichero("traza_apuntes_etiquetados").path)
 
-    traza.guarda()
+    # # Carga y etiquetado de nóminas
+    # nóminas = Nóminas.carga()
 
-    logger.trace("Fin")
+    # nóminas.etiqueta("elemento_de_coste", etiquetadores.elemento_de_coste_para_nóminas, estructuras.elementos_de_coste)
+    # nóminas.etiqueta("centro_de_coste", etiquetadores.centro_de_coste_para_nóminas, estructuras.centros_de_coste_por_finalidad)
+
+    # nóminas.guarda(ficheros.fichero("traza_nóminas_etiquetadas").path)
+
+    # # Cálculo de previsiones sociales
+    # psf = PrevisiónSocialFuncionarios.calcula(nóminas)
+    # psf.guarda(ficheros.fichero("traza_previsiones_sociales_funcionarios_etiquetadas").path)
+
+    # traza.guarda()
+
+    # logger.trace("Fin")
 
 
 @app.command()
