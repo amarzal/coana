@@ -19,24 +19,24 @@ type DiccionarioDeDiccionarios = dict[str, None | DiccionarioDeDiccionarios]
 
 @dataclass
 class Fichero:
-    path: Path
+    ruta: Path
     cols: dict[str, tuple[str, str]]
     tipo: Literal["excel", "csv", "parquet", "tree", "typst"] = field(init=False)
 
     def __init__(self, path: Path, cols: dict[str, str]) -> None:
-        self.path = path
-        if self.path.suffix == ".xlsx":
+        self.ruta = path
+        if self.ruta.suffix == ".xlsx":
             self.tipo = "excel"
-        elif self.path.suffix == ".csv":
+        elif self.ruta.suffix == ".csv":
             self.tipo = "csv"
-        elif self.path.suffix == ".parquet":
+        elif self.ruta.suffix == ".parquet":
             self.tipo = "parquet"
-        elif self.path.suffix == ".tree":
+        elif self.ruta.suffix == ".tree":
             self.tipo = "tree"
-        elif self.path.suffix == ".typ":
+        elif self.ruta.suffix == ".typ":
             self.tipo = "typst"
         else:
-            raise ValueError(f"Formato de fichero no soportado: {self.path}")
+            raise ValueError(f"Formato de fichero no soportado: {self.ruta}")
         self.cols = {}
         for key, value in cols.items():
             value = value.strip()
@@ -44,26 +44,26 @@ class Fichero:
             self.cols[key] = (columna_excel, tipo)
 
     def __str__(self) -> str:
-        return str(self.path)
+        return str(self.ruta)
 
     def carga_dataframe(self) -> pl.DataFrame:
         if self.tipo not in ("excel", "csv", "parquet"):
-            raise ValueError(f"Formato de fichero no soportado: {self.path}")
-        if not self.path.exists():
-            raise FileNotFoundError(f"El fichero {self.path} no existe")
+            raise ValueError(f"Formato de fichero no soportado: {self.ruta}")
+        if not self.ruta.exists():
+            raise FileNotFoundError(f"El fichero {self.ruta} no existe")
 
-        parquet_path = self.path.with_suffix(".parquet")
+        parquet_path = self.ruta.with_suffix(".parquet")
         if self.tipo in ("excel", "csv"):
-            if not parquet_path.exists() or self.path.stat().st_mtime > parquet_path.stat().st_mtime:
-                logger.trace(f"Convirtiendo {self.path} a {parquet_path} para carga rápida")
+            if not parquet_path.exists() or self.ruta.stat().st_mtime > parquet_path.stat().st_mtime:
+                logger.trace(f"Convirtiendo {self.ruta} a {parquet_path} para carga rápida")
                 if self.tipo == "excel":
-                    df = pl.read_excel(self.path)
+                    df = pl.read_excel(self.ruta)
                 else:
-                    df = pl.read_csv(self.path)
+                    df = pl.read_csv(self.ruta)
                 df.write_parquet(parquet_path)
-                self.path = parquet_path
+                self.ruta = parquet_path
                 self.tipo = "parquet"
-                logger.trace(f"Se ha convertido {self.path} en {parquet_path}: {df.shape} filas")
+                logger.trace(f"Se ha convertido {self.ruta} en {parquet_path}: {df.shape} filas")
 
         df = pl.read_parquet(parquet_path)
         for columna, (columna_excel, tipo) in self.cols.items():
@@ -86,18 +86,18 @@ class Fichero:
 
     def carga_árbol(self, indent_spaces: int = 4) -> "Árbol":
         if self.tipo != "tree":
-            raise ValueError(f"El fichero {self.path} no es un árbol")
-        logger.trace(f"Cargando árbol de {self.path}")
-        parent_dir = self.path.parent
+            raise ValueError(f"El fichero {self.ruta} no es un árbol")
+        logger.trace(f"Cargando árbol de {self.ruta}")
+        parent_dir = self.ruta.parent
         tree = StringIO()
-        with open(self.path, "r") as f:
+        with open(self.ruta, "r") as f:
             for línea in f.readlines():
                 indent = len(línea) - len(línea.lstrip(" "))
                 if indent % indent_spaces != 0:
-                    raise ValueError(f"Indentación incorrecta en {self.path}: {línea}")
+                    raise ValueError(f"Indentación incorrecta en {self.ruta}: {línea}")
                 indent //= indent_spaces
                 if "|" not in línea:
-                    raise ValueError(f"No se encuentra '|' en {self.path}: {línea}")
+                    raise ValueError(f"No se encuentra '|' en {self.ruta}: {línea}")
                 desc, label = map(str.strip, línea.split("|"))
                 children_filename = parent_dir / f"{label.lower()}.tree"
                 tree.write(f"{' ' * indent}{desc} | {label}\n")
@@ -114,13 +114,13 @@ class Fichero:
                             desc, label = map(str.strip, child_line.split("|"))
                             tree.write(f"{' ' * child_indent}{desc} | {label}\n")
         árbol = Árbol.desde_texto_sangrado(tree.getvalue())
-        árbol.fichero = self.path
+        árbol.fichero = self.ruta
         return árbol
 
 
 @dataclass
 class Directorio:
-    path: Path
+    ruta: Path
     desc: str
 
 class ConfiguraciónPrevisiónSocialDeFuncionarios(TypedDict):
@@ -150,7 +150,7 @@ class Configuración(metaclass=Singleton):
                 raise ValueError(f"El fichero manifesto.yaml en {self.raíz_datos} no ha definido la ruta de {key}")
             path = Path("")
             for part in Path(value["path"]).parts:
-                path = path / (self.directorios[part].path if part in self.directorios else Path(part))
+                path = path / (self.directorios[part].ruta if part in self.directorios else Path(part))
             if path.suffix == "":  # Es un directorio
                 self.directorios[key] = Directorio(path, value.get("desc", ""))
             else:  # Es un fichero, pero nos lo pueden haber expresado con un glob
@@ -158,23 +158,23 @@ class Configuración(metaclass=Singleton):
 
         # Todas las rutas son relativas a la raíz de los datos
         for key, value in list(self.ficheros.items()):
-            self.ficheros[key].path = self.raíz_datos / value.path
+            self.ficheros[key].ruta = self.raíz_datos / value.ruta
         for key, value in list(self.directorios.items()):
-            self.directorios[key].path = self.raíz_datos / value.path
+            self.directorios[key].ruta = self.raíz_datos / value.ruta
 
         # Los directorios se crean si no existen
         for directorio in self.directorios.values():
-            if not directorio.path.exists():
-                directorio.path.mkdir(parents=True)
+            if not directorio.ruta.exists():
+                directorio.ruta.mkdir(parents=True)
 
         # El fichero se puede expresar con un glob y hay que encontrar el fichero que coincide. Si hay varios, se toma el último
         for clave, fichero in list(self.ficheros.items()):
-            ficheros = sorted(Path(".").glob(str(fichero.path)))
+            ficheros = sorted(Path(".").glob(str(fichero.ruta)))
             if ficheros:
-                self.ficheros[clave].path = ficheros[-1]
+                self.ficheros[clave].ruta = ficheros[-1]
 
         ruta_traza = self.ficheros.get("traza", None)
-        self.traza = Traza(ruta_traza.path if ruta_traza is not None else None)
+        self.traza = Traza(ruta_traza.ruta if ruta_traza is not None else None)
         self._traza()
 
     @property
@@ -202,9 +202,9 @@ class Configuración(metaclass=Singleton):
 
         como_árbol: DiccionarioDeDiccionarios = {}
         for directorio in self.directorios.values():
-            añade_directorio(directorio.path.parts, como_árbol)
+            añade_directorio(directorio.ruta.parts, como_árbol)
         for fichero in self.ficheros.values():
-            añade_fichero(fichero.path.parts, como_árbol)
+            añade_fichero(fichero.ruta.parts, como_árbol)
 
         s = StringIO()
         s.write(f"= Directorios y ficheros con datos (`{self.raíz_datos}/manifesto.yaml`)\n")
@@ -212,7 +212,7 @@ class Configuración(metaclass=Singleton):
         s.write("- Directorios\n")
         for clave in sorted(self.directorios):
             s.write(f"  - `{clave}`\n")
-            s.write(f"    - path: `{self.directorios[clave].path}`\n")
+            s.write(f"    - path: `{self.directorios[clave].ruta}`\n")
             if self.directorios[clave].desc:
                 s.write("    - desc:\n")
                 desc = textwrap.dedent(self.directorios[clave].desc)
@@ -221,7 +221,7 @@ class Configuración(metaclass=Singleton):
         s.write("- Ficheros\n")
         for clave in sorted(self.ficheros):
             s.write(f"  - `{clave}`\n")
-            s.write(f"    - path: `{self.ficheros[clave].path}`\n")
+            s.write(f"    - path: `{self.ficheros[clave].ruta}`\n")
             if self.ficheros[clave].cols:
                 s.write("    - cols:\n")
                 s.write("#align(center, table(columns: 3, align: left, inset: (y: 0.3em), stroke: none,\n")

@@ -1,16 +1,17 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
 class LíneaDeFinanciación:
-    código: str
-    tipo: str
+    código: str = field()
+    nombre: str = field()
+    tipo: str = field()
 
     def es_genérica(self) -> bool:
-        return self.código in ["00000", "10000", "80001", "80002", "81000", "82000"]
+        return self.tipo == "00"
 
 
 @dataclass
 class TipoLínea:
-    código: str
-    nombre: str
+    código: str = field()
+    nombre: str = field()

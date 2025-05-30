@@ -1,7 +1,6 @@
 import calendar
 import datetime
 import sys
-from logging import config
 from pathlib import Path
 from pprint import pp
 from typing import Annotated
@@ -13,14 +12,6 @@ from loguru import logger
 from typer import Typer
 
 from coana.configuración import Configuración
-from coana.estructuras import Estructuras
-from coana.maestros import Maestros
-from coana.misc.traza import Traza
-from coana.uji.apuntes import Apuntes
-from coana.uji.etiquetador import Regla, ReglasEtiquetador
-from coana.uji.etiquetadores import ReglasEtiquetado
-from coana.uji.nóminas import Nóminas
-from coana.uji.previsión_social_funcionarios import PrevisiónSocialFuncionarios
 from coana.uji.uji import UJI
 
 app = Typer(pretty_exceptions_show_locals=False)

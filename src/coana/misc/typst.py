@@ -56,6 +56,7 @@ def árbol_a_tabla(título: str, árbol: Árbol) -> str:
     s.write(f"""
     #{{
         set text(size: 7pt)
+        set par(leading: 0.2em)
         table(
             columns: (1fr, auto),
             align: (left, right),
@@ -100,3 +101,6 @@ def árbol_a_tabla_índice(árbol: Árbol) -> str:
         "ruta": [ruta_a_texto(ruta) for ruta, _ in cols],
     })
     return dataframe_a_tabla(df, ("left", "left"))
+
+def normaliza_texto(s: str) -> str:
+    return s.replace("//", "/").replace("*", "\\*").replace("@", "\\@").replace("_", "\\_").strip()

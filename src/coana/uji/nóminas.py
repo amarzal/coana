@@ -43,7 +43,7 @@ class Nóminas:
         if isinstance(cfg, dict):
             return cls(nóminas=cfg)
         fichero_nóminas = cfg.fichero("nóminas")
-        logger.trace(f" Cargando nóminas de {fichero_nóminas.path}")
+        logger.trace(f" Cargando nóminas de {fichero_nóminas.ruta}")
         df = fichero_nóminas.carga_dataframe()
         nóminas = {}
         for row in df.iter_rows(named=True):

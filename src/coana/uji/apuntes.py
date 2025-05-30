@@ -34,7 +34,7 @@ class Apuntes:
     @classmethod
     def carga(cls, configuración: Configuración) -> "Apuntes":
         fichero_apuntes = configuración.fichero("apuntes")
-        logger.trace(f"Cargando apuntes de {fichero_apuntes.path}")
+        logger.trace(f"Cargando apuntes de {fichero_apuntes.ruta}")
         df = fichero_apuntes.carga_dataframe()
         logger.trace(f"Apuntes en fichero: {df.shape[0]} registros")
         apuntes = {}

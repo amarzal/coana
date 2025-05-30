@@ -1,5 +1,6 @@
+import re
 from decimal import Decimal
-from typing import Any
+from typing import Any, Callable, Iterable
 
 import polars as pl
 
@@ -37,3 +38,21 @@ def añade_fila_a_dataframe(df: pl.DataFrame, fila: dict[str, Any]) -> pl.DataFr
         aux[columna] = fila.get(columna, None)
         aux[columna].append(fila[columna] if columna in fila else None)
     return pl.DataFrame(aux)
+
+
+def human_sorted[T](it: Iterable[T], key: Callable[[T], str] = lambda x: str(x)) -> list[T]:
+    """
+    Sort a list in the way that humans expect.
+    """
+
+    def alphanum_key(s: str) -> list[int | str]:
+        def tryint(s):
+            try:
+                return int(s)
+            except ValueError:
+                return s
+        return [tryint(c) for c in re.split("([0-9]+)", s)]
+
+    result = list(it)
+    result.sort(key=lambda x: alphanum_key(key(x)))
+    return result
