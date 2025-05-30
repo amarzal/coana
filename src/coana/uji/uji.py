@@ -2,6 +2,7 @@ import re
 from dataclasses import dataclass, field, replace
 from enum import nonmember
 from importlib.metadata import diagnose
+from tkinter import S
 from typing import Any
 
 from loguru import logger
@@ -38,7 +39,6 @@ class UJI:
         logger.trace(f"Inicializando UJI {cfg.año} con ficheros de {cfg.raíz_datos}")
         self.cfg = cfg
 
-
         self.carga_centros_y_subcentros()
         self.carga_proyectos_subproyectos_y_tipos_de_proyecto()
         self.carga_líneas_y_tipos_de_línea()
@@ -48,6 +48,7 @@ class UJI:
         self.crea_actividades_de_investigación_regionales()
         self.crea_actividades_de_investigación_nacionales()
         self.crea_actividades_de_investigación_internacionales()
+        self.crea_actividades_de_enseñanzas_propias()
 
         self.estructuras = Estructuras(cfg)
 
@@ -95,25 +96,26 @@ class UJI:
 
         traza = self.cfg.traza
         traza("= Previsión social de funcionarios\n")
-        traza("== Nóminas\n")
         traza("""
             #align(center,
                 table(
-                    columns: 2,
-                    align: (left, right),
+                    columns: 3,
+                    align: (left, right, right),
                     stroke: none,
                     inset: (y: 0.2em),
                     table.header(
                          table.hline(),
-                         [*Nómina*], [*Importe*],
+                         [*Nómina*], [*Personas*], [*Importe*],
                          table.hline()
                     ),
         """)
-        importe_por_categoría = {'CU': euro.zero, 'TU': euro.zero, 'TEU': euro.zero, 'CEU': euro.zero}
+        importe_por_categoría = {"CU": euro.zero, "TU": euro.zero, "TEU": euro.zero, "CEU": euro.zero}
+        personas_por_categoría = {"CU": set(), "TU": set(), "TEU": set(), "CEU": set()}
         for previsión in psf:
             importe_por_categoría[psf[previsión].categoría_perceptor] += psf[previsión].importe
+            personas_por_categoría[psf[previsión].categoría_perceptor].add(psf[previsión].per_id)
         for k, v in importe_por_categoría.items():
-            traza(f"  [{k}], [{v}],\n")
+            traza(f"  [{k}], [{len(personas_por_categoría[k])}], [{v}],\n")
         traza("table.hline(),")
         traza(f"[*Total*], [{sum(importe_por_categoría.values())}],")
         traza("table.hline(),")
@@ -125,16 +127,18 @@ class UJI:
         return Nóminas(psf)
 
     def carga_centros_y_subcentros(self) -> None:
-        df = self.cfg.fichero('centros').carga_dataframe()
+        df = self.cfg.fichero("centros").carga_dataframe()
         self.centro = {}
         for row in df.iter_rows(named=True):
-            self.centro[row['código']] = Centro(código=row['código'], nombre=row['nombre'])
+            self.centro[row["código"]] = Centro(código=row["código"], nombre=row["nombre"])
 
         self.subcentro = {}
-        df = self.cfg.fichero('subcentros').carga_dataframe()
+        df = self.cfg.fichero("subcentros").carga_dataframe()
         for row in df.iter_rows(named=True):
-            código_centro = row['código_centro']
-            self.centro[código_centro].subcentros[row['código']] = Subcentro(centro=código_centro, código=row['código'], nombre=row['nombre'])
+            código_centro = row["código_centro"]
+            self.centro[código_centro].subcentros[row["código"]] = Subcentro(
+                centro=código_centro, código=row["código"], nombre=row["nombre"]
+            )
 
         traza = self.cfg.traza
         traza("= Centros y subcentros\n")
@@ -166,7 +170,9 @@ class UJI:
         df = self.cfg.fichero("proyectos").carga_dataframe()
         self.proyectos = {}
         for row in df.iter_rows(named=True):
-            self.proyectos[row["código"]] = Proyecto(código=row["código"], nombre=row["nombre"], tipo=row["tipo"])
+            self.proyectos[row["código"]] = Proyecto(
+                código=row["código"], nombre=row["nombre"], tipo=row["tipo"], subtipo=row["subtipo"]
+            )
 
         self.subproyectos = {}
         df = self.cfg.fichero("subproyectos").carga_dataframe()
@@ -236,7 +242,9 @@ class UJI:
         df = self.cfg.fichero("líneas").carga_dataframe()
         self.línea = {}
         for row in df.iter_rows(named=True):
-            self.línea[row["código"]] = LíneaDeFinanciación(código=row["código"], nombre=row["nombre"], tipo=row["tipo"])
+            self.línea[row["código"]] = LíneaDeFinanciación(
+                código=row["código"], nombre=row["nombre"], tipo=row["tipo"]
+            )
 
         self.tipo_de_línea = {}
         df = self.cfg.fichero("tipos-de-línea").carga_dataframe()
@@ -323,8 +331,8 @@ class UJI:
         """)
 
     def crea_actividades_de_transferencia(self) -> None:
-        directorio = self.cfg.directorio('dir-actividades').ruta
-        with open(directorio / 'ac_transf.tree', 'w') as f:
+        directorio = self.cfg.directorio("dir-actividades").ruta
+        with open(directorio / "ac_transf.tree", "w") as f:
             for proyecto in self.proyectos.values():
                 if proyecto.tipo in ["A1TI", "A83CA"]:
                     código_actividad = "AC_Transf_" + proyecto.código
@@ -355,3 +363,21 @@ class UJI:
                 if proyecto.tipo in tipos:
                     código_actividad = "AC_Inv_Internacional_" + proyecto.código
                     f.write(f"{proyecto.nombre} | {código_actividad}\n")
+
+    def crea_actividades_de_enseñanzas_propias(self) -> None:
+        proyectos_formación_propia = [proyecto for proyecto in self.proyectos.values() if proyecto.tipo == "CPGGD"]
+        directorio = self.cfg.directorio("dir-actividades").ruta
+
+        for fichero, subtipo in [
+            ("ac_masteres_fp.tree", "MasterFP"),
+            ("ac_diplomas_especializacion.tree", "DiplomaEspecializacion"),
+            ("ac_diplomas_experto.tree", "DiplomaExperto"),
+            ("ac_cursos.tree", "CursoFP"),
+            ("ac_microcredenciales.tree", "Microcredencial"),
+        ]:
+            with open(directorio / fichero, "w") as f:
+                for proyecto in proyectos_formación_propia:
+                    if proyecto.subtipo == subtipo:
+                        código_actividad = f"AC_{subtipo}_{proyecto.código}"
+                        nombre = normaliza_texto(proyecto.nombre)
+                        f.write(f"{nombre} | {código_actividad}\n")

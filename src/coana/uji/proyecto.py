@@ -13,6 +13,7 @@ class Proyecto:
     código: str = field()
     nombre: str = field()
     tipo: str = field()
+    subtipo: str = field()
     subproyectos: dict[str, Subproyecto] = field(default_factory=dict)
 
 @dataclass
