@@ -123,9 +123,21 @@ class Directorio:
     ruta: Path
     desc: str
 
-class ConfiguraciónPrevisiónSocialDeFuncionarios(TypedDict):
+
+@dataclass
+class ConfiguraciónPrevisiónSocialDeFuncionarios:
     porcentaje_previsión_social: float
-    base_máxima_cotización: float
+    base_máxima_de_cotización: float
+
+
+@dataclass
+class ConfiguraciónTiposDeProyectoConvertiblesEnActividad:
+    investigación_regional: list[str]
+    investigación_nacional: list[str]
+    investigación_internacional: list[str]
+    transferencia: list[str]
+    formación_propia: list[str]
+
 
 @dataclass
 class Configuración(metaclass=Singleton):
@@ -183,7 +195,26 @@ class Configuración(metaclass=Singleton):
 
     @property
     def previsión_social_funcionarios(self) -> ConfiguraciónPrevisiónSocialDeFuncionarios:
-        return cast(ConfiguraciónPrevisiónSocialDeFuncionarios, self.cfg.get("previsión_social_funcionarios"))
+        psf = self.cfg.get("previsión-social-funcionarios")
+        if psf is None:
+            raise ValueError("No se ha definido la previsión social de funcionarios")
+        return ConfiguraciónPrevisiónSocialDeFuncionarios(
+            porcentaje_previsión_social=psf.get("porcentaje-previsión-social"),
+            base_máxima_de_cotización=psf.get("base-máxima-de-cotización"),
+        )
+
+    @property
+    def tipos_de_proyecto_convertibles_en_actividad(self) -> ConfiguraciónTiposDeProyectoConvertiblesEnActividad:
+        tpc = self.cfg.get("tipos-de-proyecto-convertibles-en-actividad")
+        if tpc is None:
+            raise ValueError("No se han definido los tipos de proyecto convertibles en actividad")
+        return ConfiguraciónTiposDeProyectoConvertiblesEnActividad(
+            investigación_regional=tpc.get("investigación-regional").split(),
+            investigación_nacional=tpc.get("investigación-nacional").split() ,
+            investigación_internacional=tpc.get("investigación-internacional").split(),
+            transferencia=tpc.get("transferencia").split(),
+            formación_propia=tpc.get("formación-propia").split(),
+        )
 
     def _traza(self) -> None:
         def añade_directorio(piezas: tuple[str, ...], dónde: DiccionarioDeDiccionarios):

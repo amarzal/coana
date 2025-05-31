@@ -77,8 +77,8 @@ class UJI:
     def calcula_previsión_social_funcionarios(self) -> Nóminas:
         psf: dict[str, Nómina] = {}
 
-        porcentaje_ss = self.cfg.previsión_social_funcionarios["porcentaje_previsión_social"]
-        base_máxima_cotización = self.cfg.previsión_social_funcionarios["base_máxima_cotización"]
+        porcentaje_ss = self.cfg.previsión_social_funcionarios.porcentaje_previsión_social
+        base_máxima_cotización = self.cfg.previsión_social_funcionarios.base_máxima_de_cotización
         tope_ss = base_máxima_cotización * porcentaje_ss
 
         por_per_id: dict[str, list[Nómina]] = {}
@@ -331,53 +331,61 @@ class UJI:
         """)
 
     def crea_actividades_de_transferencia(self) -> None:
+        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.transferencia
         directorio = self.cfg.directorio("dir-actividades").ruta
         with open(directorio / "ac_transf.tree", "w") as f:
             for proyecto in self.proyectos.values():
-                if proyecto.tipo in ["A1TI", "A83CA"]:
-                    código_actividad = "AC_Transf_" + proyecto.código
+                if proyecto.tipo in tipos:
+                    código_actividad = "AC_" + proyecto.código
                     f.write(f"{proyecto.nombre} | {código_actividad}\n")
 
     def crea_actividades_de_investigación_regionales(self) -> None:
+        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_regional
         directorio = self.cfg.directorio("dir-actividades").ruta
         with open(directorio / "ac_inv_regional.tree", "w") as f:
             for proyecto in self.proyectos.values():
-                if proyecto.tipo in ["GVI"]:
-                    código_actividad = "AC_Inv_Regional_" + proyecto.código
+                if proyecto.tipo in tipos:
+                    código_actividad = "AC_" + proyecto.código
                     f.write(f"{proyecto.nombre} | {código_actividad}\n")
 
     def crea_actividades_de_investigación_nacionales(self) -> None:
-        tipos = "BECI MCTI MEC MECD MECI MIE MSI MTAI MTD".split()
+        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_nacional
         directorio = self.cfg.directorio("dir-actividades").ruta
         with open(directorio / "ac_inv_nacional.tree", "w") as f:
             for proyecto in self.proyectos.values():
                 if proyecto.tipo in tipos:
-                    código_actividad = "AC_Inv_Nacional_" + proyecto.código
+                    código_actividad = "AC_" + proyecto.código
                     f.write(f"{proyecto.nombre} | {código_actividad}\n")
 
     def crea_actividades_de_investigación_internacionales(self) -> None:
-        tipos = "MIE UEI".split()
+        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_internacional
         directorio = self.cfg.directorio("dir-actividades").ruta
         with open(directorio / "ac_inv_internacional.tree", "w") as f:
             for proyecto in self.proyectos.values():
                 if proyecto.tipo in tipos:
-                    código_actividad = "AC_Inv_Internacional_" + proyecto.código
+                    código_actividad = "AC_" + proyecto.código
                     f.write(f"{proyecto.nombre} | {código_actividad}\n")
 
     def crea_actividades_de_enseñanzas_propias(self) -> None:
-        proyectos_formación_propia = [proyecto for proyecto in self.proyectos.values() if proyecto.tipo == "CPGGD"]
-        directorio = self.cfg.directorio("dir-actividades").ruta
+        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.formación_propia
+        proyectos_formación_propia = [
+            proyecto
+            for proyecto in self.proyectos.values()
+            if proyecto.tipo in tipos
+        ]
 
-        for fichero, subtipo in [
-            ("ac_masteres_fp.tree", "MasterFP"),
-            ("ac_diplomas_especializacion.tree", "DiplomaEspecializacion"),
-            ("ac_diplomas_experto.tree", "DiplomaExperto"),
-            ("ac_cursos.tree", "CursoFP"),
-            ("ac_microcredenciales.tree", "Microcredencial"),
-        ]:
+        directorio = self.cfg.directorio("dir-actividades").ruta
+        subtipos_a_fichero = { # Esto debería estar en la configuración
+            "MasterFP": "ac_masteres_fp.tree",
+            "DiplomaEspecializacion": "ac_diplomas_especializacion.tree",
+            "DiplomaExperto": "ac_diplomas_experto.tree",
+            "CursoFP": "ac_cursos.tree",
+            "Microcredencial": "ac_microcredenciales.tree",
+        }
+        for subtipo, fichero in subtipos_a_fichero.items():
             with open(directorio / fichero, "w") as f:
                 for proyecto in proyectos_formación_propia:
                     if proyecto.subtipo == subtipo:
-                        código_actividad = f"AC_{subtipo}_{proyecto.código}"
+                        código_actividad = f"AC_{proyecto.código}"
                         nombre = normaliza_texto(proyecto.nombre)
                         f.write(f"{nombre} | {código_actividad}\n")
