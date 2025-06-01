@@ -85,48 +85,8 @@ def dev() -> None:
 def uji(ruta_datos: Annotated[Path, typer.Argument(help="Ruta a los datos")]) -> None:
 
     cfg = Configuración(ruta_datos)
-    print(cfg)
-
     uji = UJI(cfg)
 
-    # ficheros = Ficheros(ruta_datos)
-    # ficheros.traza()
-    # logger.trace(f"Cargado el manifesto.yaml de {ruta_datos}")
-
-    # logger.trace(f"Cargando estructuras {ruta_datos}...")
-    # estructuras = Estructuras()
-    # estructuras.traza()
-    # logger.trace(f"Cargadas las estructuras de {ruta_datos}")
-
-    # logger.trace(f"Cargando etiquetadores {ruta_datos}...")
-    # etiquetadores = EtiquetadoresUJI()
-
-    # # Carga y etiquetado de apuntes presupuestarios
-    # apuntes = Apuntes.carga()
-
-    # logger.trace("Etiquetando apuntes con elementos de coste")
-    # apuntes.etiqueta("elemento_de_coste", etiquetadores.elemento_de_coste_para_apuntes, estructuras.elementos_de_coste)
-
-    # logger.trace("Etiquetando apuntes con centros de coste")
-    # apuntes.etiqueta("centro_de_coste", etiquetadores.centro_de_coste_para_apuntes, estructuras.centros_de_coste_por_finalidad)
-    # # TODO: Etiquetar con actividades
-    # apuntes.guarda(ficheros.fichero("traza_apuntes_etiquetados").path)
-
-    # # Carga y etiquetado de nóminas
-    # nóminas = Nóminas.carga()
-
-    # nóminas.etiqueta("elemento_de_coste", etiquetadores.elemento_de_coste_para_nóminas, estructuras.elementos_de_coste)
-    # nóminas.etiqueta("centro_de_coste", etiquetadores.centro_de_coste_para_nóminas, estructuras.centros_de_coste_por_finalidad)
-
-    # nóminas.guarda(ficheros.fichero("traza_nóminas_etiquetadas").path)
-
-    # # Cálculo de previsiones sociales
-    # psf = PrevisiónSocialFuncionarios.calcula(nóminas)
-    # psf.guarda(ficheros.fichero("traza_previsiones_sociales_funcionarios_etiquetadas").path)
-
-    # traza.guarda()
-
-    # logger.trace("Fin")
 
 
 @app.command()

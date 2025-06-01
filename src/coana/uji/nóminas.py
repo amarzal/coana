@@ -73,8 +73,5 @@ class Nóminas:
         logger.trace(f"Nóminas cargadas: {len(nóminas)} registros")
         return cls(nóminas=nóminas)
 
-    def guarda(self, fichero: Path) -> None:
-        self.df.write_excel(fichero)
-
     def __iter__(self) -> Iterator[Nómina]:
         return iter(self.nóminas.values())

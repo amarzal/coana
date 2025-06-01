@@ -1,8 +1,4 @@
-import re
 from dataclasses import dataclass, field, replace
-from enum import nonmember
-from importlib.metadata import diagnose
-from tkinter import S
 from typing import Any
 
 from loguru import logger
@@ -11,7 +7,8 @@ from coana.configuración import Configuración
 from coana.estructuras import Estructuras
 from coana.misc import euro
 from coana.misc.typst import normaliza_texto
-from coana.misc.utils import human_sorted
+from coana.misc.utils import human_sorted, num
+from coana.uji.amortizaciones import CostesPorAmortizaciones
 from coana.uji.apuntes import Apuntes
 from coana.uji.centro import Centro, Subcentro
 from coana.uji.etiquetador import ReglasEtiquetador
@@ -39,16 +36,14 @@ class UJI:
         logger.trace(f"Inicializando UJI {cfg.año} con ficheros de {cfg.raíz_datos}")
         self.cfg = cfg
 
+        # Cargamos estructuras presupuestarias
         self.carga_centros_y_subcentros()
         self.carga_proyectos_subproyectos_y_tipos_de_proyecto()
         self.carga_líneas_y_tipos_de_línea()
         self.carga_ubicaciones()
 
-        self.crea_actividades_de_transferencia()
-        self.crea_actividades_de_investigación_regionales()
-        self.crea_actividades_de_investigación_nacionales()
-        self.crea_actividades_de_investigación_internacionales()
-        self.crea_actividades_de_enseñanzas_propias()
+        # Completa el árbol de actividades con proyectos de los que sabemos clasificar la actividad por su tipo
+        self.crea_actividades_por_tipo_de_proyecto()
 
         self.estructuras = Estructuras(cfg)
 
@@ -61,6 +56,8 @@ class UJI:
         self._etiqueta("elemento_de_coste", "etiquetador_elemento_de_coste_para_nóminas", self.nóminas)
 
         self.previsión_social_funcionarios = self.calcula_previsión_social_funcionarios()
+
+        self.costes_por_amortizaciones = CostesPorAmortizaciones(cfg)
 
         self.cfg.traza.guarda()
 
@@ -117,7 +114,11 @@ class UJI:
         for k, v in importe_por_categoría.items():
             traza(f"  [{k}], [{len(personas_por_categoría[k])}], [{v}],\n")
         traza("table.hline(),")
-        traza(f"[*Total*], [{sum(importe_por_categoría.values())}],")
+        traza(
+            "[*Total*],"
+            + f" [*{num(sum(len(x) for x in personas_por_categoría.values()))}*],"
+            + f" [*{sum(importe_por_categoría.values())}*],"
+        )
         traza("table.hline(),")
         traza("""
                 )
@@ -330,62 +331,35 @@ class UJI:
             )
         """)
 
-    def crea_actividades_de_transferencia(self) -> None:
-        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.transferencia
-        directorio = self.cfg.directorio("dir-actividades").ruta
-        with open(directorio / "ac_transf.tree", "w") as f:
-            for proyecto in self.proyectos.values():
-                if proyecto.tipo in tipos:
-                    código_actividad = "AC_" + proyecto.código
-                    f.write(f"{proyecto.nombre} | {código_actividad}\n")
-
-    def crea_actividades_de_investigación_regionales(self) -> None:
-        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_regional
-        directorio = self.cfg.directorio("dir-actividades").ruta
-        with open(directorio / "ac_inv_regional.tree", "w") as f:
-            for proyecto in self.proyectos.values():
-                if proyecto.tipo in tipos:
-                    código_actividad = "AC_" + proyecto.código
-                    f.write(f"{proyecto.nombre} | {código_actividad}\n")
-
-    def crea_actividades_de_investigación_nacionales(self) -> None:
-        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_nacional
-        directorio = self.cfg.directorio("dir-actividades").ruta
-        with open(directorio / "ac_inv_nacional.tree", "w") as f:
-            for proyecto in self.proyectos.values():
-                if proyecto.tipo in tipos:
-                    código_actividad = "AC_" + proyecto.código
-                    f.write(f"{proyecto.nombre} | {código_actividad}\n")
-
-    def crea_actividades_de_investigación_internacionales(self) -> None:
-        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_internacional
-        directorio = self.cfg.directorio("dir-actividades").ruta
-        with open(directorio / "ac_inv_internacional.tree", "w") as f:
-            for proyecto in self.proyectos.values():
-                if proyecto.tipo in tipos:
-                    código_actividad = "AC_" + proyecto.código
-                    f.write(f"{proyecto.nombre} | {código_actividad}\n")
-
-    def crea_actividades_de_enseñanzas_propias(self) -> None:
-        tipos = self.cfg.tipos_de_proyecto_convertibles_en_actividad.formación_propia
-        proyectos_formación_propia = [
-            proyecto
-            for proyecto in self.proyectos.values()
-            if proyecto.tipo in tipos
-        ]
-
-        directorio = self.cfg.directorio("dir-actividades").ruta
-        subtipos_a_fichero = { # Esto debería estar en la configuración
-            "MasterFP": "ac_masteres_fp.tree",
-            "DiplomaEspecializacion": "ac_diplomas_especializacion.tree",
-            "DiplomaExperto": "ac_diplomas_experto.tree",
-            "CursoFP": "ac_cursos.tree",
-            "Microcredencial": "ac_microcredenciales.tree",
+    def crea_actividades_por_tipo_de_proyecto(self):
+        actividades = {
+            "ac_transf.tree": (self.cfg.tipos_de_proyecto_convertibles_en_actividad.transferencia, None),
+            "ac_inv_regional.tree": (self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_regional, None),
+            "ac_inv_nacional.tree": (self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_nacional, None),
+            "ac_inv_internacional.tree": (
+                self.cfg.tipos_de_proyecto_convertibles_en_actividad.investigación_internacional,
+                None,
+            ),
+            "ac_masteres_fp.tree": (self.cfg.tipos_de_proyecto_convertibles_en_actividad.formación_propia, "MasterFP"),
+            "ac_diplomas_especializacion.tree": (
+                self.cfg.tipos_de_proyecto_convertibles_en_actividad.formación_propia,
+                "DiplomaEspecializacion",
+            ),
+            "ac_diplomas_experto.tree": (
+                self.cfg.tipos_de_proyecto_convertibles_en_actividad.formación_propia,
+                "DiplomaExperto",
+            ),
+            "ac_cursos.tree": (self.cfg.tipos_de_proyecto_convertibles_en_actividad.formación_propia, "CursoFP"),
+            "ac_microcredenciales.tree": (
+                self.cfg.tipos_de_proyecto_convertibles_en_actividad.formación_propia,
+                "Microcredencial",
+            ),
         }
-        for subtipo, fichero in subtipos_a_fichero.items():
-            with open(directorio / fichero, "w") as f:
-                for proyecto in proyectos_formación_propia:
-                    if proyecto.subtipo == subtipo:
-                        código_actividad = f"AC_{proyecto.código}"
-                        nombre = normaliza_texto(proyecto.nombre)
-                        f.write(f"{nombre} | {código_actividad}\n")
+        for actividad, (tipos, subtipo) in actividades.items():
+            directorio = self.cfg.directorio("dir-actividades").ruta
+            with open(directorio / actividad, "w") as f:
+                for proyecto in self.proyectos.values():
+                    if proyecto.tipo in tipos and (subtipo is None or proyecto.subtipo == subtipo):
+                        código_actividad = "AC_" + proyecto.código
+                        f.write(f"{proyecto.nombre} | {código_actividad}\n")
+        return actividades
