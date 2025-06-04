@@ -11,14 +11,18 @@ from coana.misc.utils import num
 
 @dataclass(slots=True)
 class PeríodoAmortización:
+    """Años en los que el ítem de una cuenta se amortiza."""
+
     cuenta: str = field(init=False)
     nombre_cuenta: str = field(init=False)
+    actividad: str = field(init=False)
     años: float = field(init=False)
     fecha_olvido: date = field(init=False)  # Todo lo que sea anterior a esta fecha se considera amortizado
 
-    def __init__(self, cuenta: str, nombre_cuenta: str, años: float, año_actual: int):
+    def __init__(self, cuenta: str, nombre_cuenta: str, actividad: str, años: float, año_actual: int):
         self.cuenta = cuenta
         self.nombre_cuenta = nombre_cuenta
+        self.actividad = actividad
         self.años = años
         años_enteros = int(años)
         meses_enteros = int((años - años_enteros) * 12)
@@ -39,7 +43,11 @@ class PeríodosAmortización:
         for row in df.iter_rows(named=True):
             cuenta = row["cuenta"]
             self.períodos[cuenta] = PeríodoAmortización(
-                cuenta=cuenta, nombre_cuenta=row["nombre_cuenta"], años=row["años"], año_actual=año_actual
+                cuenta=cuenta,
+                nombre_cuenta=row["nombre_cuenta"],
+                actividad=row["actividad"],
+                años=row["años"],
+                año_actual=año_actual,
             )
 
     def __getitem__(self, key: str) -> PeríodoAmortización:
@@ -125,6 +133,7 @@ class CostesPorAmortizaciones:
                         proyectos=proyectos,
                         subproyectos=subproyectos,
                         ubicación=ubicación,
+                        elemento_de_coste="EC_Amortización",
                     )
                 )
             else:
@@ -141,17 +150,23 @@ class CostesPorAmortizaciones:
             #align(
               center,
               table(
-                columns: 3,
-                align: (left, right, right),
+                columns: 5,
+                align: (left, left, left, right, right),
                 stroke: none,
                 table.header(
                   table.hline(),
-                  [*Cuenta*], [*Líneas*], [*Importe*],
+                  [*Cuenta*], [*Concepto*], [*Actividad*], [*Líneas*], [*Importe*],
                   table.hline()
                 ),
               """)
         for cuenta, amortizaciones in sorted(self.amortizaciones.items()):
-            traza(f"  [{cuenta}], [{num(len(amortizaciones))}], [{sum(x.importe for x in amortizaciones)}],")
+            traza(
+                f"  [{cuenta}], "
+                + f"[{períodos.períodos[cuenta].nombre_cuenta}], "
+                + f"[{períodos.períodos[cuenta].actividad}], "
+                + f"[{num(len(amortizaciones))}], "
+                + f"[{sum(x.importe for x in amortizaciones)}],"
+            )
         traza("table.hline(),")
         traza(
             "[*Total*],"

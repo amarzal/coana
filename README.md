@@ -2,7 +2,7 @@
 
 El proyecto se gestiona con uv (https://docs.astral.sh/uv/).
 
-Los datos han de estar en un directorio con la estructura que determina un fichero en su raíz llamado manifesto.yaml.
+Los datos han de estar en un directorio con la estructura que determina un fichero en su raíz llamado `configuracion.yaml`.
 
 Si ese directorio está, por ejemplo, en ../datos_coana/2024, el programa se ejecuta con
 

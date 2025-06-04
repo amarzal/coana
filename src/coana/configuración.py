@@ -159,7 +159,7 @@ class Configuración(metaclass=Singleton):
         self.ficheros, self.directorios = {}, {}
         for key, value in ficheros_y_directorios.items():
             if "path" not in value:
-                raise ValueError(f"El fichero manifesto.yaml en {self.raíz_datos} no ha definido la ruta de {key}")
+                raise ValueError(f"El fichero configuración.yaml en {self.raíz_datos} no ha definido la ruta de {key}")
             path = Path("")
             for part in Path(value["path"]).parts:
                 path = path / (self.directorios[part].ruta if part in self.directorios else Path(part))
@@ -238,7 +238,7 @@ class Configuración(metaclass=Singleton):
             añade_fichero(fichero.ruta.parts, como_árbol)
 
         s = StringIO()
-        s.write(f"= Directorios y ficheros con datos (`{self.raíz_datos}/manifesto.yaml`)\n")
+        s.write(f"= Directorios y ficheros con datos (`{self.raíz_datos}/configuración.yaml`)\n")
         s.write(self._tree_to_directory_string(como_árbol))
         s.write("- Directorios\n")
         for clave in sorted(self.directorios):
@@ -267,12 +267,12 @@ class Configuración(metaclass=Singleton):
 
     def fichero(self, name: str) -> Fichero:
         if name not in self.ficheros:
-            raise ValueError(f'El fichero manifesto.yaml en {self.raíz_datos} no ha definido "{name}"')
+            raise ValueError(f'El fichero configuración.yaml en {self.raíz_datos} no ha definido "{name}"')
         return self.ficheros[name]
 
     def directorio(self, name: str) -> Directorio:
         if name not in self.directorios:
-            raise ValueError(f'El fichero manifesto.yaml en {self.raíz_datos} no ha definido "{name}"')
+            raise ValueError(f'El fichero configuración.yaml en {self.raíz_datos} no ha definido "{name}"')
         return self.directorios[name]
 
     def _tree_to_directory_string(self, tree):

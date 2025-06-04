@@ -1,17 +1,14 @@
-import calendar
-import datetime
 import sys
 from pathlib import Path
-from pprint import pp
 from typing import Annotated
 
 import polars as pl
 import typer
-from dateutil.relativedelta import relativedelta
 from loguru import logger
 from typer import Typer
 
 from coana.configuración import Configuración
+from coana.uji.estudios import EstudiosOficiales
 from coana.uji.uji import UJI
 
 app = Typer(pretty_exceptions_show_locals=False)
@@ -29,61 +26,13 @@ logger.add(
 
 @app.command()
 def dev() -> None:
-    datos = Path("../coana_data/2024")
-    ficheros = Ficheros(datos)
-    logger.trace(f"EJECUCIÓN DE DESARROLLO con {datos}")
-
-    inicio_año = datetime.date(2024, 1, 1)
-    fin_año = datetime.date(2024, 12, 31)
-    años_amortización = {}
-    períodos_amortización = ficheros.fichero("períodos_amortización").carga_dataframe()
-    fecha_frontera = {}
-    for row in períodos_amortización.iter_rows(named=True):
-        fecha_frontera[row["cuenta"]] = inicio_año - relativedelta(years=row["años"])
-        años_amortización[row["cuenta"]] = row["años"]
-    pp(fecha_frontera)
-    inventario = ficheros.fichero("inventario").carga_dataframe()
-
-    días_del_año_actual = 366 if calendar.isleap(inicio_año.year) else 365
-    print(días_del_año_actual)
-
-    rows = []
-    for row in inventario.iter_rows(named=True):
-        if row["recepción"] < fecha_frontera[row["cuenta"]]:
-            continue
-        if row['recepción'] > fin_año:
-            continue
-        if row["baja"] is not None:
-            if row["baja"] < inicio_año:
-                continue
-            else:
-                días_en_el_año = (row["baja"] - inicio_año).days
-                print(min(días_en_el_año, días_del_año_actual))
-        else:
-            días_en_el_año = (fin_año - max(inicio_año, row['recepción'])).days
-        if días_en_el_año == 0:
-            continue
-        fracción_del_año = días_en_el_año / días_del_año_actual
-        vida_útil = años_amortización[row["cuenta"]]
-        importe = row["importe"]
-        importe_anual = float(importe) / vida_útil
-        importe_anual_fracción = importe_anual * fracción_del_año
-        row['importe'] = importe_anual_fracción
-        rows.append(row)
-    df = pl.DataFrame(
-        {
-            k: [row[k] for row in rows] for k in inventario.columns + ['importe']
-        }
-    )
-    df = df.with_columns(
-        pl.col('importe').round(2).cast(pl.Decimal(scale=2))
-    )
-    print(df)
+    cfg = Configuración(Path("../coana_data/2024"))
+    eo = EstudiosOficiales.carga(cfg)
+    eo.genera_actividades(cfg)
 
 
 @app.command()
 def uji(ruta_datos: Annotated[Path, typer.Argument(help="Ruta a los datos")]) -> None:
-
     cfg = Configuración(ruta_datos)
     uji = UJI(cfg)
 
