@@ -1,0 +1,41 @@
+Ingresos relacionados con actividades | actividades
+    Ingresos por docencia | docencia
+        Ingresos por estudios oficiales | estudios-oficiales
+            Ámbito de conocimiento 1 | estof-ac1
+                Grados | estof-ac1-grados
+                Másteres Universitarios | estof-ac1-masteres
+        Ingresos por estudios propios de la universidad | estudios-propios
+            Grados propios | grados
+            Másteres de Formación Permanente | masteres-fp
+            Diplomas de especialización | diplomas-especializacion
+            Diplomas de experto/a | diplomas-experto
+            Cursos de formación continua | cursos-fp
+            Microcredenciales | microcredenciales
+            Cursos de idiomas | cursos-idiomas
+            Cursos para extranjeros | cursos-extranjeros
+            Acceso a enseñanzas oficiales | acceso-ensenanzas-oficiales
+            Otras actividades de docencia | otras-actividades-docencia
+            Ingresos procedentes de centros adscritos | centros-adscritos
+    Ingresos por actividades de investigación | investigacion
+        Ingresos por actividades de investigación y transferencia con financiación externa | invtrans-financiacion-externa
+            Ingresos por actividades financiadas por agentes externos en convocatorias competitivas | convocatorias-competitivas
+                Ingresos por actividades con financiación de programas regionales | cc-regionales
+                Ingresos por actividades con financiación de programas nacionales | cc-nacionales
+                Ingresos por actividades con financiación de programas internacionales | cc-internacionales
+                Otras actividades de investigación en convocatorias competitivas | cc-otras-actividades
+            Ingresos por actividades de investigación aplicada y transferencia | investigacion-aplicada-transferencia
+        Ingresos por Doctorado | invtransf-doctorado
+            Programa de Doctorado 1 | invtransf-doctorado-programa1
+    Ingresos por actividades deportivas y de extensión universitaria | depexuniv
+        Ingresos por actividades deportivas | depexuniv-deportivas
+        Ingresos por actividades de extensión universitaria | depexuniv-extension-universitaria
+        Ingresos por otras actividades | depexuniv-otras-actividades
+    Ingresos por servicios comunes de investigación | servicios-comunes-investigación
+    Ingresos por publicaciones | publicaciones
+    Ingresos por otras actividades | otras-actividades
+    TRUPI con ingresos calculados | trupi
+Ingresos relacionados con la organización en su conjunto | organizacion
+    Ingresos por uso de instalaciones universitarias no relacionados con actividades | uso-instalaciones
+    Ingresos patrimoniales | ingresos-patrimoniales
+    Tasas administrativas no relacionadas con actividades | tasas-administrativas
+    Otros ingresos no relacionados con actividades | otros-ingresos

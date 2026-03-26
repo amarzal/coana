@@ -1,0 +1,59 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.6.1 Chrome/142.0.7444.265 Electron/39.8.0 Safari/537.36" version="29.6.1">
+  <diagram name="Page-1" id="s7MM6ohu0BOSKRecbHn0">
+    <mxGraphModel dx="1220" dy="904" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-15" parent="1" style="rounded=0;whiteSpace=wrap;html=1;shadow=0;glass=0;" value="" vertex="1">
+          <mxGeometry height="329" width="120" x="920" y="261" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-16" parent="1" style="rounded=0;whiteSpace=wrap;html=1;shadow=0;glass=0;" value="" vertex="1">
+          <mxGeometry height="237.5" width="97.5" x="932.5" y="322.5" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-11" edge="1" parent="1" source="jBUsiOnC-FZ1jCEn93LI-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="jBUsiOnC-FZ1jCEn93LI-9" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rSnrBDSNSjKSDfe20wgT-17" edge="1" parent="1" source="jBUsiOnC-FZ1jCEn93LI-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="rSnrBDSNSjKSDfe20wgT-14">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="844" y="474" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-1" parent="1" style="sketch=0;pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=#6F0000;fillColor=#a20025;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;outlineConnect=0;align=center;shape=stencil(tZfLboMwEEW/hi0Cu1B1WdFGyqrfQIlbrDo2ApO0f1+D88BMH+CMpSzQHTj2vZpRNBEturpsWESSsmtYpSP6FBFyKFtevgojE1OprXiXx5kVZLlnVtvKptdGeem1fdhwoVlrX+t0qz7Yke/0icBlzVqubfXoUulzlDwaefjRolJSmttwJbtR28zqb6pl763q5c4pnMtNORwJCufyXh0Gx5/2BjSLycnYl1XS9KLMj3ZBgssp6CG+DwTKL8IqDnC2lFMJ1bF/33JzJCmGd5LFKBkCjl+EM1Mh88uRumfyGTbIL0NgLGSKsOevnXDbDKJxUoxJXkZBmGM/22D8sDAe4c0NBUsONLqfaTh3aByP9KCpYPnBLp9Mz21DhwfK/P7SobWlIIQZ9nQPpg+N4xfi3FXIBEHbe3qHQ4gH8ksROguZY+Icdd0h1tzYZSTrAddjERlLvfydGi2M/su+YvYcLoRdo34AjJ+CTWhU7VI3Ct8=);labelBorderColor=none;fontColor=default;fontStyle=1" value="filtro 1" vertex="1">
+          <mxGeometry height="48" width="48" x="820" y="338.5" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-2" parent="1" style="rounded=0;whiteSpace=wrap;html=1;shadow=0;glass=0;" value="" vertex="1">
+          <mxGeometry height="219" width="130" x="620" y="261" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-3" parent="1" style="rounded=0;whiteSpace=wrap;html=1;shadow=0;glass=0;" value="" vertex="1">
+          <mxGeometry height="137.5" width="90" x="641" y="322.5" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-10" edge="1" parent="1" source="jBUsiOnC-FZ1jCEn93LI-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" target="jBUsiOnC-FZ1jCEn93LI-1" value="">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-4" parent="1" style="pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=#b85450;fillColor=#f8cecc;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;outlineConnect=0;align=center;shape=mxgraph.office.concepts.file_key;" value="&lt;span style=&quot;text-wrap-mode: wrap;&quot;&gt;apuntes&amp;nbsp;&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;text-wrap-mode: wrap; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;presupuesto&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;text-wrap-mode: wrap; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;text-wrap-mode: wrap; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;de gastos&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="53" width="48" x="667" y="336" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-5" parent="1" style="pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=none;fillColor=#505050;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;outlineConnect=0;align=center;shape=mxgraph.office.concepts.folder;fontStyle=1" value="presupuesto" vertex="1">
+          <mxGeometry height="30" width="33" x="669.5" y="270.5" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-6" parent="1" style="pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=none;fillColor=#505050;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;outlineConnect=0;align=center;shape=mxgraph.office.concepts.folder;fontStyle=1" value="entradas" vertex="1">
+          <mxGeometry height="30" width="33" x="669.5" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-9" parent="1" style="pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=#b85450;fillColor=#f8cecc;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;outlineConnect=0;align=center;shape=mxgraph.office.concepts.file_key;" value="&lt;span style=&quot;text-wrap-mode: wrap;&quot;&gt;apuntes&amp;nbsp;&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;text-wrap-mode: wrap; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;presupuesto&lt;/span&gt;&lt;div&gt;&lt;span style=&quot;text-wrap-mode: wrap; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;&amp;nbsp;&lt;/span&gt;&lt;span style=&quot;text-wrap-mode: wrap; background-color: transparent; color: light-dark(rgb(0, 0, 0), rgb(255, 255, 255));&quot;&gt;de gastos&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="53" width="48" x="960" y="336" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-13" parent="1" style="pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=none;fillColor=#505050;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;outlineConnect=0;align=center;shape=mxgraph.office.concepts.folder;fontStyle=1" value="fase1" vertex="1">
+          <mxGeometry height="30" width="33" x="960" y="200" as="geometry" />
+        </mxCell>
+        <mxCell id="jBUsiOnC-FZ1jCEn93LI-14" parent="1" style="pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=none;fillColor=#505050;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;outlineConnect=0;align=center;shape=mxgraph.office.concepts.folder;fontStyle=1" value="auxiliares" vertex="1">
+          <mxGeometry height="30" width="33" x="960" y="270.5" as="geometry" />
+        </mxCell>
+        <mxCell id="rSnrBDSNSjKSDfe20wgT-14" parent="1" style="sketch=0;pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=none;fillColor=#505050;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;outlineConnect=0;align=center;shape=mxgraph.office.concepts.document;" value="apuntes&lt;div&gt;presupuesto&lt;/div&gt;&lt;div&gt;filtrados&lt;/div&gt;" vertex="1">
+          <mxGeometry height="47" width="40" x="964" y="450" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

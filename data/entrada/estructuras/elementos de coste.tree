@@ -1,0 +1,637 @@
+Costes de personal | costes-personal
+    Sueldos y salarios del Personal Docente e Investigador (PDI) | salario-pdi
+        PDI funcionario | pdi-func
+            Catedráticos/as de Universidad | pdi-cu
+                Retribuciones fijas | pdi-cu-fijas
+                    Retribuciones básicas | pdi-cu-bas
+                        Sueldo | pdi-cu-sueldo
+                        Trienios | pdi-cu-trienios
+                    Retribuciones complementarias | pdi-cu-comp
+                        Complemento de destino | pdi-cu-dst
+                        Complemento específico general | pdi-cu-esp
+                        Complemento específico por méritos docentes | pdi-cu-quin
+                        Complemento de productividad por méritos científicos | pdi-cu-sexinv
+                        Complemento de productividad por transferencia | pdi-cu-sextransf
+                        Otros complementos fijos | pdi-cu-otfij
+                    Retribuciones básicas y complementarias | pdi-cu-bas-comp
+                        Paga extraordinaria | pdi-cu-paga-extra
+                Retribuciones variables | pdi-cu-vars
+                    Complemento específico por cargos académicos | pdi-cu-cargos
+                    Complemento de productividad | pdi-cu-prod
+                    Otras retribuciones variables | pdi-cu-otvars
+            Profesores/as Titulares de Universidad | pdi-tu
+                Retribuciones fijas | pdi-tu-fijas
+                    Retribuciones básicas | pdi-tu-bas
+                        Sueldo | pdi-tu-sueldo
+                        Trienios | pdi-tu-trienios
+                    Retribuciones complementarias | pdi-tu-comp
+                        Complemento de destino | pdi-tu-dst
+                        Complemento específico general | pdi-tu-esp
+                        Complemento específico por méritos docentes | pdi-tu-quin
+                        Complemento de productividad por méritos científicos | pdi-tu-sexinv
+                        Complemento de productividad por transferencia | pdi-tu-sextransf
+                        Otros complementos fijos | pdi-tu-otfij
+                    Retribuciones básicas y complementarias | pdi-tu-bas-comp
+                        Paga extraordinaria | pdi-tu-paga-extra
+                Retribuciones variables | pdi-tu-vars
+                    Complemento específico por cargos académicos | pdi-tu-cargos
+                    Complemento de productividad | pdi-tu-prod
+                    Otras retribuciones variables | pdi-tu-otvars
+            Catedráticos/as de Escuela Universitaria | pdi-ceu
+                Retribuciones fijas | pdi-ceu-fijas
+                    Retribuciones básicas | pdi-ceu-bas
+                        Sueldo | pdi-ceu-sueldo
+                        Trienios | pdi-ceu-trienios
+                    Retribuciones complementarias | pdi-ceu-comp
+                        Complemento de destino | pdi-ceu-dst
+                        Complemento específico general | pdi-ceu-esp
+                        Complemento específico por méritos docentes | pdi-ceu-quin
+                        Complemento de productividad por méritos científicos | pdi-ceu-sexinv
+                        Complemento de productividad por transferencia | pdi-ceu-sextransf
+                        Otros complementos fijos | pdi-ceu-otfij
+                    Retribuciones básicas y complementarias | pdi-ceu-bas-comp
+                        Paga extraordinaria | pdi-ceu-paga-extra
+                Retribuciones variables | pdi-ceu-vars
+                    Complemento específico por cargos académicos | pdi-ceu-cargos
+                    Complemento de productividad | pdi-ceu-prod
+                    Otras retribuciones variables | pdi-ceu-otvars
+            Profesores/as Titulares de Escuela Universitaria | pdi-teu
+                Retribuciones fijas | pdi-teu-fijas
+                    Retribuciones básicas | pdi-teu-bas
+                        Sueldo | pdi-teu-sueldo
+                        Trienios | pdi-teu-trienios
+                    Retribuciones complementarias | pdi-teu-comp
+                        Complemento de destino | pdi-teu-dst
+                        Complemento específico general | pdi-teu-esp
+                        Complemento específico por méritos docentes | pdi-teu-quin
+                        Complemento de productividad por méritos científicos | pdi-teu-sexinv
+                        Complemento de productividad por transferencia | pdi-teu-sextransf
+                        Otros complementos fijos | pdi-teu-otfij
+                    Retribuciones básicas y complementarias | pdi-teu-bas-comp
+                        Paga extraordinaria | pdi-teu-paga-extra
+                Retribuciones variables | pdi-teu-vars
+                    Complemento específico por cargos académicos | pdi-teu-cargos
+                    Complemento de productividad | pdi-teu-prod
+                    Otras retribuciones variables | pdi-teu-otvars
+        PDI laboral contratado | pdi-lab
+            Profesores/as Ayudantes Doctores/as | pdi-aj
+                Retribuciones fijas | pdi-aj-fijas
+                    Retribuciones básicas | pdi-aj-bas
+                        Sueldo | pdi-aj-sueldo
+                        Trienios | pdi-aj-trienios
+                    Retribuciones complementarias | pdi-aj-comp
+                        Complemento de destino | pdi-aj-dst
+                        Complemento específico general | pdi-aj-esp
+                        Complemento específico por méritos docentes | pdi-aj-quin
+                        Complemento de productividad por méritos científicos | pdi-aj-sexinv
+                        Complemento de productividad por transferencia | pdi-aj-sextransf
+                        Otros complementos fijos | pdi-aj-otfij
+                    Retribuciones básicas y complementarias | pdi-aj-bas-comp
+                        Paga extraordinaria | pdi-aj-paga-extra
+                Retribuciones variables | pdi-aj-vars
+                    Complemento específico por cargos académicos | pdi-aj-cargos
+                    Complemento de productividad | pdi-aj-prod
+                    Otras retribuciones variables | pdi-aj-otvars
+            Profesores/as Asociados/as | pdi-as
+                Retribuciones fijas | pdi-as-fijas
+                    Retribuciones básicas | pdi-as-bas
+                        Sueldo | pdi-as-sueldo
+                        Trienios | pdi-as-trienios
+                    Retribuciones complementarias | pdi-as-comp
+                        Complemento de destino | pdi-as-dst
+                        Complemento específico general | pdi-as-esp
+                        Complemento específico por méritos docentes | pdi-as-quin
+                        Complemento de productividad por méritos científicos | pdi-as-sexinv
+                        Complemento de productividad por transferencia | pdi-as-sextransf
+                        Otros complementos fijos | pdi-as-otfij
+                    Retribuciones básicas y complementarias | pdi-as-bas-comp
+                        Paga extraordinaria | pdi-as-paga-extra
+                Retribuciones variables | pdi-as-vars
+                    Complemento específico por cargos académicos | pdi-as-cargos
+                    Complemento de productividad | pdi-as-prod
+                    Otras retribuciones variables | pdi-as-otvars
+            Profesores/as Sustitutos/as | pdi-ps
+                Retribuciones fijas | pdi-ps-fijas
+                    Retribuciones básicas | pdi-ps-bas
+                        Sueldo | pdi-ps-sueldo
+                        Trienios | pdi-ps-trienios
+                    Retribuciones complementarias | pdi-ps-comp
+                        Complemento de destino | pdi-ps-dst
+                        Complemento específico general | pdi-ps-esp
+                        Complemento específico por méritos docentes | pdi-ps-quin
+                        Complemento de productividad por méritos científicos | pdi-ps-sexinv
+                        Complemento de productividad por transferencia | pdi-ps-sextransf
+                        Otros complementos fijos | pdi-ps-otfij
+                    Retribuciones básicas y complementarias | pdi-ps-bas-comp
+                        Paga extraordinaria | pdi-ps-paga-extra
+                Retribuciones variables | pdi-ps-vars
+                    Complemento específico por cargos académicos | pdi-ps-cargos
+                    Complemento de productividad | pdi-ps-prod
+                    Otras retribuciones variables | pdi-ps-otvars
+            Profesores/as Eméritos/as | pdi-em
+                Retribuciones fijas | pdi-em-fijas
+                    Retribuciones básicas | pdi-em-bas
+                        Sueldo | pdi-em-sueldo
+                        Trienios | pdi-em-trienios
+                    Retribuciones complementarias | pdi-em-comp
+                        Complemento de destino | pdi-em-dst
+                        Complemento específico general | pdi-em-esp
+                        Complemento específico por méritos docentes | pdi-em-quin
+                        Complemento de productividad por méritos científicos | pdi-em-sexinv
+                        Complemento de productividad por transferencia | pdi-em-sextransf
+                        Otros complementos fijos | pdi-em-otfij
+                    Retribuciones básicas y complementarias | pdi-em-bas-comp
+                        Paga extraordinaria | pdi-em-paga-extra
+                Retribuciones variables | pdi-em-vars
+                    Complemento específico por cargos académicos | pdi-em-cargos
+                    Complemento de productividad | pdi-em-prod
+                    Otras retribuciones variables | pdi-em-otvars
+            Profesores/as Permanentes Laborales | pdi-pl
+                Retribuciones fijas | pdi-pl-fijas
+                    Retribuciones básicas | pdi-pl-bas
+                        Sueldo | pdi-pl-sueldo
+                        Trienios | pdi-pl-trienios
+                    Retribuciones complementarias | pdi-pl-comp
+                        Complemento de destino | pdi-pl-dst
+                        Complemento específico general | pdi-pl-esp
+                        Complemento específico por méritos docentes | pdi-pl-quin
+                        Complemento de productividad por méritos científicos | pdi-pl-sexinv
+                        Complemento de productividad por transferencia | pdi-pl-sextransf
+                        Otros complementos fijos | pdi-pl-otfij
+                    Retribuciones básicas y complementarias | pdi-pl-bas-comp
+                        Paga extraordinaria | pdi-pl-paga-extra
+                Retribuciones variables | pdi-pl-vars
+                    Complemento específico por cargos académicos | pdi-pl-cargos
+                    Complemento de productividad | pdi-pl-prod
+                    Otras retribuciones variables | pdi-pl-otvars
+            Profesores/as Visitantes | pdi-pv
+                Retribuciones fijas | pdi-pv-fijas
+                    Retribuciones básicas | pdi-pv-bas
+                        Sueldo | pdi-pv-sueldo
+                        Trienios | pdi-pv-trienios
+                    Retribuciones complementarias | pdi-pv-comp
+                        Complemento de destino | pdi-pv-dst
+                        Complemento específico general | pdi-pv-esp
+                        Complemento específico por méritos docentes | pdi-pv-quin
+                        Complemento de productividad por méritos científicos | pdi-pv-sexinv
+                        Complemento de productividad por transferencia | pdi-pv-sextransf
+                        Otros complementos fijos | pdi-pv-otfij
+                    Retribuciones básicas y complementarias | pdi-pv-bas-comp
+                        Paga extraordinaria | pdi-pv-paga-extra
+                Retribuciones variables | pdi-pv-vars
+                    Complemento específico por cargos académicos | pdi-pv-cargos
+                    Complemento de productividad | pdi-pv-prod
+                    Otras retribuciones variables | pdi-pv-otvars
+            Profesores/as Distinguidos/as | pdi-pd
+                Retribuciones fijas | pdi-pd-fijas
+                    Retribuciones básicas | pdi-pd-bas
+                        Sueldo | pdi-pd-sueldo
+                        Trienios | pdi-pd-trienios
+                    Retribuciones complementarias | pdi-pd-comp
+                        Complemento de destino | pdi-pd-dst
+                        Complemento específico general | pdi-pd-esp
+                        Complemento específico por méritos docentes | pdi-pd-quin
+                        Complemento de productividad por méritos científicos | pdi-pd-sexinv
+                        Complemento de productividad por transferencia | pdi-pd-sextransf
+                        Otros complementos fijos | pdi-pd-otfij
+                    Retribuciones básicas y complementarias | pdi-pd-bas-comp
+                        Paga extraordinaria | pdi-pd-paga-extra
+                Retribuciones variables | pdi-pd-vars
+                    Complemento específico por cargos académicos | pdi-pd-cargos
+                    Complemento de productividad | pdi-pd-prod
+                    Otras retribuciones variables | pdi-pd-otvars
+            Profesores/as Contratados/as Doctores/as | pdi-pcd
+                Retribuciones fijas | pdi-pcd-fijas
+                    Retribuciones básicas | pdi-pcd-bas
+                        Sueldo | pdi-pcd-sueldo
+                        Trienios | pdi-pcd-trienios
+                    Retribuciones complementarias | pdi-pcd-comp
+                        Complemento de destino | pdi-pcd-dst
+                        Complemento específico general | pdi-pcd-esp
+                        Complemento específico por méritos docentes | pdi-pcd-quin
+                        Complemento de productividad por méritos científicos | pdi-pcd-sexinv
+                        Complemento de productividad por transferencia | pdi-pcd-sextransf
+                        Otros complementos fijos | pdi-pcd-otfij
+                    Retribuciones básicas y complementarias | pdi-pcd-bas-comp
+                        Paga extraordinaria | pdi-pcd-paga-extra
+                Retribuciones variables | pdi-pcd-vars
+                    Complemento específico por cargos académicos | pdi-pcd-cargos
+                    Complemento de productividad | pdi-pcd-prod
+                    Otras retribuciones variables | pdi-pcd-otvars
+            Profesores/as Colaboradores/as | pdi-pc
+                Retribuciones fijas | pdi-pc-fijas
+                    Retribuciones básicas | pdi-pc-bas
+                        Sueldo | pdi-pc-sueldo
+                        Trienios | pdi-pc-trienios
+                    Retribuciones complementarias | pdi-pc-comp
+                        Complemento de destino | pdi-pc-dst
+                        Complemento específico general | pdi-pc-esp
+                        Complemento específico por méritos docentes | pdi-pc-quin
+                        Complemento de productividad por méritos científicos | pdi-pc-sexinv
+                        Complemento de productividad por transferencia | pdi-pc-sextransf
+                        Otros complementos fijos | pdi-pc-otfij
+                    Retribuciones básicas y complementarias | pdi-pc-bas-comp
+                        Paga extraordinaria | pdi-pc-paga-extra
+                Retribuciones variables | pdi-pc-vars
+                    Complemento específico por cargos académicos | pdi-pc-cargos
+                    Complemento de productividad | pdi-pc-prod
+                    Otras retribuciones variables | pdi-pc-otvars
+    Sueldos y salarios del Personal de Administración y Servicios (PTGAS) | salario-ptgas
+        PTGAS funcionario | ptgas-func
+            Retribuciones fijas | ptgas-func-fijas
+                Retribuciones básicas | ptgas-func-bas
+                    Sueldo | ptgas-func-sueldo
+                    Trienios | ptgas-func-trienios
+                Retribuciones complementarias | ptgas-func-comp
+                    Complemento de destino | ptgas-func-dst
+                    Complemento específico general | ptgas-func-esp
+                    Complemento por desarrollo de la carrera profesional horizontal | ptgas-func-cprof
+                    Otros complementos fijos | ptgas-func-otfij
+                Retribuciones básicas y complementarias | ptgas-func-bas-comp
+                    Paga extraordinaria | ptgas-func-paga-extra
+            Retribuciones variables | ptgas-func-vars
+                Complemento de productividad | ptgas-func-prod
+                Otras retribuciones variables | ptgas-func-otvars
+        PTGAS laboral | ptgas-lab
+            PTGAS laboral fijo | ptgas-lab-fijo
+                Retribuciones fijas | ptgas-lab-fijo-fijas
+                    Retribuciones básicas | ptgas-lab-fijo-bas
+                        Sueldo | ptgas-lab-fijo-sueldo
+                        Trienios | ptgas-lab-fijo-trienios
+                    Retribuciones complementarias | ptgas-lab-fijo-comp
+                        Complemento de destino | ptgas-lab-fijo-dst
+                        Complemento específico general | ptgas-lab-fijo-esp
+                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-lab-fijo-cprof
+                        Otros complementos fijos | ptgas-lab-fijo-otfij
+                    Retribuciones básicas y complementarias | ptgas-lab-fijo-bas-comp
+                        Paga extraordinaria | ptgas-lab-fijo-paga-extra
+                Retribuciones variables | ptgas-lab-fijo-vars
+                    Complemento de productividad | ptgas-lab-fijo-prod
+                    Otras retribuciones variables | ptgas-lab-fijo-otvars
+            PTGAS laboral indefinido no fijo | ptgas-lab-nofijo
+                Retribuciones fijas | ptgas-lab-nofijo-fijas
+                    Retribuciones básicas | ptgas-lab-nofijo-bas
+                        Sueldo | ptgas-lab-nofijo-sueldo
+                        Trienios | ptgas-lab-nofijo-trienios
+                    Retribuciones complementarias | ptgas-lab-nofijo-comp
+                        Complemento de destino | ptgas-lab-nofijo-dst
+                        Complemento específico general | ptgas-lab-nofijo-esp
+                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-lab-nofijo-cprof
+                        Otros complementos fijos | ptgas-lab-nofijo-otfij
+                    Retribuciones básicas y complementarias | ptgas-lab-nofijo-bas-comp
+                        Paga extraordinaria | ptgas-lab-nofijo-paga-extra
+                Retribuciones variables | ptgas-lab-nofijo-vars
+                    Complemento de productividad | ptgas-lab-nofijo-prod
+                    Otras retribuciones variables | ptgas-lab-nofijo-otvars
+            PTGAS laboral temporal | ptgas-lab-temp
+                Retribuciones fijas | ptgas-lab-temp-fijas
+                    Retribuciones básicas | ptgas-lab-temp-bas
+                        Sueldo | ptgas-lab-temp-sueldo
+                        Trienios | ptgas-lab-temp-trienios
+                    Retribuciones complementarias | ptgas-lab-temp-comp
+                        Complemento de destino | ptgas-lab-temp-dst
+                        Complemento específico general | ptgas-lab-temp-esp
+                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-lab-temp-cprof
+                        Otros complementos fijos | ptgas-lab-temp-otfij
+                    Retribuciones básicas y complementarias | ptgas-lab-temp-bas-comp
+                        Paga extraordinaria | ptgas-lab-temp-paga-extra
+                Retribuciones variables | ptgas-lab-temp-vars
+                    Complemento de productividad | ptgas-lab-temp-prod
+                    Otras retribuciones variables | ptgas-lab-temp-otvars
+        Personal eventual | ptgas-ev
+            Retribuciones fijas | ptgas-ev-fijas
+                Retribuciones básicas | ptgas-ev-bas
+                    Sueldo | ptgas-ev-sueldo
+                    Trienios | ptgas-ev-trienios
+                Retribuciones complementarias | ptgas-ev-comp
+                    Complemento de destino | ptgas-ev-dst
+                    Complemento específico general | ptgas-ev-esp
+                    Complemento por desarrollo de la carrera profesional horizontal | ptgas-ev-cprof
+                    Otros complementos fijos | ptgas-ev-otfij
+                Retribuciones básicas y complementarias | ptgas-ev-bas-comp
+                    Paga extraordinaria | ptgas-ev-paga-extra
+            Retribuciones variables | ptgas-ev-vars
+                Complemento de productividad | ptgas-ev-prod
+                Otras retribuciones variables | ptgas-ev-otvars
+        Personal directivo | ptgas-dir
+            Retribuciones fijas | ptgas-dir-fijas
+                Retribuciones básicas | ptgas-dir-bas
+                    Sueldo | ptgas-dir-sueldo
+                    Trienios | ptgas-dir-trienios
+                Retribuciones complementarias | ptgas-dir-comp
+                    Complemento de destino | ptgas-dir-dst
+                    Complemento específico general | ptgas-dir-esp
+                    Otros complementos fijos | ptgas-dir-otfij
+                Retribuciones básicas y complementarias | ptgas-dir-bas-comp
+                    Paga extraordinaria | ptgas-dir-paga-extra
+            Retribuciones variables | ptgas-dir-vars
+                Complemento de productividad | ptgas-dir-prod
+                Otras retribuciones variables | ptgas-dir-otvars
+    Costes del Personal Investigador laboral y de otro personal | salario-piyotper
+        Personal investigador en formación | piyotper-pif
+            Retribuciones fijas | piyotper-pif-fijas
+                Retribuciones básicas | piyotper-pif-bas
+                    Sueldo | piyotper-pif-sueldo
+                    Trienios | piyotper-pif-trienios
+                Retribuciones complementarias | piyotper-pif-comp
+                    Complemento de destino | piyotper-pif-dst
+                    Complemento específico general | piyotper-pif-esp
+                    Otros complementos fijos | piyotper-pif-otfij
+                Retribuciones básicas y complementarias | piyotper-pif-bas-comp
+                    Paga extraordinaria | piyotper-pif-paga-extra
+            Retribuciones variables | piyotper-pif-vars
+                Complemento específico por cargos académicos | piyotper-pif-cargos
+                Complemento de productividad | piyotper-pif-prod
+                Otras retribuciones variables | piyotper-pif-otvars
+        Conferenciantes y profesores/as de titulaciones propias | piyotper-conferenciantes
+        Personal investigador contratado | piyotper-pic
+            Contrato de acceso de personal investigador doctor | piyotper-pid
+                Retribuciones fijas | piyotper-pid-fijas
+                    Retribuciones básicas | piyotper-pid-bas
+                        Sueldo | piyotper-pid-sueldo
+                        Trienios | piyotper-pid-trienios
+                    Retribuciones complementarias | piyotper-pid-comp
+                        Complemento de destino | piyotper-pid-dst
+                        Complemento específico general | piyotper-pid-esp
+                        Otros complementos fijos | piyotper-pid-otfij
+                    Retribuciones básicas y complementarias | piyotper-pid-bas-comp
+                        Paga extraordinaria | piyotper-pid-paga-extra
+                Retribuciones variables | piyotper-pid-vars
+                    Complemento específico por cargos académicos | piyotper-pid-cargos
+                    Complemento de productividad | piyotper-pid-prod
+                    Otras retribuciones variables | piyotper-pid-otvars
+            Contrato de investigador/a distinguido/a | piyotper-idi
+                Retribuciones fijas | piyotper-idi-fijas
+                    Retribuciones básicas | piyotper-idi-bas
+                        Sueldo | piyotper-idi-sueldo
+                        Trienios | piyotper-idi-trienios
+                    Retribuciones complementarias | piyotper-idi-comp
+                        Complemento de destino | piyotper-idi-dst
+                        Complemento específico general | piyotper-idi-esp
+                        Otros complementos fijos | piyotper-idi-otfij
+                    Retribuciones básicas y complementarias | piyotper-idi-bas-comp
+                        Paga extraordinaria | piyotper-idi-paga-extra
+                Retribuciones variables | piyotper-idi-vars
+                    Complemento específico por cargos académicos | piyotper-idi-cargos
+                    Complemento de productividad | piyotper-idi-prod
+                    Otras retribuciones variables | piyotper-idi-otvars
+        Personal con contrato de actividades científico-técnicas | piyotper-act
+            Retribuciones fijas | piyotper-act-fijas
+                Retribuciones básicas | piyotper-act-bas
+                    Sueldo | piyotper-act-sueldo
+                    Trienios | piyotper-act-trienios
+                Retribuciones complementarias | piyotper-act-comp
+                    Complemento de destino | piyotper-act-dst
+                    Complemento específico general | piyotper-act-esp
+                    Otros complementos fijos | piyotper-act-otfij
+                Retribuciones básicas y complementarias | piyotper-act-bas-comp
+                    Paga extraordinaria | piyotper-act-paga-extra
+            Retribuciones variables | piyotper-act-vars
+                Complemento específico por cargos académicos | piyotper-act-cargos
+                Complemento de productividad | piyotper-act-prod
+                Otras retribuciones variables | piyotper-act-otvars
+        Conferenciantes y profesores/as de titulaciones oficiales | piyotper-conf-y-pto
+    Cotizaciones sociales a cargo del empleador | ss
+        De PDI funcionario | ss-pdi-func
+        De PDI laboral contratado | ss-pdi-lab-contratado
+        De Personal Técnico, de Gestión y de Administración y Servicios | ss-ptgas
+        SIN USO | suprimir1
+        SIN USO | suprimir2
+        De Personal Investigador laboral y otro personal | ss-pi-otpersonal
+    Previsión social de funcionarios (costes calculados) | prevsoc-funcs
+        Del PDI funcionario | prevsoc-funcs-pdi
+        Del PTGAS funcionario | prevsoc-funcs-ptgas
+    Indemnizaciones | indem
+    Otros costes sociales | otcsoc
+        Acción social | acsoc
+            PDI funcionario | acsoc-pdi-func
+                Catedráticos/as de Universidad | acsoc-pdi-cu
+                Profesores/as Titulares de Universidad | acsoc-pdi-tu
+            PDI laboral contratado | acsoc-pdi-lab
+                Profesores/as Ayudantes Doctores/as | acsoc-pdi-aj
+                Profesores/as Asociados/as | acsoc-pdi-as
+                Profesores/as Sustitutos/as | acsoc-pdi-ps
+                Profesores/as Eméritos/as | acsoc-pdi-em
+                Profesores/as Permanentes Laborales | acsoc-pdi-pl
+                Profesores/as Visitantes | acsoc-pdi-pv
+                Profesores/as Distinguidos/as | acsoc-pdi-pd
+            PTGAS funcionario | acsoc-ptgas-func
+            PTGAS laboral | acsoc-ptgas-lab
+                PTGAS laboral fijo | acsoc-ptgas-lab-fijo
+                PTGAS laboral indefinido no fijo | acsoc-ptgas-lab-nofijo
+                PTGAS laboral temporal | acsoc-ptgas-lab-temp
+            Personal eventual | acsoc-ptgas-ev
+            Personal directivo | acsoc-ptgas-dir
+            Personal investigador en formación | acsoc-pif
+            Conferenciantes y profesores/as de titulaciones propias | acsoc-confytp
+            Personal investigador contratado | acsoc-pic
+            Personal con contrato de actividades científico-técnicas | acsoc-act
+        Formación y perfeccionamiento del personal | formación
+            PDI funcionario | formación-pdi-func
+                Catedráticos/as de Universidad | formación-pdi-cu
+                Profesores/as Titulares de Universidad | formación-pdi-tu
+            PDI laboral contratado | formación-pdi-lab
+                Profesores/as Ayudantes Doctores/as | formación-pdi-aj
+                Profesores/as Asociados/as | formación-pdi-as
+                Profesores/as Sustitutos/as | formación-pdi-ps
+                Profesores/as Eméritos/as | formación-pdi-em
+                Profesores/as Permanentes Laborales | formación-pdi-pl
+                Profesores/as Visitantes | formación-pdi-pv
+                Profesores/as Distinguidos/as | formación-pdi-pd
+            PTGAS funcionario | formación-ptgas-func
+            PTGAS laboral | formación-ptgas-lab
+                PTGAS laboral fijo | formación-ptgas-lab-fijo
+                PTGAS laboral indefinido no fijo | formación-ptgas-lab-nofijo
+                PTGAS laboral temporal | formación-ptgas-lab-temp
+            Personal eventual | formación-ptgas-ev
+            Personal directivo | formación-ptgas-dir
+            Personal investigador en formación | formación-pif
+            Personal investigador contratado | formación-pic
+            Personal con contrato de actividades científico-técnicas | formación-act
+        Seguros | seguros
+            PDI funcionario | seguros-pdi-func
+                Catedráticos/as de Universidad | seguros-pdi-cu
+                Profesores/as Titulares de Universidad | seguros-pdi-tu
+            PDI laboral contratado | seguros-pdi-lab
+                Profesores/as Ayudantes Doctores/as | seguros-pdi-aj
+                Profesores/as Asociados/as | seguros-pdi-as
+                Profesores/as Sustitutos/as | seguros-pdi-ps
+                Profesores/as Eméritos/as | seguros-pdi-em
+                Profesores/as Permanentes Laborales | seguros-pdi-pl
+                Profesores/as Visitantes | seguros-pdi-pv
+                Profesores/as Distinguidos/as | seguros-pdi-pd
+            PTGAS funcionario | seguros-ptgas-func
+            PTGAS laboral | seguros-ptgas-lab
+                PTGAS laboral fijo | seguros-ptgas-lab-fijo
+                PTGAS laboral indefinido no fijo | seguros-ptgas-lab-nofijo
+                PTGAS laboral temporal | seguros-ptgas-lab-temp
+            Personal eventual | seguros-ptgas-ev
+            Personal directivo | seguros-ptgas-dir
+            Personal investigador en formación | seguros-pif
+            Conferenciantes y profesores/as de titulaciones propias | seguros-confytp
+            Personal investigador contratado | seguros-pic
+            Personal con contrato de actividades científico-técnicas | seguros-act
+        Otros costes sociales | otcsoc-otros
+            PDI funcionario | otcsoc-otpdi-func
+                Catedráticos/as de Universidad | otcsoc-otpdi-cu
+                Profesores/as Titulares de Universidad | otcsoc-otpdi-tu
+            PDI laboral contratado | otcsoc-otpdi-lab
+                Profesores/as Ayudantes Doctores/as | otcsoc-otpdi-aj
+                Profesores/as Asociados/as | otcsoc-otpdi-as
+                Profesores/as Sustitutos/as | otcsoc-otpdi-ps
+                Profesores/as Eméritos/as | otcsoc-otpdi-em
+                Profesores/as Permanentes Laborales | otcsoc-otpdi-pl
+                Profesores/as Visitantes | otcsoc-otpdi-pv
+                Profesores/as Distinguidos/as | otcsoc-otpdi-pd
+            PTGAS funcionario | otcsoc-otptgas-func
+            PTGAS laboral | otcsoc-otptgas-lab
+                PTGAS laboral fijo | otcsoc-otptgas-lab-fijo
+                PTGAS laboral indefinido no fijo | otcsoc-otptgas-lab-nofijo
+                PTGAS laboral temporal | otcsoc-otptgas-lab-temp
+            Personal eventual | otcsoc-otptgas-ev
+            Personal directivo | otcsoc-otptgas-dir
+            Personal investigador en formación | otcsoc-otpif
+            Conferenciantes y profesores/as de titulaciones propias | otcsoc-otconfytp
+            Personal investigador contratado | otcsoc-otpic
+            Personal con contrato de actividades científico-técnicas | otcsoc-otact
+    Indemnizaciones por razón de servicio | indemnizaciones-servicio
+        PDI funcionario | indemnizaciones-servicio-pdi-func
+            Catedráticos/as de Universidad | indemnizaciones-servicio-pdi-cu
+            Profesores/as Titulares de Universidad | indemnizaciones-servicio-pdi-tu
+        PDI laboral contratado | indemnizaciones-servicio-pdi-lab
+            Profesores/as Ayudantes Doctores/as | indemnizaciones-servicio-pdi-aj
+            Profesores/as Asociados/as | indemnizaciones-servicio-pdi-as
+            Profesores/as Sustitutos/as | indemnizaciones-servicio-pdi-ps
+            Profesores/as Eméritos/as | indemnizaciones-servicio-pdi-em
+            Profesores/as Permanentes Laborales | indemnizaciones-servicio-pdi-pl
+            Profesores/as Visitantes | indemnizaciones-servicio-pdi-pv
+            Profesores/as Distinguidos/as | indemnizaciones-servicio-pdi-pd
+        PTGAS funcionario | indemnizaciones-servicio-ptgas-func
+        PTGAS laboral | indemnizaciones-servicio-ptgas-lab
+            PTGAS laboral fijo | indemnizaciones-servicio-ptgas-lab-fijo
+            PTGAS laboral indefinido no fijo | indemnizaciones-servicio-ptgas-lab-nofijo
+            PTGAS laboral temporal | indemnizaciones-servicio-ptgas-lab-temp
+        Personal eventual | indemnizaciones-servicio-ptgas-ev
+        Personal directivo | indemnizaciones-servicio-ptgas-dir
+        Personal investigador en formación | indemnizaciones-servicio-pif
+        Conferenciantes y profesores/as de titulaciones propias | indemnizaciones-servicio-confytp
+        Personal investigador contratado | indemnizaciones-servicio-pic
+        Personal con contrato de actividades científico-técnicas | indemnizaciones-servicio-act
+    Otras indemnizaciones | otindemn
+        PDI funcionario | otindemn-pdi-func
+            Catedráticos/as de Universidad | otindemn-pdi-cu
+            Profesores/as Titulares de Universidad | otindemn-pdi-tu
+        PDI laboral contratado | otindemn-pdi-lab
+            Profesores/as Ayudantes Doctores/as | otindemn-pdi-aj
+            Profesores/as Asociados/as | otindemn-pdi-as
+            Profesores/as Sustitutos/as | otindemn-pdi-ps
+            Profesores/as Eméritos/as | otindemn-pdi-em
+            Profesores/as Permanentes Laborales | otindemn-pdi-pl
+            Profesores/as Visitantes | otindemn-pdi-pv
+            Profesores/as Distinguidos/as | otindemn-pdi-pd
+        PTGAS funcionario | otindemn-ptgas-func
+        PTGAS laboral | otindemn-ptgas-lab
+            PTGAS laboral fijo | otindemn-ptgas-lab-fijo
+            PTGAS laboral indefinido no fijo | otindemn-ptgas-lab-nofijo
+            PTGAS laboral temporal | otindemn-ptgas-lab-temp
+        Personal eventual | otindemn-ptgas-ev
+        Personal directivo | otindemn-ptgas-dir
+        Personal investigador en formación | otindemn-pif
+        Conferenciantes y profesores/as de titulaciones propias | otindemn-confytp
+        Personal investigador contratado | otindemn-pic
+        Personal con contrato de actividades científico-técnicas | otindemn-act
+    Transporte de personal | transp-personal
+Coste de becarios | suprimir
+Coste de adquisición de bienes y servicios | bienes-servicios
+    Coste de materiales para la docencia | material-docencia
+    Coste de materiales de reprografía e imprenta | reprografía-imprenta
+    Coste de material e instrumental de laboratorio y experimentación | material-laboratorio
+    Coste de material deportivo y cultural | material-deportivo-cultural
+    Coste de fotocopias | fotocopias
+    Coste de vestuario | vestuario
+    Coste de productos farmacéuticos y material sanitario | farmacia
+    Coste de material de oficina ordinario no inventariable | material-oficina
+    Coste de material informático | material-informático
+    Coste de prensa, revistas, libros y otras publicaciones | publicaciones
+    Coste de adquisición de bienes asociados a proyectos de investigación | bienes-investigación
+    Trabajos realizados por otras empresas | trabajos-otras-empresas
+    Otras adquisiciones de bienes y servicios | otros-bienes-servicios
+Coste de servicios exteriores | servicios-exteriores
+    Arrendamientos y cánones | arrendamientos-canones
+        De terrenos y bienes naturales | arrendamientos-terrenos
+        De construcciones | arrendamientos-construcciones
+        De instalaciones técnicas | arrendamientos-instalaciones
+        De maquinaria | arrendamientos-maquinaria
+        De utillaje | arrendamientos-utillaje
+        De mobiliario | arrendamientos-mobiliario
+        De equipos para procesos de información | arrendamientos-equipos-informáticos
+        De elementos de transporte | arrendamientos-transporte
+        De otro inmovilizado material | arrendamientos-otro-inmovilizado-material
+        De aplicaciones informáticas | arrendamientos-aplicaciones-informáticas
+        Cánones | cánones
+        Otros arrendamientos | otros-arrendamientos
+    Reparaciones y conservación | conservación
+        De terrenos y bienes naturales | conservación-terrenos
+        De construcciones | conservación-construcciones
+        De instalaciones técnicas | conservación-instalaciones
+        De maquinaria | conservación-maquinaria
+        De utillaje | conservación-utillaje
+        De mobiliario | conservación-mobiliario
+        De inversiones destinadas al uso general | conservación-inversiones-uso-general
+        De fotocopiadoras | conservación-fotocopiadoras
+        De equipos para procesos de información | conservación-equipos-información
+        De elementos de transporte | conservación-transporte
+        De otro inmovilizado material | conservación-otro-inmovilizado-material
+        De equipos de laboratorio | conservación-equipos-lab
+        De aplicaciones informáticas | conservación-aplicinf
+        Otras reparaciones y conservación | otras-conservaciones
+    Servicios de profesionales independientes | servicios-profesionales
+    Transportes | transportes
+    Primas de seguro | primas-seguro
+    Servicios bancarios y similares | servicios-bancarios
+    Publicidad, propaganda y relaciones públicas | publicidad-relaciones-públicas
+        Publicidad y propaganda | publicidad
+        Relaciones públicas | relaciones-públicas
+    Suministros | suministros
+        Energía eléctrica | energía-eléctrica
+        Agua | agua
+        Gas | gas
+        Combustibles | combustibles
+        Otros suministros | otros-suministros
+    Comunicaciones | comunicaciones
+        Comunicaciones de voz y datos | voz-datos
+        Comunicaciones telefónicas | telefonía
+        Comunicaciones informáticas | comunicaciones-informáticas
+        Comunicaciones postales | correo
+        Otras comunicaciones | otras-comunicaciones
+    Limpieza y aseo | limpieza-aseo
+    Seguridad y vigilancia | seguridad
+    Costes diversos | costes-diversos
+    Publicación-Revistas-Científicas | publicación-en-revistas-científicas
+Coste de tributos | tributos
+    Tributos estatales | tributos-estatales
+    Tributos autónomicos | tributos-autonómicos
+    Tributos locales | tributos-locales
+Costes financieros | costes-financieros
+    Intereses de préstamos | intereses-préstamos
+    Otros costes financieros | otros-costes-financieros
+Amortizaciones (costes calculados) | amortizaciones
+    Del inmovilizado material | amortización-inmovilizado-material
+        De construcciones | amortización-construcciones
+        De instalaciones técnicas | amortización-instalaciones
+        De maquinaria | amortización-maquinaria
+        De utillaje | amortización-utillaje
+        De mobiliario | amortización-mobiliario
+        De equipos para proceso de información | amortización-equipos-informáticos
+        De fotocopiadoras | amortización-fotocopiadoras
+        De elementos de transporte | amortización-transporte
+        De equipos de laboratorio | amortización-laboratorio
+        De otro inmovilizado material | amortización-otro-inmovilizado-material
+    Del inmovilizado inmaterial | amortización-inmovilizado-inmaterial
+        De aplicaciones informáticas | amortización-aplicaciones-informáticas
+        De otro inmovilizado inmaterial | amortización-otro-inmovilizado-inmaterial
+Costes de oportunidad (costes calculados) | costes-oportunidad
+Transferencias | transferencias
+    A alumnos/as | transferencias-alumnos
+    A organizaciones del grupo | transferencias-organizaciones-grupo
+    A otras organizaciones | transferencias-otras-organizaciones

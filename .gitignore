@@ -1,0 +1,14 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+data/**/_parquet
+data/fase1
+tmp/
+mejora_*
+# Virtual environments
+.venv
+.DS_Store

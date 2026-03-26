@@ -1,0 +1,46 @@
+Tasas, precios públicos y otros ingresos | tasas-precios-y-otros
+    Tasas | tasas
+        Tasas académicas | tasas-academicas
+        Otras tasas | tasas-otras
+    Precios públicos | pp
+        Precios públicos por docencia oficial | pp-docencia-oficial
+        Otros precios públicos | pp-otros
+    Otros ingresos procedentes de prestaciones de servicios | otros-ingresos-servicios
+        Derechos de matrícula en cursos y seminarios de enseñanzas propias | derechos-matricula
+        Derechos de examen y selección de personal | derechos-examen
+        Servicios prestados por unidades de apoyo a la investigación | servicios-apoyo-investigacion
+        Servicios científico técnicos | servicios-cientifico-tecnicos
+        Contratos del artículo 60 de la LOU | contratos-articulo-60
+        Entradas a museos, exposiciones, espectáculos, etcétera. | entradas
+        Servicios de alojamiento, restauración, residencia y otros | servicios-alojamiento
+        Servicios deportivos universitarios | servicios-deportivos
+        Otros ingresos por servicios | otros-ingresos-servicios-varios
+    Venta de bienes | venta-bienes
+        Venta de publicaciones propias | venta-publicaciones
+        Otras ventas de bienes | venta-otros-bienes
+    Otros ingresos | otros-ingresos
+Transferencias corrientes | transferencias-corrientes
+    De la Administración del Estado | tcorr-estado
+    De entes autónomos | tcorr-entes-autonomos
+    De la Seguridad Social | tcorr-seguridad-social
+    De Comunidades Autónomas | tcorr-comunidades-autonomas
+    De corporaciones locales | tcorr-corporaciones-locales
+    De empresas privadas | tcorr-empresas-privadas
+    De familias e instituciones sin fines de lucro | tcorr-familias
+    Del exterior | tcorr-exterior
+        Por proyectos de programas europeos | tcorr-proyectos-europeos
+        Otras transferencias del exterior | tcorr-otras-exteriores
+    Otras transferencias corrientes | tcorr-otras
+Transferencias de capital | transferencias-capital
+    De la Administración del Estado | tcap-estado
+    De entes autónomos | tcap-entes-autonomos
+    De Comunidades Autónomas | tcap-comunidades-autonomas
+    De corporaciones locales | tcap-corporaciones-locales
+    De empresas privadas | tcap-empresas-privadas
+    De familias e instituciones sin fines de lucro | tcap-familias
+    Del exterior | tcap-exterior
+    Otras transferencias de capital | tcap-otras
+Ingresos patrimoniales | patrimoniales
+Ingresos por enajenación de inversiones reales | enajenacion-inversiones
+Ingresos procedentes de activos financieros | activos-financieros
+Ingresos calculados | calculados

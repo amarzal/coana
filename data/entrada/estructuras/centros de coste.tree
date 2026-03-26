@@ -1,0 +1,233 @@
+Centros de docencia | docencia
+    Facultades y escuelas | facultades-escuelas
+        Escuela Superior de Tecnología y Ciencias Experimentales | estce
+        Facultad de Ciencias Humanas y Sociales | fchs
+        Facultad de Ciencias Jurídicas y Económicas | fcje
+        Facultad de Ciencias de la Salud | fcs
+    Aulas y laboratorios docentes | aulas-laboratorios-docentes
+        Aulas Escuela Superior de Tecnología y Ciencias Experimentales | aulas-estce
+        Aulas Facultad de Ciencias Humanas y Sociales | aulas-fchs
+        Aulas Facultad de Ciencias Jurídicas y Económicas | aulas-fcje
+        Aulas Facultad de Ciencias de la Salud | aulas-fcs
+    Otros centros docentes | otros-docentes
+        Universidad de los Mayores | universidad-mayores
+Centros de investigación | investigación
+    Institutos de investigación | institutos
+        Instituto Interuniversitario de Desarrollo Local | iidl
+        Instituto Interuniversitario de Desarrollo Social y Paz | idsp
+        Instituto Interuniversitario de Economía Internacional | iei
+        Instituto Interuniversitario de Filología Valenciana | ifv
+        Instituto Interuniversitario de Geografía | iigeo
+        Instituto Interuniversitario de Lenguas Modernas y Aplicadas | ilma
+        Instituto Interuniversitario López Piñero | ii-lópez-piñero
+        Instituto Universitario de Derecho del Transporte | iudt
+        Instituto Universitario de Estudios Feministas y de Género Purificación Escribano | iuef
+        Instituto Universitario de Matemáticas y Aplicaciones de Castellón | imac
+        Instituto Universitario de Materiales Avanzados | inam
+        Instituto Universitario de Nuevas Tecnologías de la Imagen | init
+        Instituto Universitario de Plaguicidas y Aguas - LARP | iupa
+        Instituto Universitario de Tecnología Cerámica Agustín Escardino | iutc
+        Instituto Universitario de Turismo | iuturismo
+        Instituto Universitario en Ciencias de la Educación | iuce
+    Centros y unidades de investigación | centros-unidades-investigación
+    Laboratorios de investigación | laboratorios-investigación
+    Cátedras de investigación | cátedras-investigación
+        Cátedra INCREA | cátedras-investigación-1I201
+    Otros centros de investigación | otros-investigación
+Centros de docencia e investigación | docencia-investigación
+    Departamentos | departamentos
+        Departamento de Administración de Empresas y Marketing | daem
+        Departamento de Biología, Bioquímica i Ciencias Naturales | dbbcn
+        Departamento de Ciencias de la Comunicación | dcc
+        Departamento de Derecho Privado | ddpri
+        Departamento de Derecho Público | ddpub
+        Departamento de Economía | deco
+        Departamento de Educación y Didácticas Específicas | dede
+        Departamento de Estudios Ingleses | dea
+        Departamento de Filología y Culturas Europeas | dfce
+        Departamento de Filosofía y Sociología | dfs
+        Departamento de Finanzas y Contabilidad | dfc
+        Departamento de Física | dfis
+        Departamento de Historia, Geografía y Arte | dhga
+        Departamento de Ingeniería de Sistemas Industriales y Diseño | desid
+        Departamento de Ingeniería Mecánica y Construcción | dmc
+        Departamento de Ingeniería Química | deq
+        Departamento de Ingeniería y Ciencia de los Computadores | dicc
+        Departamento de Lenguajes y Sistemas Informáticos | dlsi
+        Departamento de Matemáticas | dmat
+        Departamento de Pedagogia y Didáctica de las Ciencias Sociales, la Lengua y la Literatura | dpdcsll
+        Departamento de Psicología Básica, Clínica y Psicobiología | dpbcp
+        Departamento de Psicología Evolutiva, Educativa, Social y Metodología | dpeesm
+        Departamento de Química Física y Analítica | dqfa
+        Departamento de Química Inorgánica y Orgánica | dqio
+        Departamento de Traducción y Comunicación | dtc
+        Unidad Predepartamental de Derecho del Trabajo y Seguridad Social y Eclesiástico del Estado | updtssee
+        Unidad Predepartamental de Enfermería | upi
+        Unidad Predepartamental de Medicina | upm
+    Escuela de doctorado | ed
+    Laboratorios de docencia e investigación | laboratorios-docencia-investigación
+    Otros centros de docencia e investigación | otros-docentes-investigación
+Centros de apoyo a docencia e investigación | apoyo-docencia-investigación
+    Bibliotecas | bibliotecas
+    Otras unidades de apoyo a la docencia | otros-apoyo-docencia
+        Centro de Educación y Nuevas Tecnologías | cent
+        Unidad de Formación e Innovación Educativa | ufie
+        Servicio de Gestión de la Docencia y Estudiantado | sgde
+        Oficina de Estudios | oe
+        Oficina de Inserción Profesional y Estancias en Prácticas | oipep
+        Oficina de Planificación y Prospectiva | opp
+        Unidad de Orientación | uo
+    Otras unidades de apoyo a la investigación | otros-apoyo-investigación
+        Oficina de Cooperación en Investigación y Transferencia | ocit
+        Servicio Central de Instrumentación Científica | scic
+        Servicio de Experimentación Animal | sea
+    Otras unidades de apoyo | otros-apoyo
+        Invernadero | invernadero
+        Talleres | talleres
+        Laboratorio de Comunicación (LabCom) | labcom
+        Sala de Disección | sala-disección
+Centros de extensión universitaria y deportes | extensión-universitaria-deportes
+    Centros de actividades culturales | actividades-culturales
+        Servicio de Actividades Socioculturales | sasc
+        Paraninfo | paraninfo
+        Llotja del Cànem | llotja-cànem
+        Galería Octubre | galeria-octubre
+    Centros de deportes | deportes
+        Servicio de Deportes | se
+        Instalaciones deportivas | instalaciones-deportivas
+            Pabellón Polideportivo Cubierto | pabellón-polideportivo-cubierto
+            Piscina Cubierta | piscina-cubierta
+            Edificio Pistas Cubiertas | edificio-pistas-cubiertas
+            Instalaciones deportivas aire libre: zona de raquetas | zona-raquetas
+            Instalaciones deportivas aire libre: pistas atletismo y campos deportes equipo | pistas-atletismo
+    Cooperación | cooperación
+        Oficina de Cooperación y Desarrollo Sostenible | ocds
+    Movilidad | movilidad
+    Unidad de Dinamización y Participación de Estudiantado y Asociaciones | udpea
+    Otros centros de extensión universitaria y deportes | otros-extensión-universitaria-deportes
+        Unidad de Divulgación Científica y Ciencia Ciudadana | unidad-divulgación-científica
+        Campus Obert - Seu Penyagolosa | campus-obert-seu-penyagolosa
+        Campus Obert - Seu del Nord | campus-obert-seu-del-nord
+        Campus Obert - Seu de l'interior | campus-obert-seu-interior
+        Campus Obert - Seu dels Ports | campus-obert-seu-ports
+        Campus Obert - Seu Camp de Morvedre | campus-obert-seu-camp-morvedre
+        Casa de los Estudiantes | casa-estudiantes
+Centros de soporte | soporte
+    Rectorado | área-rectorado
+        Rectorado | rectorado
+        Delegado de la rectora para la Transformación Docente, la Comunicación y la Dirección del Gabinete | delegado
+        Síndico de Agravios | síndico-agravios
+        Inspección de Servicios | inspección-servicios
+    Vicerrectorados | vicerrectorados
+        Vicerrectorado de Investigación | vi
+        Vicerrectorado de Estudios y Formación Permanente | vefp
+        Vicerrectorado de Ordenación Académica y Profesorado | voap
+        Vicerrectorado de Estudiantado y Vida Saludable | vevs
+        Vicerrectorado de Relaciones Internacionales | vri
+        Vicerrectorado de Innovación, Transferencia y Divulgación Científica | vitdc
+        Vicerrectorado de Responsabilidad Social, Políticas Inclusivas e Igualdad | vrspii
+        Vicerrectorado de Cultura, Lenguas y Sociedad | vcls
+        Vicerrectorado de Infraestructuras y Sostenibilidad | vis
+        Vicerrectorado de Planificación Económica y Estratégica | vpee
+    Secretaría General | área-secretaria-general
+        Secretaría General | secretaría-general
+        Asesoría Jurídica | asesoría-jurídica
+        Junta Electoral | junta-electoral
+    Gerencia | gerencia
+    Órganos colegiados | órganos-colegiados
+        Consejo Social | consejo-social
+        Consejo de Estudiantes | consejo-estudiantes
+    Servicios generales y centrales | servicios-generales-centrales
+        Servicio de Contratación y Asuntos Generales | scag
+        Servicio de Control Interno | sci
+        Servicio de Gestión Económica | sge
+        Servicio de Información Contable | sic
+        Servicio de Recursos Humanos | srh
+        Unidad de Gestión de la Investigación, Transferencia y Justificaciones | ugitj
+        Unidad de Encargos, Convenios y Subvenciones | gencisub
+        Conserjerías | ps
+            Conserjería Escuela Superior de Tecnología y Ciencias Experimentales | ps-estce
+            Conserjería Facultad de Ciencias Humanas y Sociales | ps-fchs
+            Conserjería Facultad de Ciencias Jurídicas y Económicas | ps-fcje
+            Conserjería Facultad de Ciencias de la Salud | ps-fcs
+            Conserjería Edificio Rectorado | ps-rectorado
+            Conserjería Edificio Escuela de Doctorado y Consejo Social | ps-escuela-doctorado-consejo-social
+            Conserjería Edificio de Investigación 1 | ps-investigación-1
+            Conserjería Edificio de Investigación 2 | ps-investigación-2
+            Conserjería Edificio Espaitec 2 | ps-espaitec-2
+    Otros servicios de soporte | otros-servicios-soporte
+        Servicio de Comunicación y Publicaciones | scp
+        Servicio de Lenguas y Terminología | slt
+        Observatorio Lingüístico | ol
+        Oficina de Prevención, Promoción de la Salud y Medioambiente | oppsm
+        Servicio de Informática | si
+        Unidad de Análisis y Desarrollo TI | uadti
+        Unidad de Infraestructuras Informáticas de Campus | uiic
+        Oficina Técnica de Obras y Proyectos | otop
+        Oficina de Información y Registro (InfoCampus) | oir
+        Oficina de Promoción y Evaluación de la Calidad | opaq
+        Oficina de Relaciones Internacionales | ori
+        Oficina de Innovación y Auditoría TI | oiati
+        Unidad de Diversidad y Discapacidad | udd
+        Unidad de Igualdad | ui
+Centros anexos | anexos
+    Fundaciones | fundaciones
+        Fundación General de la Universitat Jaume I | fugen
+        Fundación Universidad Jaume I-Empresa | fue
+        Fundación Isonomía | isonomia
+        Fundación Germà Colón i Doménech | fgc
+    Tiendas Universitarias | tiendas-universitarias
+        Local Ágora G02 - Quiosco | papelería
+        Local Ágora G05 - Dentista | dentista
+        Local Ágora G06 - Reprografía | reprografía
+        Local Ágora G07-G08 - Óptica Universitaria | óptica-universitaria
+        Local Ágora G17 - Banco de Santander | banco-santander
+    Otros centros anexos | otros-anexos
+        Residencia universitaria | residencia-universitaria
+        Escuela infantil | escuela-infantil
+        Bares y cafeterías | bares-cafeterías
+            Cafetería Escuela Superior de Tecnología y Ciencias Experimentales | cafetería-estce
+            Cafetería Facultad de Ciencias Humanas y Sociales | cafetería-fchs
+            Cafetería Facultad de Ciencias Jurídicas y Económicas | cafetería-fcje
+            Cafetería Facultad de Ciencias de la Salud | cafetería-fcs
+            Restaurante Ágora | restaurante-agora
+            Quiosc Jardí dels Sentits | quiosc-jardí-sentits
+            Quiosc Jardí del Temps | quiosc-jardí-temps
+        Centro sanitario | centro-sanitario
+Centros-Agrupaciones de costes | centros-agrupaciones-costes
+    Locales vacíos | locales-vacios
+    Locales sindicales | locales-sindicales
+        Locales UGT | locales-ugt
+        Locales CCOO | locales-ccoo
+        Locales STEPV | locales-stepv
+        Locales CSIF | locales-csif
+    Locales de fundaciones y de otras entidades con personalidad jurídica propia | locales-fundaciones-y-otros
+        Locales de la Fundación Soler i Godes | locales-fundación-soler-godes
+        Locales de la Xarxa Lluís Vives | locales-xarxa-lluís-vives
+        Locales de SAUJI | locales-sauji
+        Locales de CEFIRE | locales-cefire
+        Locales de Asociaciones UJI | locales-asociaciones-uji
+        Locales de Espaitec 1 en alquiler | locales-espaitec-1
+        Locales de Espaitec 2 en alquiler | locales-espaitec-2
+        Locales de Etnor | locales-etnor
+    Otras agrupaciones de costes | otros-agrupaciones
+Centros intermedios de coste | centros-intermedios-coste
+    Edificios y dependencias comunes | edificios-dependencias-comunes
+        Edificio Rectorado | edificio-rectorado
+        Edificio de Servicios Generales y Centrales y Deportes | edificio-servicios-generales-centrales
+        Edificio Escuela de Doctorado y Consejo Social | edificio-escuela-doctorado-consejo-social
+        Ágora (pendiente) | edificio-ágora
+        Edificio ESTCE | edificio-estce
+        Edificio FCHS | edificio-fchs
+        Edificio FCJE | edificio-fcje
+        Edificio FCS | edificio-fcs
+        Edificio de Investigación 1 | edificio-investigación-1
+        Edificio de Investigación 2 | edificio-investigación-2
+        Espaitec 1 | edificio-espaitec-1
+        Espaitec 2 | edificio-espaitec-2
+        Talleres ESTCE | edificio-talleres-estce
+        Edificio de CIRTESU | edificio-cirtesu
+        Edificio CIETD | edificio-cietd
+    Centro de Acometidas | edificio-acometidas
+    Galería de servicios | galería-servicios
+    Urbanización | urbanización

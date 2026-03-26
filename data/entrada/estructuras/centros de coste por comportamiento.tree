@@ -1,0 +1,155 @@
+Centros principales | principales
+    Departamentos | departamentos
+        Departamento de Administración de Empresas y Marketing | daem
+        Departamento de Biología, Bioquímica i Ciencias Naturales | dbbcn
+        Departamento de Ciencias de la Comunicación | dcc
+        Departamento de Derecho Privado | ddpri
+        Departamento de Derecho Público | ddpub
+        Departamento de Economía | deco
+        Departamento de Educación y Didácticas Específicas | dede
+        Departamento de Estudios Ingleses | dea
+        Departamento de Filología y Culturas Europeas | dfce
+        Departamento de Filosofía y Sociología | dfs
+        Departamento de Finanzas y Contabilidad | dfc
+        Departamento de Física | dfis
+        Departamento de Historia, Geografía y Arte | dhga
+        Departamento de Ingeniería de Sistemas Industriales y Diseño | desid
+        Departamento de Ingeniería Mecánica y Construcción | dmc
+        Departamento de Ingeniería Química | deq
+        Departamento de Ingeniería y Ciencia de los Computadores | dicc
+        Departamento de Lenguajes y Sistemas Informáticos | dlsi
+        Departamento de Matemáticas | dmat
+        Departamento de Pedagogia y Didáctica de las Ciencias Sociales, la Lengua y la Literatura | dpdcsll
+        Departamento de Psicología Básica, Clínica y Psicobiología | dpbcp
+        Departamento de Psicología Evolutiva, Educativa, Social y Metodología | dpeesm
+        Departamento de Química Física y Analítica | dqfa
+        Departamento de Química Inorgánica y Orgánica | dqio
+        Departamento de Traducción y Comunicación | dtc
+        Unidad Predepartamental de Derecho del Trabajo y Seguridad Social y Eclesiástico del Estado | updtssee
+        Unidad Predepartamental de Enfermería | upi
+        Unidad Predepartamental de Medicina | upm
+    Facultades y escuelas | facultades-escuelas
+        Escuela Superior de Tecnología y Ciencias Experimentales | estce
+        Facultad de Ciencias Humanas y Sociales | fchs
+        Facultad de Ciencias Jurídicas y Económicas | fcje
+        Facultad de Ciencias de la Salud | fcs
+    Escuela de doctorado | ed
+    Institutos | institutos
+        Instituto Interuniversitario de Desarrollo Local | iidl
+        Instituto Interuniversitario de Desarrollo Social y Paz | idsp
+        Instituto Interuniversitario de Economía Internacional | iei
+        Instituto Interuniversitario de Filología Valenciana | ifv
+        Instituto Interuniversitario de Geografía | iigeo
+        Instituto Interuniversitario de Lenguas Modernas y Aplicadas | ilma
+        Instituto Interuniversitario López Piñero | ii-lópez-piñero
+        Instituto Universitario de Derecho del Transporte | iudt
+        Instituto Universitario de Estudios Feministas y de Género Purificación Escribano | iuef
+        Instituto Universitario de Matemáticas y Aplicaciones de Castellón | imac
+        Instituto Universitario de Materiales Avanzados | inam
+        Instituto Universitario de Nuevas Tecnologías de la Imagen | init
+        Instituto Universitario de Plaguicidas y Aguas - LARP | iupa
+        Instituto Universitario de Tecnología Cerámica Agustín Escardino | iutc
+        Instituto Universitario de Turismo | iuturismo
+    Centros de investigación | centros-investigación
+        Cátedras de investigación | catedras-investigacion
+            Cátedra INCREA | cát-increa
+            Cátedras UNESCO | cát-unesco
+                Cátedra UNESCO de Filosofía para la Paz | cát-unesco-paz
+                Cátedra UNESCO Esclavitudes | cát-unesco-escl
+            Cátedra de Actividad Física y Oncología «Fundación José Soriano Ramos» | cát-oncologia
+            Cátedra l'Alcora de Investigación Musical y Calidad de Vida | cát-mus-alcora
+            Cátedra Altadia del Conocimiento Cerámico | cát-altadia
+            Cátedra de Análisis y Prospectiva del Audiovisual | cát-apa
+            Cátedra de Arquitectura Circular | cát-arqcirc
+            Cátedra Diputación de Patrimonio y Desarrollo Sostenible | cát-dipu-patdessost
+            Càtedra AVANT | cát-avant
+            Cátedra Bienvenido Oliver de Derecho Registral | cát-derecho-registral
+            Cátedra BP de Medio Ambiente Industrial | cát-bp-medambind
+            Cátedra de Brecha Digital y Territorio | cát-brechadig
+            Cátedra de Cohesión e Innovación Territorial | cát-cohinnoterr
+            Cátedra de Cooperación y Desarrollo Sostenible | cát-cds
+            Cátedra de Coordinación en Siniestros Viales | cát-coordsinvial
+            Cátedra Endavant Villarreal CF del Deporte | cát-endavant
+            Cátedra FACSA de Innovación del Ciclo Integral del Agua | cát-facsa
+            Cátedra Industria 4.0 | cát-ind4
+            Dental Science IAADent Chair | cát-dentalscience
+            Cátedra de Innovación Cerámica Ciutat de Vila-real | cát-innocer-vilareal
+            Cátedra de Mediación Policial Ciutat de Vila-real | cát-medpol-vilareal
+            Cátedra Reciplasa de Gestión de Residuos Urbanos | cát-reciplasa
+            Cátedra RTVE de Cultura Audiovisual y Alfabetización Mediática | cát-rtve
+            Cátedra del Sistema Público Valenciano de Servicios Sociales | cát-supservsoc
+            Cátedra Smart Ports | cát-smartports
+            Cátedra de Transformación del Modelo Económico | cát-transmodeco
+            Cátedra de Transparencia Pública | cát-transppub
+            Cátedra UBE de Plásticos Sostenibles | cát-ube
+            Aula de Arqueología Mediterránea | cát-arqueomed
+            Aula de Cerámica ASCER | cát-ascer
+            Aula Criminalidad Azul | cát-crim-azul
+            Aula Dávalos Fletcher de la Cultura | cát-davalos-fletcher
+            Aula Fundación Banco Sabadell de Promoción del Talento | cát-bsabadell-talento
+            Aula Fundación Torrecid de Liderazgo e Innovación | cát-torrecid
+            Aula Intur de Turismo | cát-intur
+            Aula Jazz Pharmaceuticals de Neurociencias | cát-jazzfarma
+            Aula Porcelanosa de Talento y Excelencia | cát-porcelanosa
+    Otros centros principales | otros-centros-principales
+Centros directivos, administrativos y generales (DAG) | cdag
+    Rectorado | rectorado
+        Rectorado | rect
+        Delegado de la rectora para la Transformación Docente, la Comunicación y la Dirección del Gabinete | drtdcdg
+    Vicerrectorados | vicerrectorados
+        Vicerrectorado de Investigación | vi
+        Vicerrectorado de Estudios y Formación Permanente | vefp
+        Vicerrectorado de Ordenación Académica y Profesorado | voap
+        Vicerrectorado de Estudiantado y Vida Saludable | vevs
+        Vicerrectorado de Relaciones Internacionales | vri
+        Vicerrectorado de Innovación, Transferencia y Divulgación Científica | vitdc
+        Vicerrectorado de Responsabilidad Social, Políticas Inclusivas e Igualdad | vrspii
+        Vicerrectorado de Cultura, Lenguas y Sociedad | vcls
+        Vicerrectorado de Infraestructuras y Sostenibilidad | vis
+        Vicerrectorado de Planificación Económica y Estratégica | vpee
+    Secretaría General | secgen
+    Gerencia | ger
+    Otros centros DAG | otros-centros-dag
+        Consejo Social | cs
+        Consejo del Estudiantado | ce
+        Junta Electoral | je
+        Síndico de Agravios | sa
+Centros auxiliares | auxiliares
+    Aulas y laboratorios docentes | aulas
+        Aulas Escuela Superior de Tecnología y Ciencias Experimentales | aulas-estce
+        Aulas Facultad de Ciencias Humanas y Sociales | aulas-fchs
+        Aulas Facultad de Ciencias Jurídicas y Económicas | aulas-fcje
+        Aulas Facultad de Ciencias de la Salud | aulas-fcs
+Centros anexos | anexos
+    Fundaciones | fundaciones
+        Fundación General de la Universitat Jaume I | fugen
+        Fundación Universidad Jaume I-Empresa | fue
+        Fundación Isonomía | isonomia
+        Fundación Germà Colón i Doménech | fgc
+    Tiendas Universitarias | tiendas-universitarias
+        Local A - Banco de Santander | banco-santander
+        Local B - Óptica Universitaria | optica-universitaria
+        Local C - Papelería | papeleria
+        Local D - Dentista | dentista
+    Otros centros anexos | otros-anexos
+        Residencia universitaria | residencia-universitaria
+        Escuela infantil | escuela-infantil
+        Bares y cafeterías | bares-cafeterías
+            Cafetería Escuela Superior de Tecnología y Ciencias Experimentales | cafetería-estce
+            Cafetería Facultad de Ciencias Humanas y Sociales | cafetería-fchs
+            Cafetería Facultad de Ciencias Jurídicas y Económicas | cafetería-fcje
+            Cafetería Facultad de Ciencias de la Salud | cafetería-fcs
+            Restaurante Ágora | restaurante-agora
+            Kiosko Jardí dels Sentits | kiosko-jardi-sentits
+            Kiosko Jardí del Temps | kiosko-jardi-temps
+        Servicio de reprografía | reprografia
+Centros mixtos | mixtos
+Centros-Agrupaciones de costes | agrupaciones-costes
+    Locales vacíos | locales-vacios
+    Locales sindicales | locales-sindicales
+        Locales UGT | locales-ugt
+        Locales CCOO | locales-ccoo
+        Locales STEPV | locales-stepv
+        Locales CSIF | locales-csif
+    Locales de asociaciones estudiantiles | locales-asociaciones-estudiantiles
+    Otras agrupaciones de costes | otras-agrupaciones-costes
