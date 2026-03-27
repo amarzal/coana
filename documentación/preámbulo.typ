@@ -6,6 +6,8 @@
 
 // --- Funciones auxiliares ---
 
+#let cebra = (_, y) => if y == 0 { blue.lighten(80%) } else if calc.odd(y) { gray.lighten(80%) }
+
 #let tree2dict(ruta) = {
     let líneas = read(ruta).split("\n")
 
@@ -138,6 +140,7 @@
     columns: 2,
     align: (left, left),
     stroke: none,
+    fill: cebra,
     table.header(
         table.hline(),
         table.cell(fill: gray.lighten(20%))[*Fichero/Campo*], table.cell(fill: gray.lighten(20%))[*Descripción*],
@@ -148,8 +151,8 @@
         (
             (
                 table.hline(stroke: .5pt),
-                table.cell(fill: gray.lighten(70%), ruta(fichero)),
-                table.cell(fill: gray.lighten(70%), contenido.descripción),
+                table.cell(fill: green.lighten(70%), ruta(fichero)),
+                table.cell(fill: green.lighten(70%), contenido.descripción),
                 ..for (c, descripción) in contenido.campos.pairs() {
                     (campo(c), descripción)
                 },

@@ -2,6 +2,7 @@
 #show: formato
 
 #set document(title: [Especificación #coana])
+#set table(fill: cebra, stroke: none)
 
 #align(center, title())
 
@@ -72,7 +73,7 @@ Se puede representar como una tabla con las siguientes filas:
     align(center, table(
         columns: 4,
         align: (left, left, left, left),
-        stroke: none,
+
         table.header(
             table.hline(),
             [*código*], [*nombre*], [*identificador*], [*padre*],
@@ -178,7 +179,7 @@ Las estructuras, descritas en ficheros `.tree`, son:
 #align(center, table(
     columns: 2,
     align: (left, left),
-    stroke: none,
+
     table.header(table.hline(), [*Fichero*], [], table.hline()),
 
     ruta("elementos de coste.tree"),
@@ -726,7 +727,6 @@ Desde el punto de vista de su implementación, una unidad de coste es un registr
 #align(center, table(
     columns: 2,
     align: (left, left),
-    stroke: none,
 
     table.header(table.hline(), [#strong[Campo]], [#strong[Descripción]], table.hline()),
 
@@ -931,12 +931,13 @@ El árbol que hemos de leer *y editar* para asignar actividades a los apuntes pr
 El árbol de actividades modificado por las reglas se ha de mostrar en la #app, con una opción de un desplegable #val("Presupuesto") para mostrarlo o descargarlo en formato `.tree`. Además, se ha de mostrar un resumen de la información que contiene, con el número de filas y el importe total de cada una de ellas. Los nodos añadidos se han de mostrar de un color distinto y se ha de indicar cuantos nodos se han añadido.
 
 ===== Conceptos previos
+
 Sean estos los #campo("tipo de proyecto") de investigación y transferencia:
 
 #align(center, table(
     columns: 2,
     align: (left, left),
-    stroke: none,
+
     table.header(table.hline(), campo("tipo de proyecto"), [#strong[Descripción]], table.hline()),
 
     val("0000I"), [TIPO GENERAL DE PROYECTO DE INV.],
@@ -978,7 +979,6 @@ Sean estos los #campo("tipo de proyecto") de másteres oficiales:
 #align(center, table(
     columns: 2,
     align: (left, left),
-    stroke: none,
 
     table.header(table.hline(), campo("tipo de proyecto"), [#strong[Descripción]], table.hline()),
     table.hline(),
@@ -1000,7 +1000,6 @@ La siguiente tabla, a la que llamamos TABLA-TRADUCCIÓN-DEPARTAMENTOS, contiene 
 #align(center, table(
     columns: 2,
     align: (left, left),
-    stroke: none,
 
     table.header(table.hline(), [#campo("centro")], [DEPARTAMENTO], table.hline()),
 
@@ -1041,7 +1040,6 @@ Esta tabla, a la que llamamos TABLA-TRADUCCIÓN-VICES, contiene las traducciones
 #align(center, table(
     columns: 2,
     align: (left, left),
-    stroke: none,
 
     table.header(table.hline(), [#campo("subcentro")], [VICE], table.hline()),
 
@@ -1141,7 +1139,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             #align(center, table(
                 columns: 3,
                 align: (center, right, left),
-                stroke: none,
 
                 table.header(
                     table.hline(), campo("subproyecto"), campo("porcentaje"), campo("actividad"), table.hline()
@@ -1173,7 +1170,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             #align(center, table(
                 columns: 3,
                 align: (left, left, left),
-                stroke: none,
 
                 table.header(
                     table.hline(), campo("proyecto"), campo("actividad"), [Descripción del proyecto], table.hline()
@@ -1328,7 +1324,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             #align(center, table(
                 columns: 3,
                 align: (left, left, left),
-                stroke: none,
 
                 table.header(table.hline(), campo("proyecto"), [actividad], [Descripción del proyecto], table.hline()),
 
@@ -1573,7 +1568,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             #align(center, table(
                 columns: 3,
                 align: (left, left, left),
-                stroke: none,
 
                 table.header(table.hline(), campo("proyecto"), campo("actividad"), [Descripción del proyecto]),
 
@@ -1702,7 +1696,7 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             #align(center, table(
                 columns: 3,
                 align: (left, left, left),
-                stroke: none,
+
                 table.header(
                     table.hline(), campo("subcentro"), campo("actividad"), [Descripción del subcentro], table.hline()
                 ),
@@ -1776,7 +1770,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             #align(center, table(
                 columns: 2,
                 align: (left, left),
-                stroke: none,
 
                 table.header(table.hline(), [#campo("subcentro")], [actividad], table.hline()),
                 table.hline(),
@@ -1807,7 +1800,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         #align(center, table(
             columns: 2,
             align: (left, left),
-            stroke: none,
 
             table.header(table.hline(), campo("tipo de proyecto"), [actividad], table.hline()),
             table.hline(),
@@ -1848,7 +1840,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         #align(center, table(
             columns: 2,
             align: (left, left),
-            stroke: none,
 
             table.header(table.hline(), campo("proyecto"), [actividad], table.hline()),
 
@@ -1865,7 +1856,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         #align(center, table(
             columns: 3,
             align: (left, left, left),
-            stroke: none,
 
             table.header(
                 table.hline(), campo("tipo de proyecto"), campo("actividad"), [Descripción del proyecto], table.hline()
@@ -1894,7 +1884,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         #align(center, table(
             columns: 2,
             align: (left, left),
-            stroke: none,
 
             table.header(table.hline(), campo("subcentro"), campo("actividad"), table.hline()),
 
@@ -1938,13 +1927,12 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             en estos otros casos, la determina #campo("centro")/#campo("capítulo"), #campo("centro")/#campo("artículo"), #campo("centro")/#campo("concepto") O #campo("centro")/#campo("aplicación"):
 
             #align(center, table(
-                columns: 2,
+                columns: (1fr, auto),
                 align: (left, left),
-                stroke: none,
 
                 table.header(
                     table.hline(),
-                    [#campo("centro")/(#campo("capítulo"), #campo("artículo"), #campo("concepto") o #campo("aplicación"))],
+                    [#campo("centro") / (#campo("capítulo"), #campo("artículo"), #campo("concepto") o #campo("aplicación"))],
                     campo("actividad"),
                     table.hline(),
                 ),
@@ -1983,7 +1971,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             #align(center, table(
                 columns: 2,
                 align: (left, left),
-                stroke: none,
 
                 table.header(table.hline(), campo("centro"), campo("actividad"), table.hline()),
 
@@ -2020,8 +2007,13 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         #align(center, table(
             columns: 2,
             align: (left, left),
-            table.header([#campo("capítulo")/#campo("artículo")/#campo("concepto")/#campo("aplicación")], [actividad]),
-            table.hline(),
+
+            table.header(
+                table.hline(),
+                [#campo("capítulo")/#campo("artículo")/#campo("concepto")/#campo("aplicación")],
+                [actividad],
+                table.hline(),
+            ),
             val("%/21/%/%"), [#etqact("dag-org-vicerrectorados-tributos")],
             val("%/%/221/%"), [#etqact("dag-org-vicerrectorados-arrendamiento-bienes")],
             val("%/%/222/%"), [#etqact("dag-org-vicerrectorados-reparación-conservación")],
@@ -2034,6 +2026,7 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             val("%/23/%/%"), [#etqact("dag-org-vicerrectorados-indemnizaciones-razón-servicio")],
             val("3/%/%/%"), [#etqact("dag-org-vicerrectorados-gastos-financieros")],
             val("%/%/%/6711"), [#etqact("dag-org-vicerrectorados-adquisiciones-bibliográficas")],
+            table.hline(),
         ))
 
     - #nombre-regla[Gastos generales desde servicios]
@@ -2078,7 +2071,6 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
         #align(center, table(
             columns: 2,
             align: (left, left),
-            stroke: none,
 
             table.header(table.hline(), campo("proyecto"), [Descripción], table.hline()),
 
@@ -2141,7 +2133,6 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
         #align(center, table(
             columns: 2,
             align: (left, left),
-            stroke: none,
 
             table.header(
                 table.hline(), [#campo("centro")/#campo("subcentro")], campo("centro de coste"), table.hline()
@@ -2266,7 +2257,6 @@ El árbol de elementos de coste modificado por las reglas se ha de mostrar en la
         #align(center, table(
             columns: 3,
             align: (left, left, left),
-            stroke: none,
 
             table.header(table.hline(), campo("aplicación"), campo("elemento de coste"), [Descripción], table.hline()),
 
@@ -2682,7 +2672,7 @@ Imaginemos esta línea del fichero #ruta("energía.xlsx"):
 #align(center, table(
     columns: 3,
     align: (left, right, left),
-    stroke: none,
+
     table.header(table.hline(), [prefijo], [Coste], [Comentario], table.hline()),
     val("FF0"), [36.006,35], [ESCUELA DOCTORADO],
     table.hline(),
@@ -2778,7 +2768,7 @@ Imagina que el campus tiene tres zonas, A, B y C, y dos centros de coste, X e Y.
 #align(center, table(
     columns: 4,
     align: (left, auto, auto, auto),
-    stroke: none,
+
     table.header(table.hline(), [Centro], [A], [B], [C], table.hline()),
     table.hline(),
     [X], [100], [0], [0],
@@ -2791,7 +2781,6 @@ La tabla se ha de actualizar para repartir los metros cuadrados de la zona C ent
 #align(center, table(
     columns: 4,
     align: (left, auto, auto, auto),
-    stroke: none,
 
     table.header(table.hline(), [Centro], [A], [B], [C], table.hline()),
     table.hline(),
@@ -2805,7 +2794,6 @@ Ahora podemos determinar la presencia de cada centro en cada zona:
 #align(center, table(
     columns: 4,
     align: (left, auto, auto, auto),
-    stroke: none,
 
     table.header(table.hline(), [Centro], [A], [B], [C], table.hline()),
     table.hline(),
@@ -2819,7 +2807,6 @@ Además, en la UJI, la presencia es:
 #align(center, table(
     columns: 2,
     align: (left, auto),
-    stroke: none,
 
     table.header(table.hline(), [Centro], [UJI], table.hline()),
     table.hline(),
@@ -2900,7 +2887,7 @@ La unidad de coste se forma con:
     #align(center, table(
         columns: 3,
         align: (left, left, left),
-        stroke: none,
+
         table.header(
             table.hline(),
             campo("cuenta"), campo("elemento de coste"), [Nombre cuenta],
