@@ -2859,6 +2859,62 @@ def _mostrar_anomalias_pdi():
     st.dataframe(detalle_f, use_container_width=True, hide_index=True, key="anomalias_pdi_df")
 
 
+def _mostrar_uc_ptgas_por_servicio():
+    """Muestra las UC generadas a partir de retribuciones ordinarias PTGAS, agrupadas por servicio."""
+    _título("Personal — UC PTGAS por servicio")
+
+    path = DIR_NOMINAS / "uc_ptgas.parquet"
+    if not path.exists():
+        st.info("No hay datos. Ejecuta la Fase 1 primero.")
+        return
+
+    uc = pl.read_parquet(path)
+    if uc.is_empty():
+        st.info("No se generaron UC de PTGAS.")
+        return
+
+    # Enriquecer con nombre del servicio
+    srv_path = DIR_ENTRADA / "inventario" / "servicios.xlsx"
+    if srv_path.exists():
+        srv_ref = _load_excel(str(srv_path))
+        if "servicio" in srv_ref.columns and "nombre" in srv_ref.columns:
+            # Extraer servicio del origen_id (formato "PTGAS-srv-XXX" o "PTGAS-srv-368-cp-YYY")
+            uc = uc.with_columns(
+                pl.col("origen_id").str.replace("PTGAS-srv-", "")
+                .str.split("-").list.first()
+                .alias("_servicio"),
+            )
+            uc = uc.join(
+                srv_ref.select(
+                    pl.col("servicio").cast(pl.Utf8),
+                    pl.col("nombre").alias("nombre_servicio"),
+                ),
+                left_on="_servicio",
+                right_on="servicio",
+                how="left",
+            ).drop("_servicio")
+
+    # Métricas generales
+    c1, c2 = st.columns(2)
+    c1.metric("UC generadas", f"{len(uc):,}")
+    c2.metric("Importe total", _fmt_euro(float(uc["importe"].sum())))
+
+    st.divider()
+
+    # Tabla completa filtrable
+    uc_f = _filtro_tabla(uc, "uc_ptgas_srv")
+    ev = _st_df(
+        uc_f,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="uc_ptgas_srv_df",
+    )
+
+    filas_sel = ev.selection.rows if ev.selection else []
+    if filas_sel and filas_sel[0] < len(uc_f):
+        _ficha_registro(uc_f, filas_sel[0], key_suffix="_uc_ptgas_srv")
+
+
 def _mostrar_personal():
     seccion = st.session_state.personal_seccion
     if seccion == "Anomalías PDI":
@@ -2934,9 +2990,9 @@ def _mostrar_personal():
             )
             _PROYECTOS_NÓMINA = ["1G019", "23G019", "02G041", "11G006", "1G046", "00000"]
             if solo_filtradas:
-                detalle = detalle.filter(
-                    pl.col("proyecto").cast(pl.Utf8).is_in(_PROYECTOS_NÓMINA)
-                )
+                es_ss = pl.col("aplicación").cast(pl.Utf8) == "1211"
+                es_proyecto = pl.col("proyecto").cast(pl.Utf8).is_in(_PROYECTOS_NÓMINA)
+                detalle = detalle.filter(es_ss | es_proyecto)
 
             st.subheader(f"Líneas de nómina del expediente {_lbl_exp}")
 
@@ -2998,16 +3054,23 @@ def _mostrar_personal():
                     ("Retribuciones ordinarias", detalle.filter(~es_coste_social & es_proyecto_ord)),
                     ("Retribuciones extra", detalle.filter(~es_coste_social & ~es_proyecto_ord)),
                 ]
-                # Cuarta tabla: UC inyectadas desde presupuesto
+                # UC generadas a partir de retribuciones ordinarias PTGAS
+                uc_ptgas_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_ptgas.parquet"
+                if uc_ptgas_path.exists():
+                    uc_ptgas_all = pl.read_parquet(uc_ptgas_path)
+                    uc_ptgas_exp = uc_ptgas_all.filter(pl.col("expediente") == expediente).drop("expediente")
+                    if not uc_ptgas_exp.is_empty():
+                        grupos.append(("UC retrib. ordinarias", uc_ptgas_exp))
+                # UC inyectadas desde presupuesto
                 uc_iny_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_presupuesto_en_nóminas.parquet"
                 if uc_iny_path.exists():
                     uc_iny_all = pl.read_parquet(uc_iny_path)
                     uc_iny_exp = uc_iny_all.filter(pl.col("expediente") == expediente).drop("expediente")
                     if not uc_iny_exp.is_empty():
-                        grupos.append(("Unidades de coste (desde presupuesto)", uc_iny_exp))
+                        grupos.append(("UC desde presupuesto", uc_iny_exp))
 
-            # Verificación cruzada de totales (excluir UC inyectadas)
-            grupos_nómina = [g for g in grupos if not g[0].startswith("Unidades de coste")]
+            # Verificación cruzada de totales (excluir UC generadas)
+            grupos_nómina = [g for g in grupos if not g[0].startswith("UC ")]
             importe_subtablas = sum(float(g[1]["importe"].sum()) for g in grupos_nómina)
             total_expediente = float(detalle["importe"].sum())
             diferencia = abs(importe_subtablas - total_expediente)

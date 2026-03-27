@@ -2134,7 +2134,6 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             table.hline(),
         ))
 
-        Hay un excepción en el nombre del nodo para #val("cátedras-investigación-1I235"). El nombre de ese nodo ha de ser #val("CÁTEDRAS UNESCO"), manteniendo la etiqueta de centro.
 
     - #nombre-regla[Por centro y subcentro]
         La siguiente tabla relaciona pares #campo("centro")/#campo("subcentro") con un centro de coste. El % significa #emph[cualquier valor].
@@ -2963,6 +2962,8 @@ En la #app informa de cuántos casos han quedado sin poder cumplimentar.
 Las nóminas que se han abordado como gasto en presupuesto han de eliminarse ahora de este procesamiento. Para eso, vamos a filtrar las nóminas.
 
 #reglas[
+    - #nombre-regla[La SS ha de entrar toda]
+        Todos los registros con #campo("aplicación") que es #val("1211") han de pasar el filtro, porque corresponden a la Seguridad Social, que no se ha abordado en presupuesto.
     - #nombre-regla[Supresión de nóminas en todos los proyectos excepto unos pocos]
         Solo han de pasar el filtro los registros con #campo("proyecto") igual a #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000").
 ]
@@ -2982,10 +2983,10 @@ Cada una de esas listas (PDI, PTGAS, PVI) se va a procesar de un modo distinto, 
 
 Cada expediente del PTGAS tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
 
-- una, #val("costes sociales"), con los registros asociados a la Seguridad Social (#campo("aplicación") que empieza por 12),
-- otra, #val("retribuciones ordinarias") con lo que es nómina ordinaria ( #campo("proyecto") #val("1G019") o #val("23G019"))
-- otra, #val("retribuciones extra"), con el resto.
-- otra, #val("unidades de coste"), con una lista de unidades de coste asociadas a esta persona. Estas unidades se pueden crear desde el presupuesto o desde las nóminas.
+- una, #campo("costes sociales"), con los registros asociados a la Seguridad Social (#campo("aplicación") que empieza por 12),
+- otra, #campo("retribuciones ordinarias") con lo que es nómina ordinaria ( #campo("proyecto") #val("1G019") o #val("23G019"))
+- otra, #campo("retribuciones extra"), con el resto.
+- otra, #campo("unidades de coste"), con una lista de unidades de coste asociadas a esta persona. Estas unidades se pueden crear desde el presupuesto o desde las nóminas.
 
 En la #app, al seleccionar un expediente de PTGAS, veré sus tres tablas y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones.
 
@@ -3000,7 +3001,154 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
 // - De la lista de retribuciones ordinarias:
 
 
+==== Creación de unidad de coste a partir de registros de nómina
+
+#reglas[
+    - Con los registros que hemos puesto en #campo("retribuciones ordinarias") hacemos la suma de por servicio dentro de ese expediente (una persona, desde un expediente, puede haber trabajado en más de un servicio a lo largo del año), por que de cada servicio, para ese expediente, vamos a crear una unidad de coste. Para eso, tenemos que mapear cada servicio al centro de coste que le corresponde, y asignar el elemento de coste #etqele("retribuciones-ordinarias") y la actividad #etqact("dag-general-universidad"). El importe de la unidad de coste es el importe total de las retribuciones ordinarias del servicio.
+
+    El servicio indicado en el registro permite decidir el centro de coste y la actividad a las que se asigna la unidad de coste , con esta tabla de mapeo y una excepción que te digo después de la tabla para el servicio #val("368") (personal de suport):
+
+    #table(
+        columns: (.5fr, 1fr, 1fr),
+        align: (left, left, left),
+        table.header([*Servicio*], [*Centro de coste*], [*Actividad*]),
+        [523], [#etqcen("asesoría-jurídica")], [#etqact("dag-asesoría-jurídica")],
+        [660], [#etqcen("bibliotecas")], [#etqact("dag-biblioteca")],
+        [640], [#etqcen("cent")], [#etqact("dag-cent")],
+        [263], [#etqcen("consejo-social")], [#etqact("dag-consejo-social")],
+        [2984], [#etqcen("consejo-estudiantes")], [#etqact("dag-consejo-estudiantes")],
+        [1862], [#etqcen("cátedras-investigación-1I201")], [#etqact("otras-ait-financiación-propia-1I201")],
+        [1662], [#etqcen("cátedras-investigación-1I235")], [#etqact("")],
+        [4267], [#etqcen("delegado")], [#etqact("dag-delegado")],
+        [101], [#etqcen("daem")], [#etqact("dag-daem")],
+        [93], [#etqcen("deco")], [#etqact("dag-deco")],
+        [3466], [#etqcen("dea")], [#etqact("dag-dede")],
+        [2103], [#etqcen("dmc")], [#etqact("dag-dmc")],
+        [81], [#etqcen("deq")], [#etqact("dag-deq")],
+        [2102], [#etqcen("desid")], [#etqact("dag-desid")],
+        [1442], [#etqcen("dicc")], [#etqact("dag-dicc")],
+        [1882], [#etqcen("dea")], [#etqact("dag-dea")],
+        [104], [#etqcen("dhga")], [#etqact("dag-dhga")],
+        [4207], [#etqcen("dbbcn")], [#etqact("dag-dbbcn")],
+        [2502], [#etqcen("dcc")], [#etqact("dag-dcc")],
+        [90], [#etqcen("ddpub")], [#etqact("dag-ddpub")],
+        [1883], [#etqcen("dfce")], [#etqact("dag-dfce")],
+        [2503], [#etqcen("dfs")], [#etqact("dag-dfs")],
+        [102], [#etqcen("dfc")], [#etqact("dag-dfc")],
+        [2283], [#etqcen("dfis")], [#etqact("dag-dfis")],
+        [1443], [#etqcen("dlsi")], [#etqact("dag-dlsi")],
+        [92], [#etqcen("dmat")], [#etqact("dag-dmat")],
+        [3465], [#etqcen("dpdcsll")], [#etqact("dag-dpdcsll")],
+        [97], [#etqcen("dpbcp")], [#etqact("dag-dpbcp")],
+        [96], [#etqcen("dpeesm")], [#etqact("dag-dpeesm")],
+        [2284], [#etqcen("dqfa")], [#etqact("dag-dqfa")],
+        [98], [#etqcen("dqio")], [#etqact("dag-dqio")],
+        [99], [#etqcen("dtc")], [#etqact("dag-dtc")],
+        [4], [#etqcen("estce")], [#etqact("dag-estce")],
+        [3165], [#etqcen("ed")], [#etqact("dag-escuela-doctorado")],
+        [2], [#etqcen("fchs")], [#etqact("dag-fchs")],
+        [3], [#etqcen("fcje")], [#etqact("dag-fcje")],
+        [2922], [#etqcen("fcs")], [#etqact("dag-fcs")],
+        [3405], [#etqcen("rectorado")], [#etqact("dag-rectorado")],
+        [261], [#etqcen("gerencia")], [#etqact("dag-gerencia")],
+        [4907], [#etqcen("inspección-servicios")], [#etqact("dag-inspección-servicios")],
+        [3145], [#etqcen("iidl")], [#etqact("dag-iidl")],
+        [3285], [#etqcen("inam")], [#etqact("dag-inam")],
+        [2603], [#etqcen("init")], [#etqact("dag-init")],
+        [2022], [#etqcen("iupa")], [#etqact("dag-iupa")],
+        [264], [#etqcen("iutc")], [#etqact("dag-iutc")],
+        [1982], [#etqcen("labcom")], [#etqact("dag-labcom")],
+        [4168], [#etqcen("ol")], [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
+        [364], [#etqcen("otop")], [#etqact("dag-otros-servicios-obras-proyectos")],
+        [3408], [#etqcen("oe")], [#etqact("dag-oe")],
+        [3406], [#etqcen("oir")], [#etqact("dag-otros-servicios-información-registro")],
+        [3425], [#etqcen("oiati")], [#etqact("dag-otros-servicios-ti")],
+        [2883], [#etqcen("oipep")], [#etqact("dag-oipep")],
+        [1723], [#etqcen("ocds")], [#etqact("cooperación")],
+        [242], [#etqcen("ocit")], [#etqact("dag-ocit")],
+        [3847], [#etqcen("opp")], [#etqact("dag-opp")],
+        [4567], [#etqcen("oppsm")], [#etqact("dag-otros-servicios-prevención-gestión-medioambiental")],
+        [2882], [#etqcen("ori")], [#etqact("dag-otros-servicios-relaciones-internacionales")],
+        [1722], [#etqcen("opaq")], [#etqact("dag-otros-servicios-promoción-evaluación-calidad")],
+        // [368], [#etqcen("")], [#etqact("")],
+        [311], [#etqcen("secretaría-general")], [#etqact("dag-secretaría-general")],
+        [720], [#etqcen("scic")], [#etqact("dag-scic")],
+        [251], [#etqcen("sasc")], [#etqact("cultura")],
+        [760], [#etqcen("se")], [#etqact("deportes")],
+        [3004], [#etqcen("sea")], [#etqact("dag-sea")],
+        [1530], [#etqcen("sic")], [#etqact("dag-sic")],
+        [366], [#etqcen("scp")], [#etqact("dag-otros-servicios-comunicación-publicaciones")],
+        [1544], [#etqcen("scag")], [#etqact("dag-scag")],
+        [1529], [#etqcen("sci")], [#etqact("dag-sci")],
+        [1543], [#etqcen("sge")], [#etqact("dag-sge")],
+        [361], [#etqcen("sgde")], [#etqact("dag-sgde")],
+        [4887], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        [350], [#etqcen("slt")], [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
+        [362], [#etqcen("srh")], [#etqact("dag-srh")],
+        [2942], [#etqcen("upi")], [#etqact("dag-upi")],
+        [95], [#etqcen("updtssee")], [#etqact("dag-updtssee")],
+        [2943], [#etqcen("upm")], [#etqact("dag-upm")],
+        [3427], [#etqcen("uadti")], [#etqact("dag-otros-servicios-ti")],
+        [4167], [#etqcen("gencisub")], [#etqact("dag-gencisub")],
+        [2822], [#etqcen("ui")], [#etqact("dag-otros-servicios-promoción-fomento-igualdad")],
+        [218], [#etqcen("uiic")], [#etqact("dag-otros-servicios-ti")],
+        [4487], [#etqcen("uo")], [#etqact("dag-uo")],
+        [4687], [#etqcen("udpea")], [#etqact("otras-extensión-universitaria-refinamiento")],
+        [4488], [#etqcen("udd")], [#etqact("dag-otros-servicios-atención-diversidad-apoyo-educativo")],
+        [4489], [#etqcen("ufie")], [#etqact("dag-ufie")],
+        [344], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [3409], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [3445], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [345], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [347], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [346], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [348], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [349], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [2263], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [4647], [#etqcen("sgit")], [#etqact("dag-sgit")],
+        // UG
+        [2342], [#etqcen("universidad-mayores")], [#etqact("universidad-mayores")],
+        [4251], [#etqcen("vevs")], [#etqact("dag-vevs")],
+        [4252], [#etqcen("vefp")], [#etqact("dag-vefp")],
+        [4248], [#etqcen("vis")], [#etqact("dag-vis")],
+        [4250], [#etqcen("vitdc")], [#etqact("dag-vitdc")],
+        [4247], [#etqcen("vi")], [#etqact("dag-vi")],
+        [2224], [#etqcen("voap")], [#etqact("dag-voap")],
+        [4253], [#etqcen("vcls")], [#etqact("dag-vcls")],
+        [4255], [#etqcen("vpee")], [#etqact("dag-vpee")],
+        [4254], [#etqcen("vri")], [#etqact("dag-vri")],
+        [4249], [#etqcen("vrspii")], [#etqact("dag-vrspii")],
+    )
+
+    Con el servicio #val("368") hay una información adicional en el campo #campo("centro_plaza"). Su valor determina el centro de coste y la actividad con esta otra tabla:
+
+    #table(
+        columns: 3,
+        align: (left, left, left),
+        table.header([*Centro plaza*], [*Centro de coste*], [*Actividad*]),
+        [2], etqcen("ps-fchs"), etqact("dag-conserjería-fchs"),
+        [3], etqcen("ps-fcje"), etqact("dag-conserjería-fcje"),
+        [4], etqcen("ps-estce"), etqact("dag-conserjería-estce"),
+        [212], etqcen("ps-rectorado"), etqact("dag-conserjería-rectorado"),
+        [263], etqcen("ps-escuela-doctorado-consejo-social"), etqact("dag-conserjería-consejo-social"),
+        [2402], etqcen("ps-parque-tecnológico"), etqact("dag-conserjería-parque-tecnológico"),
+        [2922], etqcen("ps-fcs"), etqact("dag-conserjería-fcs"),
+    )
+
+]
+
+
 === Tratamiento del PDI
+
 Cada expediente del PDI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
 
 - una de #val("costes sociales") con las unidades de coste de Seguridad Social (#campo("aplicación") que empieza por 12),
@@ -3043,6 +3191,7 @@ Para tener controlados los casos raros, quiero que haya una opción en «Persona
 
 
 === Tratamiento del PVI
+
 Cada expediente del PVI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
 
 - un, #campo("costes sociales") con lo que es Seguridad Social (#campo("aplicación") que empieza por 12),

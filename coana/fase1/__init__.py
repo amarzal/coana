@@ -185,6 +185,10 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2024) -> None:
         uc_inyectadas.write_parquet(dir_nominas / "uc_presupuesto_en_nóminas.parquet")
     resumen_dict["nominas_n_uc_inyectadas"] = resultado_nom.n_uc_inyectadas
 
+    # UC generadas a partir de nóminas PTGAS
+    if not resultado_nom.uc_ptgas.is_empty():
+        todas_uc.append(resultado_nom.uc_ptgas)
+
     # -- Fichero combinado --
     if todas_uc:
         combinado = pl.concat(todas_uc, how="diagonal")
