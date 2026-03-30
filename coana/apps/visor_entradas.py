@@ -558,6 +558,8 @@ _AMORT_SECCIONES = [
 _PERSONAL_SECCIONES = [
     "Resumen",
     "Expedientes PDI", "Expedientes PTGAS", "Expedientes PVI", "Expedientes otros",
+    "Multiexpediente",
+    "Persona",
     "Anomalías PDI",
 ]
 _SUP_SECCIONES = ["Resumen", "Totales", "Presencia centros"]
@@ -686,11 +688,12 @@ if st.session_state.get("_ejecutar_fase1"):
             import coana.fase1.inventario as _m_inv
             import coana.fase1.suministros as _m_sum
             import coana.fase1.amortizaciones as _m_amort
+            import coana.fase1.nóminas.contexto as _m_nom_ctx
             import coana.fase1.nóminas as _m_nom
             import coana.fase1 as _m_fase1
             for _m in [_m_ctx, _m_trad, _m_pres,
                        _m_inv_ctx, _m_proc, _m_inv,
-                       _m_sum, _m_amort, _m_nom, _m_fase1]:
+                       _m_sum, _m_amort, _m_nom_ctx, _m_nom, _m_fase1]:
                 importlib.reload(_m)
             ejecutar = _m_fase1.ejecutar
             with contextlib.redirect_stdout(_live):
@@ -2915,10 +2918,286 @@ def _mostrar_uc_ptgas_por_servicio():
         _ficha_registro(uc_f, filas_sel[0], key_suffix="_uc_ptgas_srv")
 
 
+def _mostrar_multiexpediente():
+    """Muestra personas con expedientes en sectores distintos."""
+    _título("Personal — Multiexpediente")
+
+    multi_path = DIR_NOMINAS / "multiexpediente.parquet"
+    activ_path = DIR_NOMINAS / "multiexpediente_actividad.parquet"
+    if not multi_path.exists():
+        st.warning("Fichero no encontrado. Ejecuta la Fase 1 primero.")
+        return
+
+    multi = pl.read_parquet(multi_path)
+    if multi.is_empty():
+        st.info("No hay personas con expedientes en sectores distintos.")
+        return
+
+    actividad = pl.read_parquet(activ_path) if activ_path.exists() else None
+
+    _COMBINACIONES = [
+        ("PTGAS + PDI", {"PTGAS", "PDI"}),
+        ("PTGAS + PVI", {"PTGAS", "PVI"}),
+        ("PDI + PVI", {"PDI", "PVI"}),
+        ("PTGAS + PDI + PVI", {"PTGAS", "PDI", "PVI"}),
+    ]
+
+    tab_labels = []
+    tab_dfs = []
+    for label, combo in _COMBINACIONES:
+        # Filtrar personas cuyo conjunto de sectores contenga exactamente combo
+        df_combo = multi.filter(
+            pl.col("sectores").list.eval(
+                pl.element().is_in(list(combo))
+            ).list.sum() == len(combo)
+        )
+        tab_labels.append(f"{label} ({len(df_combo):,})")
+        tab_dfs.append((combo, df_combo))
+
+    tabs = st.tabs(tab_labels)
+    for tab, (combo, df_combo) in zip(tabs, tab_dfs):
+        with tab:
+            if df_combo.is_empty():
+                st.info("No hay personas en esta combinación.")
+                continue
+
+            # Mostrar columnas relevantes: per_id, persona, n_PTGAS, n_PDI, n_PVI
+            cols_mostrar = ["per_id"]
+            for s in sorted(combo):
+                col = f"n_{s}"
+                if col in df_combo.columns:
+                    cols_mostrar.append(col)
+            df_vista = df_combo.select(cols_mostrar)
+            df_vista = _enriquecer_per_id(df_vista)
+
+            combo_slug = "_".join(sorted(combo)).lower()
+            df_vista = _filtro_tabla(df_vista, f"multi_{combo_slug}")
+            ev = _st_df(
+                df_vista,
+                on_select="rerun",
+                selection_mode="single-row",
+                key=f"multi_df_{combo_slug}",
+            )
+
+            # Detalle de la persona seleccionada: 12 meses
+            filas_sel = ev.selection.rows if ev.selection else []
+            if filas_sel and actividad is not None:
+                fila = df_vista.row(filas_sel[0], named=True)
+                per_id = fila["per_id"]
+                persona = fila.get("persona", "")
+                _lbl = f"{per_id} ({persona})" if persona else str(per_id)
+                st.divider()
+                st.subheader(f"Actividad mensual de {_lbl}")
+
+                # Expedientes de esta persona
+                act_persona = actividad.filter(pl.col("per_id") == per_id)
+                if act_persona.is_empty():
+                    st.info("Sin actividad registrada.")
+                    continue
+
+                # Cargar nóminas para obtener importes mensuales
+                nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+                exps_persona = act_persona.select("expediente").unique()["expediente"]
+                nom_mensual = None
+                if nom_path.exists():
+                    nom_raw = _load_excel(str(nom_path)).filter(
+                        pl.col("expediente").is_in(exps_persona)
+                    )
+                    nom_mensual = (
+                        nom_raw
+                        .with_columns(pl.col("fecha").dt.month().alias("mes"))
+                        .group_by("expediente", "mes")
+                        .agg(pl.col("importe").sum().alias("importe"))
+                    )
+
+                # Tabla: filas = expedientes, columnas = meses 1..12 con importe
+                _MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                           "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+                exps = (
+                    act_persona.select("expediente", "sector_final")
+                    .unique()
+                    .sort("expediente")
+                )
+                filas_tabla = []
+                for row in exps.iter_rows(named=True):
+                    exp_id = row["expediente"]
+                    sector = row["sector_final"]
+                    fila_dict: dict = {"expediente": exp_id, "sector": sector}
+                    for m in range(1, 13):
+                        imp = 0.0
+                        if nom_mensual is not None:
+                            vals = nom_mensual.filter(
+                                (pl.col("expediente") == exp_id) & (pl.col("mes") == m)
+                            )
+                            if not vals.is_empty():
+                                imp = float(vals["importe"][0])
+                        fila_dict[_MESES[m - 1]] = imp if imp != 0.0 else None
+                    filas_tabla.append(fila_dict)
+
+                df_meses = pl.DataFrame(filas_tabla)
+                ev_meses = _st_df(
+                    df_meses, totales=False,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key=f"multi_meses_{combo_slug}_{per_id}",
+                )
+
+                # Detalle del expediente seleccionado
+                filas_exp = ev_meses.selection.rows if ev_meses.selection else []
+                if filas_exp:
+                    exp_sel = df_meses.row(filas_exp[0], named=True)
+                    exp_id = exp_sel["expediente"]
+                    sector_exp = exp_sel["sector"]
+                    st.divider()
+                    st.subheader(f"Expediente {exp_id} ({sector_exp})")
+
+                    nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+                    if not nom_path.exists():
+                        st.warning(f"Fichero no encontrado: `{nom_path}`")
+                    else:
+                        detalle = _load_excel(str(nom_path)).filter(
+                            pl.col("expediente") == exp_id
+                        )
+                        if detalle.is_empty():
+                            st.info("Sin registros de nómina para este expediente.")
+                        else:
+                            total = float(detalle["importe"].sum())
+                            st.metric("Total cobrado", _fmt_euro(total))
+                            _st_df(
+                                detalle,
+                                key=f"multi_det_{combo_slug}_{per_id}_{exp_id}",
+                            )
+
+
+def _mostrar_persona():
+    """Muestra el reparto de SS por persona (mono o multiexpediente)."""
+    _título("Personal — Persona")
+
+    ss_path = DIR_NOMINAS / "persona_ss.parquet"
+    uc_path = DIR_NOMINAS / "persona_uc.parquet"
+    if not ss_path.exists():
+        st.warning("Fichero no encontrado. Ejecuta la Fase 1 primero.")
+        return
+
+    reparto = pl.read_parquet(ss_path)
+    if reparto.is_empty():
+        st.info("No hay datos de reparto de SS.")
+        return
+
+    # Lista de personas con al menos una fila de reparto
+    personas_ids = reparto["per_id"].unique().sort().to_list()
+
+    # Construir tabla de personas para el selector
+    personas_path = DIR_ENTRADA / "nóminas" / "personas.xlsx"
+    if personas_path.exists():
+        personas_ref = _load_excel(str(personas_path)).select(
+            pl.col("per_id"),
+            pl.concat_str(
+                [pl.col("nombre"), pl.col("apellido1"), pl.col("apellido2")],
+                separator=" ", ignore_nulls=True,
+            ).alias("persona"),
+        )
+        personas_df = (
+            pl.DataFrame({"per_id": personas_ids})
+            .join(personas_ref, on="per_id", how="left")
+        )
+    else:
+        personas_df = pl.DataFrame({
+            "per_id": personas_ids,
+            "persona": [str(p) for p in personas_ids],
+        })
+
+    # Selector con búsqueda
+    opciones = {
+        row["per_id"]: f"{row['per_id']} — {row['persona']}"
+        for row in personas_df.iter_rows(named=True)
+    }
+    seleccion = st.selectbox(
+        "Selecciona persona",
+        options=list(opciones.keys()),
+        format_func=lambda x: opciones[x],
+        key="persona_selector",
+    )
+    if seleccion is None:
+        return
+
+    per_id = seleccion
+    nombre = opciones[per_id]
+    st.subheader(nombre)
+
+    # Expedientes de esta persona
+    exp_path = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+    if exp_path.exists():
+        exp_df = _load_excel(str(exp_path)).filter(pl.col("per_id") == per_id)
+        if not exp_df.is_empty():
+            st.caption(f"Expedientes: {', '.join(str(e) for e in exp_df['expediente'].to_list())}")
+
+    # Datos de reparto de esta persona
+    datos = reparto.filter(pl.col("per_id") == per_id).drop("per_id")
+
+    if datos.is_empty():
+        st.info("Sin UC asociadas a esta persona.")
+        return
+
+    # Métricas
+    total_uc = float(datos["importe_uc"].sum())
+    ss_total = float(datos["ss_total"].max()) if "ss_total" in datos.columns else 0.0
+    c1, c2 = st.columns(2)
+    c1.metric("Total retribuciones (UC)", _fmt_euro(total_uc))
+    c2.metric("Total seguridad social", _fmt_euro(ss_total))
+
+    # Tabla de reparto por (actividad, centro_de_coste)
+    st.divider()
+    st.subheader("Reparto por actividad y centro de coste")
+    vista = datos.select(
+        "actividad", "centro_de_coste", "importe_uc", "pct", "ss_proporcional",
+    ).rename({
+        "importe_uc": "importe retributivo",
+        "pct": "% del total",
+        "ss_proporcional": "SS proporcional",
+    })
+    _st_df(vista, key="persona_reparto")
+
+    # UC detalladas de esta persona (retributivas + costes sociales)
+    if uc_path.exists():
+        uc_persona = pl.read_parquet(uc_path).filter(pl.col("per_id") == per_id).drop("per_id")
+        if not uc_persona.is_empty():
+            st.divider()
+            st.subheader("Unidades de coste asociadas")
+
+            # Columnas a mostrar (las que tengan datos)
+            cols_mostrar = [
+                c for c in [
+                    "tipo", "id", "expediente", "elemento_de_coste",
+                    "centro_de_coste", "actividad", "importe",
+                    "origen", "origen_id", "origen_porción",
+                    "regla_actividad", "regla_cc", "regla_ec",
+                ] if c in uc_persona.columns
+            ]
+            uc_vista = uc_persona.select(cols_mostrar)
+            uc_vista = _filtro_tabla(uc_vista, "persona_uc_filtro")
+            ev_uc = _st_df(
+                uc_vista,
+                on_select="rerun",
+                selection_mode="single-row",
+                key="persona_uc_detalle",
+            )
+
+            filas_sel = ev_uc.selection.rows if ev_uc.selection else []
+            if filas_sel and filas_sel[0] < len(uc_vista):
+                _ficha_registro(uc_vista, filas_sel[0], key_suffix="_persona_uc")
+
+
 def _mostrar_personal():
     seccion = st.session_state.personal_seccion
     if seccion == "Anomalías PDI":
         _mostrar_anomalias_pdi()
+        return
+    if seccion == "Multiexpediente":
+        _mostrar_multiexpediente()
+        return
+    if seccion == "Persona":
+        _mostrar_persona()
         return
     _título(f"Personal — {seccion}")
 
@@ -3056,6 +3335,7 @@ def _mostrar_personal():
                 ]
                 # UC generadas a partir de retribuciones ordinarias PTGAS
                 uc_ptgas_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_ptgas.parquet"
+                uc_ptgas_exp = pl.DataFrame()
                 if uc_ptgas_path.exists():
                     uc_ptgas_all = pl.read_parquet(uc_ptgas_path)
                     uc_ptgas_exp = uc_ptgas_all.filter(pl.col("expediente") == expediente).drop("expediente")
@@ -3063,11 +3343,35 @@ def _mostrar_personal():
                         grupos.append(("UC retrib. ordinarias", uc_ptgas_exp))
                 # UC inyectadas desde presupuesto
                 uc_iny_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_presupuesto_en_nóminas.parquet"
+                uc_iny_exp = pl.DataFrame()
                 if uc_iny_path.exists():
                     uc_iny_all = pl.read_parquet(uc_iny_path)
                     uc_iny_exp = uc_iny_all.filter(pl.col("expediente") == expediente).drop("expediente")
                     if not uc_iny_exp.is_empty():
                         grupos.append(("UC desde presupuesto", uc_iny_exp))
+
+                # Agrupación por actividades: todas las UC del expediente
+                _uc_partes = [
+                    df_uc for df_uc in [uc_ptgas_exp, uc_iny_exp]
+                    if not df_uc.is_empty() and "actividad" in df_uc.columns
+                ]
+                if _uc_partes:
+                    todas_uc_exp = pl.concat(_uc_partes, how="diagonal")
+                    total_uc = float(todas_uc_exp["importe"].sum())
+                    total_ss = float(detalle.filter(es_coste_social)["importe"].sum())
+                    agrup_act = (
+                        todas_uc_exp
+                        .group_by("actividad")
+                        .agg(pl.col("importe").sum().alias("importe"))
+                        .sort("importe", descending=True)
+                        .with_columns([
+                            (pl.col("importe") / total_uc * 100).round(2).alias("% del total")
+                            if total_uc else pl.lit(0.0).alias("% del total"),
+                            (pl.col("importe") / total_uc * total_ss).round(2).alias("SS proporcional")
+                            if total_uc else pl.lit(0.0).alias("SS proporcional"),
+                        ])
+                    )
+                    grupos.append(("Agrupación por actividades", agrup_act))
 
             # Verificación cruzada de totales (excluir UC generadas)
             grupos_nómina = [g for g in grupos if not g[0].startswith("UC ")]

@@ -1995,7 +1995,7 @@ class TraductorPresupuesto:
     def _extraer_uc_para_nóminas(
         self, clasificados: pl.DataFrame, unidades: pl.DataFrame,
     ) -> pl.DataFrame:
-        """Extrae las UC de capítulo 1 o aplicación 2321 con per_id_endosatario.
+        """Extrae las UC de capítulo 1 o aplicación 2321/2322 con per_id_endosatario.
 
         Estas UC se inyectarán en la estructura de nóminas del expediente
         correspondiente a la persona endosataria.
@@ -2005,7 +2005,7 @@ class TraductorPresupuesto:
 
         cap = pl.col("aplicación").cast(pl.Utf8).str.slice(0, 1)
         apl = pl.col("aplicación").cast(pl.Utf8)
-        mask = (cap == "1") | (apl == "2321")
+        mask = (cap == "1") | apl.is_in(["2321", "2322", "2281"])
 
         # Añadir índice a ambos para poder cruzarlos
         clas_idx = clasificados.with_row_index("_idx")

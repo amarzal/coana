@@ -1123,7 +1123,11 @@ Vamos con las reglas de esta sección:
         Si #campo("tipo de proyecto") #val("05G"), y #campo("tipo de línea de financiación") no es #val("00"), la actividad es #etqact("ai-internacional").
 ]
 
-Hay que tener en cuenta que cada una de las unidades de coste que provienen de #campo("capítulo") #val("1") o de #campo("aplicación") #val("2321") han de guarda una copia de la unidad de coste creada en una de las estructuras de nóminas que se crean cuando hablamos de nóminas. La idea es coger el campo #campo("per_id_endosatario") y meter la unidad de costes en la lista de unidades de coste de un expediente de esa persona. Si la persona solo tiene un expediente, esto es trivial. Pero si tiene dos o más expedientes, hay que decidir a cuál. Lo haremos con esta prelación: si es PTGAS y además otra cosa, va a su expediente de PTGAS. Si no, si es PI y además otra cosa, va a su expediente de PI.
+Hay que tener en cuenta que cada una de las unidades de coste que provienen de #campo("capítulo") #val("1") o
+- de #campo("aplicación") #val("2321") (asistencia de proyecto general)
+- de #val("2322") (asistencias como externo, que a veces aparecen)
+- o de #val("2281") (cobro de cánones por propiedad industrial)
+cuando afectan a una persona con un expediente activo han de guardar una copia de la unidad de coste creada en una de las estructuras de nóminas que se crean cuando hablamos de nóminas. La idea es coger el campo #campo("per_id_endosatario") y meter la unidad de costes en la lista de unidades de coste de un expediente de esa persona. Si la persona solo tiene un expediente, esto es trivial. Pero si tiene dos o más expedientes, hay que decidir a cuál. Lo haremos con esta prelación: si es PTGAS y además otra cosa, va a su expediente de PTGAS. Si no, si es PI y además otra cosa, va a su expediente de PI.
 
 ===== Distinto de investigación y transferencia
 
@@ -1569,7 +1573,9 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
                 columns: 3,
                 align: (left, left, left),
 
-                table.header(table.hline(), campo("proyecto"), campo("actividad"), [Descripción del proyecto]),
+                table.header(
+                    table.hline(), campo("proyecto"), campo("actividad"), [Descripción del proyecto], table.hline()
+                ),
 
                 val("23G057"),
                 [#etqact("universidad-mayores") + #campo("proyecto")],
@@ -2035,7 +2041,11 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         #align(center, table(
             columns: 2,
             align: (left, left),
-            table.header([#campo("capítulo")/#campo("artículo")/#campo("concepto")/#campo("aplicación")], [actividad]),
+            table.header(
+                [#campo("capítulo")/#campo("artículo")/#campo("concepto")/#campo("aplicación")],
+                [actividad],
+                table.hline(),
+            ),
             table.hline(),
             val("%/21/%/%"), etqact("dag-sgc-tributos"),
             val("%/%/221/%"), etqact("dag-sgc-arrendamiento-bienes"),
@@ -2252,7 +2262,7 @@ El árbol de elementos de coste modificado por las reglas se ha de mostrar en la
 
 #reglas[
     - #nombre-regla[Clasificación por aplicación presupuestaria]
-        La #campo("aplicación") presupuestaria determina el elemento de coste, según la siguiente tabla. (Hay alguna duda con #etqcod(ele, "arrendamientos-instalaciones") y #etqcod(ele, "arrendamientos-utillaje"), porque los dos están en #val("2213"). Ídem con conservación.)
+        La #campo("aplicación") presupuestaria determina el elemento de coste, según la siguiente tabla. (Hay alguna duda con #etqele("arrendamientos-instalaciones") y #etqele("arrendamientos-utillaje"), porque los dos están en #val("2213"). Ídem con conservación.)
 
         #align(center, table(
             columns: 3,
@@ -2261,363 +2271,363 @@ El árbol de elementos de coste modificado por las reglas se ha de mostrar en la
             table.header(table.hline(), campo("aplicación"), campo("elemento de coste"), [Descripción], table.hline()),
 
             val("2111"),
-            etqcod(ele, "tributos-locales"),
+            etqele("tributos-locales"),
             [TRIBUTS LOCALS],
 
             val("2112"),
-            etqcod(ele, "tributos-autonómicos"),
+            etqele("tributos-autonómicos"),
             [TRIBUTS AUTONÒMICS],
 
             val("2113"),
-            etqcod(ele, "tributos-estatales"),
+            etqele("tributos-estatales"),
             [TRIBUTS ESTATALS],
 
             val("2211"),
-            etqcod(ele, "arrendamientos-terrenos"),
+            etqele("arrendamientos-terrenos"),
             [TERRENOS Y BIENES NATURALES],
 
             val("2212"),
-            etqcod(ele, "arrendamientos-construcciones"),
+            etqele("arrendamientos-construcciones"),
             [ARRENDAMENT DE BÉNS. EDIFICIS I ALTRES CONSTRUCCIONS],
 
             val("2213"),
-            etqcod(ele, "arrendamientos-instalaciones"),
+            etqele("arrendamientos-instalaciones"),
             [ARRENDAMENT DE BÉNS. MAQUINÀRIA INSTAL·LACIONS I UTILLATGE],
 
             val("2214"),
-            etqcod(ele, "arrendamientos-transporte"),
+            etqele("arrendamientos-transporte"),
             [ARRENDAMENT DE BÉNS. MATERIAL DE TRANSPORT],
 
             val("2215"),
-            etqcod(ele, "arrendamientos-mobiliario"),
+            etqele("arrendamientos-mobiliario"),
             [ARRENDAMENT DE BÉNS. MOBILIARI I BÉNS],
 
             val("2216"),
-            etqcod(ele, "arrendamientos-aplicaciones-informáticas"),
+            etqele("arrendamientos-aplicaciones-informáticas"),
             [ARRENDAMENT DE BÉNS. APLICACIONS INFORMÀTIQUES],
 
             val("2217"),
-            etqcod(ele, "arrendamientos-equipos-informáticos"),
+            etqele("arrendamientos-equipos-informáticos"),
             [ARRENDAMENT DE BÉNS. EQUIPS PROCESSAMENT DE LA INFORMACIÓ],
 
             val("2218"),
-            etqcod(ele, "otros-arrendamientos"),
+            etqele("otros-arrendamientos"),
             [ARRENDAMENT DE BÉNS. ALTRES],
 
             val("2221"),
-            etqcod(ele, "conservación-terrenos"),
+            etqele("conservación-terrenos"),
             [REPARACIÓ I CONSERVACIÓ DE BÉNS. TERRENYS I BÉNS NATURALS],
 
             val("2222"),
-            etqcod(ele, "conservación-construcciones"),
+            etqele("conservación-construcciones"),
             [REPARACIÓ I CONSERVACIÓ DE BÉNS. EDIFICIS I ALTRES CONSTRUCCIONS],
 
             val("2223"),
-            etqcod(ele, "conservación-instalaciones"),
+            etqele("conservación-instalaciones"),
             [REPARACIÓ I CONSERVACIÓ DE BÉNS. MAQUINÀRIA, INSTAL·LACIONS I UTILLATGE],
 
             val("2224"),
-            etqcod(ele, "conservación-transporte"),
+            etqele("conservación-transporte"),
             [REPARACIÓ I CONSERVACIÓ DE BÉNS. MATERIAL DE TRANSPORT],
 
             val("2225"),
-            etqcod(ele, "conservación-mobiliario"),
+            etqele("conservación-mobiliario"),
             [REPARACIÓ I CONSERVACIÓ DE BÉNS. MOBILIARI I BÉNS],
 
             val("2226"),
-            etqcod(ele, "conservación-equipos-información"),
+            etqele("conservación-equipos-información"),
             [REPARACIÓ I CONSERVACIÓ DE BÉNS. EQUIPS PROCESSOS D' INFORMACIÓ],
 
             val("2228"),
-            etqcod(ele, "otras-conservaciones"),
+            etqele("otras-conservaciones"),
             [REPARACIÓ I CONSERVACIÓ DE BÉNS. ALTRES],
 
             val("2234"),
-            etqcod(ele, "combustibles"),
+            etqele("combustibles"),
             [SUBMINISTRAMENTS. COMBUSTIBLES],
 
             val("2235"),
-            etqcod(ele, "vestuario"),
+            etqele("vestuario"),
             [SUBMINISTRAMENTS. VESTUARI],
 
             val("2237"),
-            etqcod(ele, "farmacia"),
+            etqele("farmacia"),
             [SUBMINISTRAMENTS. PRODUCTOS FARMACEUTICOS],
 
             val("2241"),
-            etqcod(ele, "transportes"),
+            etqele("transportes"),
             [TRANSPORTS I COMUNICACIONS. PARC MÒBIL UNIVERSITAT JAUME I],
 
             val("2242"),
-            etqcod(ele, "transportes"),
+            etqele("transportes"),
             [TRANSPORTS I COMUNICACIONS. ALTRES TRANSPORTS],
 
             val("2243"),
-            etqcod(ele, "telefonía"),
+            etqele("telefonía"),
             [TRANSPORTS I COMUNICACIONS. TELÈFON],
 
             val("2244"),
-            etqcod(ele, "correo"),
+            etqele("correo"),
             [TRANSPORTS I COMUNICACIONS. CORREU],
 
             val("2245"),
-            etqcod(ele, "otras-comunicaciones"),
+            etqele("otras-comunicaciones"),
             [TRANSPORTS I COMUNICACIONS. TELÈGRAF],
 
             val("2246"),
-            etqcod(ele, "otras-comunicaciones"),
+            etqele("otras-comunicaciones"),
             [TRANSPORTS I COMUNICACIONS. TÈLEX],
 
             val("2248"),
-            etqcod(ele, "otras-comunicaciones"),
+            etqele("otras-comunicaciones"),
             [TRANSPORTS I COMUNICACIONS. ALTRES],
 
             val("2251"),
-            etqcod(ele, "limpieza-aseo"),
+            etqele("limpieza-aseo"),
             [TREBALLS REALITZATS PER ALTRES EMPRESES. NETEJA I HIGIENE],
 
             val("2252"),
-            etqcod(ele, "seguridad"),
+            etqele("seguridad"),
             [TREBALLS REALITZATS PER ALTRES EMPRESES. SEGURETAT],
 
             val("2253"),
-            etqcod(ele, "trabajos-otras-empresas"),
+            etqele("trabajos-otras-empresas"),
             [TREBALLS REALITZATS PER ALTRES EMPRESES. VALORACION Y PERITAJES],
 
             val("2254"),
-            etqcod(ele, "trabajos-otras-empresas"),
+            etqele("trabajos-otras-empresas"),
             [TREBALLS REALITZATS PER ALTRES EMPRESES. POSTALS],
 
             val("2255"),
-            etqcod(ele, "trabajos-otras-empresas"),
+            etqele("trabajos-otras-empresas"),
             [TREBALLS REALITZATS PER ALTRES EMPRESES. IMPARTICIÓ ESTUDIS],
 
             val("2256"),
-            etqcod(ele, "trabajos-otras-empresas"),
+            etqele("trabajos-otras-empresas"),
             [TREBALLS REALITZATS PER ALTRES EMPRESES. PROCESOS ELECTORALES],
 
             val("2257"),
-            etqcod(ele, "trabajos-otras-empresas"),
+            etqele("trabajos-otras-empresas"),
             [TREBALLS REALITZATS PER ALTRES EMPRESES. ESTUDIS I TREBALLS TÈCNICS],
 
             val("2261"),
-            etqcod(ele, "primas-seguro"),
+            etqele("primas-seguro"),
             [PRIMES D'ASSEGURANÇA. EDIFICIOS Y LOCALES],
 
             val("2262"),
-            etqcod(ele, "primas-seguro"),
+            etqele("primas-seguro"),
             [PRIMES D'ASSEGURANÇA. VEHICLES],
 
             val("2263"),
-            etqcod(ele, "primas-seguro"),
+            etqele("primas-seguro"),
             [PRIMES D'ASSEGURANÇA. ALTRE IMMOBILITZAT],
 
             val("2268"),
-            etqcod(ele, "primas-seguro"),
+            etqele("primas-seguro"),
             [PRIMES D'ASSEGURANÇA. ALTRES],
 
             val("2272"),
-            etqcod(ele, "publicaciones"),
+            etqele("publicaciones"),
             [MATERIAL D'OFICINA. PREMSA, REVISTES I PUBLICACIONS PERIÒDIQUES],
 
             val("2273"),
-            etqcod(ele, "publicaciones"),
+            etqele("publicaciones"),
             [MATERIAL D'OFICINA. LLIBRES I ALTRES PUBLICACIONS],
 
             val("2274"),
-            etqcod(ele, "material-informático"),
+            etqele("material-informático"),
             [MATERIAL D'OFICINA. MATERIAL INFORMÀTIC],
 
             val("2275"),
-            etqcod(ele, "publicaciones"),
+            etqele("publicaciones"),
             [MATERIAL D'OFICINA. DESPESES DE PUBLICACIONS],
 
             val("2276"),
-            etqcod(ele, "fotocopias"),
+            etqele("fotocopias"),
             [MATERIAL D'OFICINA. MATERIAL FOTOCOPIADORAS],
 
             val("2277"),
-            etqcod(ele, "publicaciones"),
+            etqele("publicaciones"),
             [MATERIAL D'OFICINA. ENQUADERNACIONS],
 
             val("2280"),
-            etqcod(ele, "costes-diversos"),
+            etqele("costes-diversos"),
             [DESPESES DIVERSES. SUBJECTES EXPERIMENTALS],
 
             val("2281"),
-            etqcod(ele, "cánones"),
+            etqele("cánones"),
             [DESPESES DIVERSES. CÀNONS (PROPIETAT INDUSTRIAL)],
 
             val("2282"),
-            etqcod(ele, "publicidad"),
+            etqele("publicidad"),
             [DESPESES DIVERSES. PUBLICITAT I PROPAGANDA],
 
             val("2283"),
-            etqcod(ele, "costes-diversos"),
+            etqele("costes-diversos"),
             [DESPESES DIVERSES. JURÍDICS CONTENCIOSOS],
 
             val("2284"),
-            etqcod(ele, "relaciones-públicas"),
+            etqele("relaciones-públicas"),
             [DESPESES DIVERSES. ATENCIONS PROTOCOL·LÀRIES],
 
             val("2285"),
-            etqcod(ele, "costes-diversos"),
+            etqele("costes-diversos"),
             [DESPESES DIVERSES. REUNIONS I CONFERÈNCIES],
 
             val("2286"),
-            etqcod(ele, "publicación-en-revistas-científicas"),
+            etqele("publicación-en-revistas-científicas"),
             [DESPESES DIVERSES. PUBLICACIÓ EN REVISTES CIENTÍFIQUES],
 
             val("2287"),
-            etqcod(ele, "trabajos-otras-empresas"),
+            etqele("trabajos-otras-empresas"),
             [DESPESES DIVERSES. ACTIVITATS CULTURALS],
 
             val("2288"),
-            etqcod(ele, "otros-bienes-servicios"),
+            etqele("otros-bienes-servicios"),
             [ALTRES DESPESES],
 
             val("2289"),
-            etqcod(ele, "formación"),
+            etqele("formación"),
             [INSCRIPCIONS A CURSOS, CONGRESSOS I SIMILARS],
 
             val("2311"),
-            etqcod(ele, "indemnizaciones-servicio"),
+            etqele("indemnizaciones-servicio"),
             [DIETES],
 
             val("2312"),
-            etqcod(ele, "indemnizaciones-servicio"),
+            etqele("indemnizaciones-servicio"),
             [LOCOMOCIÓ],
 
             val("2313"),
-            etqcod(ele, "indemnizaciones-servicio"),
+            etqele("indemnizaciones-servicio"),
             [TRASLLAT],
 
             val("2314"),
-            etqcod(ele, "indemnizaciones-servicio"),
+            etqele("indemnizaciones-servicio"),
             [DESPESES COMISSIONS DE SERVEI],
 
             val("3111"),
-            etqcod(ele, "otros-costes-financieros"),
+            etqele("otros-costes-financieros"),
             [DESPESES EMISSIÓ D'OBLIGACIONS A LLLARG TERMINI],
 
             val("3121"),
-            etqcod(ele, "intereses-préstamos"),
+            etqele("intereses-préstamos"),
             [INTERESES DE OBLIGACIONES I BONS],
 
             val("3221"),
-            etqcod(ele, "intereses-préstamos"),
+            etqele("intereses-préstamos"),
             [INTERESSOS DE PRÉSTECS],
 
             val("3411"),
-            etqcod(ele, "otros-costes-financieros"),
+            etqele("otros-costes-financieros"),
             [INTERESSOS DE DEMORA],
 
             val("3421"),
-            etqcod(ele, "servicios-bancarios"),
+            etqele("servicios-bancarios"),
             [ALTRES DESPESES FINANCERES],
 
             val("4111"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A LA ADMINISTRACION DEL ESTADO],
 
             val("4211"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A ORGANISMOS AUTONOMOS ADMINISTRATIVOS],
 
             val("4411"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A AJUNTAMENTS],
 
             val("4421"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A DIPUTACIONS],
 
             val("4431"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A ALTRES CORPORACIONS LOCALS],
 
             val("4432"),
-            etqcod(ele, "costes-financieros"),
+            etqele("costes-financieros"),
             [INGRESSOS PER FÀCTORING. DEUTE GV.],
 
             val("4441"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A COMUNITATS AUTÒNOMES.],
 
             val("4511"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A EMPRESES PÚBLIQUES],
 
             val("4521"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A ALTRES ENTITATS PÚBLIQUES],
 
             val("4531"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [SUBV. EXPLOTACION EMPRESAS PUBLICAS],
 
             val("4541"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [SUBV. EXPLOTACION OTROS ENTES PUBLICOS],
 
             val("4611"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A EMPRESES PRIVADES],
 
             val("4621"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [SUBV.EXPLOTACION EMPRESAS PRIVADAS],
 
             val("4711"),
-            etqcod(ele, "transferencias-alumnos"),
+            etqele("transferencias-alumnos"),
             [TRANSFERÈNCIES CORRENTS. A BECARIS],
 
             val("4712"),
-            etqcod(ele, "transferencias-alumnos"),
+            etqele("transferencias-alumnos"),
             [SEGURETAT SOCIAL BECARIS],
 
             val("4721"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. INSTITUCIONS SENSE FINALITAT DE LUCRE],
 
             val("4722"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A ASSOCIACIONS D'ESTUDIANTS],
 
             val("4723"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [A JUNTAS DE PERSONAL Y COMITE DE EMPRESA],
 
             val("4724"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [A CENTROS E INSTITUCIONES PARA LA ORGANIZACION CONJUNTA DE CURSOS Y CONGRESOS],
 
             val("4731"),
-            etqcod(ele, "transferencias-organizaciones-grupo"),
+            etqele("transferencias-organizaciones-grupo"),
             [TRANSFERÈNCIES CORRENTS. ORGANITZACIONS DEL GRUP],
 
             val("4811"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES CORRENTS. A L'EXTERIOR],
 
             val("6711"),
-            etqcod(ele, "publicaciones"),
+            etqele("publicaciones"),
             [INVERSIONS EN FONS BIBLIOGRÀFICS],
 
             val("7700"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES DE CAPITAL. A EMPRESES PRIVADES],
 
             val("7721"),
-            etqcod(ele, "transferencias-alumnos"),
+            etqele("transferencias-alumnos"),
             [TRANSFERENCIAS DE CAPITAL. A FAMILIAS],
 
             val("7731"),
-            etqcod(ele, "transferencias-otras-organizaciones"),
+            etqele("transferencias-otras-organizaciones"),
             [TRANSFERÈNCIES DE CAPITAL. A INSTITUCIONS SENSE FINALITAT DE LUCRE],
 
             val("7732"),
-            etqcod(ele, "transferencias-organizaciones-grupo"),
+            etqele("transferencias-organizaciones-grupo"),
             [TRANSFERÈNCIES DE CAPITAL. ORGANITZACIONS DEL GRUP],
 
             table.hline(),
@@ -2625,36 +2635,36 @@ El árbol de elementos de coste modificado por las reglas se ha de mostrar en la
 
     - #nombre-regla[Conferenciantes u otras empresas]
         Si la #campo("aplicación") es #val("2322")
-        - si #campo("tipo de proyecto") es #val("EPM"), #val("EPDE"), #val("EPDEX"), #val("EPC"), #val("EPMI"), #val("CUID") o #val("CUEX"), o si el #campo("centro") = #val("UMAJ"), el elemento de coste es #etqcod(ele, "piyotper-conferenciantes")
-        - en otro caso, es #etqcod(ele, "trabajos-otras-empresas")
+        - si #campo("tipo de proyecto") es #val("EPM"), #val("EPDE"), #val("EPDEX"), #val("EPC"), #val("EPMI"), #val("CUID") o #val("CUEX"), o si el #campo("centro") = #val("UMAJ"), el elemento de coste es #etqele("piyotper-conferenciantes")
+        - en otro caso, es #etqele("trabajos-otras-empresas")
 
     - #nombre-regla[Material de docencia, deportivo u otro]
         Si la #campo("aplicación") es #val("2236") ó #val("2238")
 
-        - si el #campo("centro") es #val("ECTEC"), #val("FCCHS"), #val("FCCJE"), #val("FCCS"), el elemento de coste es #etqcod(ele, "material-docencia");
-        - si el #campo("subcentro") es #val("C2"), #val("C3"), es #etqcod(ele, "material-deportivo-cultural");
-        - en otro caso, es #etqcod(ele, "otros-suministros")
+        - si el #campo("centro") es #val("ECTEC"), #val("FCCHS"), #val("FCCJE"), #val("FCCS"), el elemento de coste es #etqele("material-docencia");
+        - si el #campo("subcentro") es #val("C2"), #val("C3"), es #etqele("material-deportivo-cultural");
+        - en otro caso, es #etqele("otros-suministros")
 
     - #nombre-regla[Material de laboratorio, de conservación de instalaciones, de investigación u de docencia]
         Si la #campo("aplicación") es #val("2239"),
 
         - y el #campo("programa") es #val("541-A"),
-            - si el #campo("proyecto") = #val("00000"), el elemento de coste es #etqcod(ele, "material-laboratorio")
-            - si el #campo("proyecto") = #val("8G022"), es #etqcod(ele, "conservación-instalaciones")
-            - si no, el elemento de coste es #etqcod(ele, "bienes-investigación")
-        - si no, es #etqcod(ele, "material-docencia")
+            - si el #campo("proyecto") = #val("00000"), el elemento de coste es #etqele("material-laboratorio")
+            - si el #campo("proyecto") = #val("8G022"), es #etqele("conservación-instalaciones")
+            - si no, el elemento de coste es #etqele("bienes-investigación")
+        - si no, es #etqele("material-docencia")
 
     - #nombre-regla[Material de docencia o de oficina en centros]
         Si la #campo("aplicación") es #val("2271") o #val("2278"),
 
-        - si el #campo("centro") es #val("ECTEC"), #val("FCCHS"), #val("FCCJE") o #val("FCCS"), el elemento de coste es #etqcod(ele, "material-docencia"),
-        - en otro caso, es #etqcod(ele, "material-oficina").
+        - si el #campo("centro") es #val("ECTEC"), #val("FCCHS"), #val("FCCJE") o #val("FCCS"), el elemento de coste es #etqele("material-docencia"),
+        - en otro caso, es #etqele("material-oficina").
 
     - #nombre-regla[Publicaciones o servicios profesionales]
         Si la #campo("aplicación") es #val("2258"),
 
-        - y el #campo("subcentro") es #val("I5"), el elemento de coste es #etqcod(ele, "publicaciones")
-        - en otro caso, es #etqcod(ele, "servicios-profesionales")
+        - y el #campo("subcentro") es #val("I5"), el elemento de coste es #etqele("publicaciones")
+        - en otro caso, es #etqele("servicios-profesionales")
 ]
 
 
@@ -2961,6 +2971,8 @@ En primer lugar, vamos a agrupar todas la entradas de #ruta("nóminas y segurida
 
 En la #app, quiero poder ver, por separado, los expedientes de cada uno de estos sectores. Si aparece algún expediente que no se pueda clasificar en ninguno de estos sectores, quiero poder verlo también para analizarlo.
 
+También quiero ver en la #app la relación de personas que tiene más de un expediente de tipos distintos. En una entrada de menú aparecerá Multiexpediente y dentro, en un tabs, tendré: PTGAS + PDI, PTGAS + PVI, PDI + PVI, PTGAS + PDI + PDI. En cada uno de esos tabs, veré la relación de personas que tienen expedientes de ambos tipos, con el número de expedientes de cada tipo que tienen, para analizar si es correcto o no que tengan expedientes de ambos tipos. Al seleccionar la persona, veré los doce meses del año y en qué meses tenía activos que expedientes (número y colectivo al que pertenece).
+
 Cada una de esas listas (PDI, PTGAS, PVI) se va a procesar de un modo distinto, lo que vamos a describir en los siguientes apartados.
 
 
@@ -2981,14 +2993,8 @@ La #app mostrará los totales de cada tabla y comprobará que los totales de las
 
 En la #app se han de mostrar también las unidad de coste que ya se han creado para cada expediente de PTGAS, para facilitar comprobaciones y evitar duplicidades.
 
-// ==== Conversión de los registros en unidades de coste
 
-// Ahora vamos a recorrer las tres listas para crear una unidad de coste con cada registro.
-
-// - De la lista de retribuciones ordinarias:
-
-
-==== Creación de unidad de coste a partir de registros de nómina
+==== Creación de unidades de coste a partir de registros de nómina
 
 #reglas[
     - Con los registros que hemos puesto en #campo("retribuciones ordinarias") hacemos la suma de por servicio dentro de ese expediente (una persona, desde un expediente, puede haber trabajado en más de un servicio a lo largo del año), por que de cada servicio, para ese expediente, vamos a crear una unidad de coste. Para eso, tenemos que mapear cada servicio al centro de coste que le corresponde, y asignar el elemento de coste #etqele("retribuciones-ordinarias") y la actividad #etqact("dag-general-universidad"). El importe de la unidad de coste es el importe total de las retribuciones ordinarias del servicio.
@@ -2998,7 +3004,7 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
     #table(
         columns: (.5fr, 1fr, 1fr),
         align: (left, left, left),
-        table.header([*Servicio*], [*Centro de coste*], [*Actividad*]),
+        table.header(table.hline(), [*Servicio*], [*Centro de coste*], [*Actividad*], table.hline()),
         [523], [#etqcen("asesoría-jurídica")], [#etqact("dag-asesoría-jurídica")],
         [660], [#etqcen("bibliotecas")], [#etqact("dag-biblioteca")],
         [640], [#etqcen("cent")], [#etqact("dag-cent")],
@@ -3121,7 +3127,7 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
     #table(
         columns: 3,
         align: (left, left, left),
-        table.header([*Centro plaza*], [*Centro de coste*], [*Actividad*]),
+        table.header(table.hline(), [*Centro plaza*], [*Centro de coste*], [*Actividad*], table.hline()),
         [2], etqcen("ps-fchs"), etqact("dag-conserjería-fchs"),
         [3], etqcen("ps-fcje"), etqact("dag-conserjería-fcje"),
         [4], etqcen("ps-estce"), etqact("dag-conserjería-estce"),
@@ -3133,6 +3139,26 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
 
 ]
 
+
+=== Tratamiento del PVI
+
+==== Agrupamiento de los registros
+Cada expediente del PVI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
+
+- un, #campo("costes sociales") con lo que es Seguridad Social (#campo("aplicación") que empieza por 12),
+- otra, #campo("retribuciones") con el resto de registros.
+
+En la #app, al selecciona un expediente de PVI, veré sus tres tablas y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones.
+
+La #app mostrará los totales de cada tabla y comprobará que los totales suman el total de la nómina del PVI, para detectar posibles errores en la clasificación de los registros en las tablas.
+
+En la #app se han de mostrar también las unidad de coste que ya se han creado para cada expediente de PTGAS, para facilitar comprobaciones y evitar duplicidades.
+
+==== Creación de unidades de coste a partir de registros de nómina
+
+#reglas[
+    - Con los registros que hemos puesto en #campo("retribuciones") hacemos la suma por proyecto y creamos una unidad de coste.  El importe de la unidad de coste es el importe total de las retribuciones ordinarias del servicio.
+]
 
 === Tratamiento del PDI
 
@@ -3177,18 +3203,6 @@ Para tener controlados los casos raros, quiero que haya una opción en «Persona
 
 
 
-=== Tratamiento del PVI
-
-Cada expediente del PVI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
-
-- un, #campo("costes sociales") con lo que es Seguridad Social (#campo("aplicación") que empieza por 12),
-- otra, #campo("retribuciones con cargo a fondos UJI") (#campo("tipo de línea") #val("00"))
-- otra, #campo("retribuciones con cargo a financiación afectada"), con el resto.
-
-En la #app, al selecciona un expediente de PVI, veré sus tres tablas y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones.
-
-La #app mostrará los totales de cada tabla y comprobará que los totales suman el total de la nómina del PVI, para detectar posibles errores en la clasificación de los registros en las tablas.
-
 
 
 
@@ -3197,6 +3211,15 @@ La #app mostrará los totales de cada tabla y comprobará que los totales suman 
 Para expediente de PDI hemos de construir una serie de datos, algunos escalares y otros de tipo tabla, que nos ayudarán, a continuación, a generar unidades de coste con información de nóminas. Algunos elementos de las nóminas se podrán enviar a actividades con relativa facilidad, pero los que denominamos
 
 
+== Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social
+
+Ahora interesa considerar a cada persona tomand en cuenta todos los expedientes asociados.
+
+Creamos una lista con todas las unidades de coste que se han asociado a algún expediente de la persona (vengan de nómina o de presupuesto). Clasificamos cada unidad de coste por su actividad y centro de coste. Con eso sabemos que retribuciones ha tenido cada par (actividad, centro de coste) y qué porcentaje suponen estas sobre el total percibido en el año. Para cada par (actividad, centro de coste) se crea una unidad de coste con su porcentaje de seguridad social. De este modo, se reparte la seguridad social entre las actividades y centros de coste a los que ha estado asociado cada persona a lo largo del año, teniendo en cuenta todos sus expedientes.
+
+Quiero que la #app permita, en un menú llamado Persona, elegir una persona (de las que han tenido al menos un expediente vivo en el año) y me muestre toda esta información. En esa ficha, al mostrar el detalle de unidades de coste se verán todas las asociadas a esa persona: las retributivas y las de costes sociales. De cada una de esas unidades quiero ver toda la información asociada y al pinchar en una, su detalle máximo. Ojo, las unidades de coste que se visualizan son:
+- todas las que ya había por nóminas o presupuesto vinculadas a algún expediente de la persona (y pueden ser muchas)
+- las que se acaban de crear para la seguridad social (que serán pocas, porque hay una por cada par actividad-centro de coste, y no por cada unidad de coste retributiva).
 
 
 = Resultados

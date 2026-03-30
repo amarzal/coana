@@ -326,6 +326,213 @@ def _generar_uc_ptgas(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFram
     return pl.concat(uc_partes)
 
 
+def _generar_multiexpediente(
+    agrupado: pl.DataFrame,
+    nóminas: pl.DataFrame,
+    dir_salida: Path,
+) -> None:
+    """Genera multiexpediente.parquet: personas con expedientes en sectores distintos.
+
+    Para cada per_id con expedientes en más de un sector (PDI/PTGAS/PVI),
+    guarda los sectores, el conteo de expedientes por sector y la actividad
+    mensual (qué meses tenía registros de nómina en cada expediente).
+    """
+    # Solo sectores principales (sin "Otros")
+    principales = agrupado.filter(pl.col("sector_final") != "Otros")
+
+    # Sectores distintos por persona
+    per_sectores = (
+        principales.group_by("per_id")
+        .agg(
+            pl.col("sector_final").unique().sort().alias("sectores"),
+            pl.col("sector_final").n_unique().alias("n_sectores"),
+        )
+        .filter(pl.col("n_sectores") > 1)
+    )
+
+    if per_sectores.is_empty():
+        # Guardar vacío para que la UI no falle
+        pl.DataFrame(schema={
+            "per_id": pl.Int64,
+            "sectores": pl.List(pl.Utf8),
+            "n_sectores": pl.UInt32,
+        }).write_parquet(dir_salida / "multiexpediente.parquet")
+        return
+
+    # Conteo de expedientes por (per_id, sector)
+    conteo = (
+        principales.filter(pl.col("per_id").is_in(per_sectores["per_id"]))
+        .group_by("per_id", "sector_final")
+        .agg(pl.col("expediente").n_unique().alias("n_expedientes"))
+    )
+    # Pivot: columnas n_PDI, n_PTGAS, n_PVI
+    conteo_pivot = conteo.pivot(
+        on="sector_final", index="per_id", values="n_expedientes",
+    ).fill_null(0)
+    # Renombrar columnas pivotadas
+    for s in ["PDI", "PTGAS", "PVI"]:
+        if s in conteo_pivot.columns:
+            conteo_pivot = conteo_pivot.rename({s: f"n_{s}"})
+    for s in ["PDI", "PTGAS", "PVI"]:
+        if f"n_{s}" not in conteo_pivot.columns:
+            conteo_pivot = conteo_pivot.with_columns(pl.lit(0).alias(f"n_{s}"))
+
+    result = per_sectores.join(conteo_pivot, on="per_id", how="left")
+
+    # Actividad mensual: para cada per_id multiexpediente, qué meses tiene
+    # registros en cada expediente (extraer mes de la columna fecha).
+    multi_per_ids = per_sectores["per_id"]
+    exp_sector = (
+        principales.filter(pl.col("per_id").is_in(multi_per_ids))
+        .select("expediente", "per_id", "sector_final")
+        .unique()
+    )
+    actividad = (
+        nóminas.filter(pl.col("expediente").is_in(exp_sector["expediente"]))
+        .select("expediente", "fecha")
+        .with_columns(pl.col("fecha").dt.month().alias("mes"))
+        .select("expediente", "mes")
+        .unique()
+        .join(exp_sector, on="expediente", how="left")
+    )
+    actividad.write_parquet(dir_salida / "multiexpediente_actividad.parquet")
+
+    n = len(result)
+    print(f"  Multiexpediente: {n:,} personas con expedientes en sectores distintos")
+    result.write_parquet(dir_salida / "multiexpediente.parquet")
+
+
+def _generar_reparto_ss_persona(
+    nóminas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    uc_ptgas: pl.DataFrame,
+    uc_por_expediente: dict[int, pl.DataFrame],
+    dir_salida: Path,
+) -> None:
+    """Genera el reparto de SS por persona agrupando UC por (actividad, centro de coste).
+
+    Reúne todas las UC asociadas a los expedientes de cada persona (de nómina y
+    de presupuesto), calcula el porcentaje de cada par (actividad, centro_de_coste)
+    y reparte la SS proporcionalmente.
+
+    Guarda:
+      - persona_uc.parquet: todas las UC retributivas por persona (columnas completas)
+      - persona_ss.parquet: reparto de SS por (per_id, actividad, centro_de_coste)
+    """
+    # Mapa expediente → per_id
+    exp_per = expedientes.select("expediente", "per_id")
+
+    # Reunir todas las UC con todas sus columnas
+    partes: list[pl.DataFrame] = []
+    if not uc_ptgas.is_empty():
+        partes.append(uc_ptgas)
+    for exp_id, df_uc in uc_por_expediente.items():
+        if "actividad" in df_uc.columns and "centro_de_coste" in df_uc.columns:
+            sub = df_uc.with_columns(pl.lit(exp_id).cast(pl.Int64).alias("expediente"))
+            partes.append(sub)
+
+    if not partes:
+        # Guardar vacíos
+        pl.DataFrame(schema={
+            "per_id": pl.Int64, "expediente": pl.Int64, "id": pl.Utf8,
+            "elemento_de_coste": pl.Utf8, "centro_de_coste": pl.Utf8,
+            "actividad": pl.Utf8, "importe": pl.Float64, "origen": pl.Utf8,
+            "origen_id": pl.Utf8, "origen_porción": pl.Float64, "tipo": pl.Utf8,
+        }).write_parquet(dir_salida / "persona_uc.parquet")
+        pl.DataFrame(schema={
+            "per_id": pl.Int64, "actividad": pl.Utf8, "centro_de_coste": pl.Utf8,
+            "importe_uc": pl.Float64, "pct": pl.Float64, "ss_total": pl.Float64,
+            "ss_proporcional": pl.Float64,
+        }).write_parquet(dir_salida / "persona_ss.parquet")
+        return
+
+    todas_uc = pl.concat(partes, how="diagonal")
+
+    # Añadir per_id vía expediente
+    todas_uc = todas_uc.join(exp_per, on="expediente", how="left")
+
+    # Marcar como retributivas
+    todas_uc = todas_uc.with_columns(pl.lit("retributiva").alias("tipo"))
+
+    # SS total por persona: suma de registros de nómina con aplicación que empieza por "12"
+    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+    ss_por_exp = (
+        nóminas.filter(es_ss)
+        .group_by("expediente")
+        .agg(pl.col("importe").sum().alias("ss"))
+    )
+    ss_por_persona = (
+        ss_por_exp.join(exp_per, on="expediente", how="left")
+        .group_by("per_id")
+        .agg(pl.col("ss").sum().alias("ss_total"))
+    )
+
+    # Agrupar UC retributivas por (per_id, actividad, centro_de_coste)
+    agrup = (
+        todas_uc
+        .group_by("per_id", "actividad", "centro_de_coste")
+        .agg(pl.col("importe").sum().alias("importe_uc"))
+    )
+
+    # Total UC por persona
+    total_por_persona = (
+        agrup.group_by("per_id")
+        .agg(pl.col("importe_uc").sum().alias("total_uc"))
+    )
+
+    # Calcular porcentaje y reparto de SS
+    reparto = (
+        agrup
+        .join(total_por_persona, on="per_id", how="left")
+        .join(ss_por_persona, on="per_id", how="left")
+        .with_columns(
+            (pl.col("importe_uc") / pl.col("total_uc") * 100).round(2).alias("pct"),
+            pl.col("ss_total").fill_null(0.0),
+        )
+        .with_columns(
+            (pl.col("importe_uc") / pl.col("total_uc") * pl.col("ss_total"))
+            .round(2)
+            .alias("ss_proporcional"),
+        )
+        .drop("total_uc")
+        .sort("per_id", "importe_uc", descending=[False, True])
+    )
+
+    reparto.write_parquet(dir_salida / "persona_ss.parquet")
+
+    # Generar UC de costes sociales (una por cada par actividad/CC con SS > 0)
+    uc_ss = (
+        reparto.filter(pl.col("ss_proporcional") > 0)
+        .with_columns(
+            pl.lit("costes-sociales").alias("elemento_de_coste"),
+            pl.col("ss_proporcional").alias("importe"),
+            pl.lit("nómina").alias("origen"),
+            (pl.lit("SS-") + pl.col("per_id").cast(pl.Utf8)
+             + pl.lit("-") + pl.col("actividad")).alias("origen_id"),
+            pl.lit(1.0).alias("origen_porción"),
+            pl.lit(None).cast(pl.Utf8).alias("id"),
+            pl.lit(None).cast(pl.Int64).alias("expediente"),
+            pl.lit("coste social").alias("tipo"),
+        )
+        .select(
+            "per_id", "expediente", "id", "elemento_de_coste",
+            "centro_de_coste", "actividad", "importe",
+            "origen", "origen_id", "origen_porción", "tipo",
+        )
+    )
+
+    # Unir retributivas + costes sociales
+    todas = pl.concat([todas_uc, uc_ss], how="diagonal")
+    todas.write_parquet(dir_salida / "persona_uc.parquet")
+
+    n_personas = reparto["per_id"].n_unique()
+    n_uc_ss = len(uc_ss)
+    print(
+        f"  Reparto SS por persona: {n_personas:,} personas, {len(reparto):,} pares act/CC, "
+        f"{n_uc_ss:,} UC de costes sociales"
+    )
+
+
 def preprocesar_nóminas(
     ctx: ContextoNóminas,
     dir_salida: Path,
@@ -413,6 +620,9 @@ def preprocesar_nóminas(
         )
         df_sector.write_parquet(dir_salida / f"{sector}.parquet")
 
+    # -- Multiexpediente: personas con expedientes en sectores distintos --
+    _generar_multiexpediente(agrupado, nóminas, dir_salida)
+
     # -- UC de retribuciones ordinarias PTGAS --
     uc_ptgas = _generar_uc_ptgas(nóminas, expedientes)
     if not uc_ptgas.is_empty():
@@ -433,6 +643,11 @@ def preprocesar_nóminas(
             f"  UC presupuesto inyectadas en nóminas: {n_uc_inyectadas:,} "
             f"en {n_expedientes:,} expedientes"
         )
+
+    # -- Reparto de SS por persona --
+    _generar_reparto_ss_persona(
+        nóminas, expedientes, uc_ptgas, uc_por_expediente, dir_salida,
+    )
 
     return ResultadoNóminas(
         expedientes_por_sector=expedientes_por_sector,
