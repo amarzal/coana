@@ -2997,7 +2997,46 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
 ==== Creación de unidades de coste a partir de registros de nómina
 
 #reglas[
-    - Con los registros que hemos puesto en #campo("retribuciones ordinarias") hacemos la suma de por servicio dentro de ese expediente (una persona, desde un expediente, puede haber trabajado en más de un servicio a lo largo del año), por que de cada servicio, para ese expediente, vamos a crear una unidad de coste. Para eso, tenemos que mapear cada servicio al centro de coste que le corresponde, y asignar el elemento de coste #etqele("retribuciones-ordinarias") y la actividad #etqact("dag-general-universidad"). El importe de la unidad de coste es el importe total de las retribuciones ordinarias del servicio.
+    - En primer lugar hemos de agrupar los registros que hemos puesto en #campo("retribuciones ordinarias") por el par `elemento de coste`-`servicio` (una `persona`, desde un expediente, puede haber trabajado en más de un servicio a lo largo del año).
+
+    El primer problema es determinar el elemento de coste, que no es trivial. Su etiqueta tiene la forma `ptgas-XXX-YYY`, donde `XXX` depende de la categoría e `YYY` depende del tipo de retribución. Para determinar `XXX` y `YYY` hay que aplicar una serie de reglas.
+
+    - Para determinar el valor de `XXX` miramos el campo #campo("categoría") del registro:
+        - Si el valor es #val("FC") y el #campo("per_id") es #val("65214") (AMV), `XXX` es `dir`.
+        - Si no, si el valor es #val("FC") o #val("FI"), `XXX` es `func`.
+        - Si no, si el valor es #val("E"), `XXX` es `ev`.
+        - Si no, si el valor es #val("LE"), #val("LF") o #val("LT"), `XXX` es `lab`.
+        - Si no, marca un error, porque no debería de pasar.
+
+    - Para determinal el valor de `YYY` hay que mirar el campo #campo("concepto_retributivo") del registro:
+        - si #val("01"), es `sueldo` (Sou base)
+        - si no, si #val("03"), es `trienios`
+        - si no, si #val("04"), es `paga-extra`
+        - si no, si #val("05"), es `paga-extra` (paga extra del específico)
+        - si no, si #val("06"), es `esp` (ccee)
+        - si no, si #val("10"), es `dst` (destino)
+        - si no, si #val("15"), es `esp` (específico)
+        - si no, si #val("25"), es `prod` (es la productividad por funciones especiales en el puesto)
+        - si no, si #val("32"), es `prod` (productividad)
+        - si no, si #val("34"), es `otvars` (componente de ejercicio puesto trabajo LD #nota[REVISAR])
+        - si no, si #val("47"), es `otvars` (indemnización por finalización del contrato #nota[REVISAR])
+        - si no, si #val("48"), es `otvars` (indemnización por asistencia #nota[REVISAR])
+        - si no, si #val("53"), es `prod` (participaciónen artículos 60, debería haberse ido a presupuesto)
+        - si no, si #val("55"), es `prod` (gratificiación servicios carácter extraordinario)
+        - si no, si #val("71"), es `esp` (específico gerencia)
+        - si no, si #val("75"), es `cprof` (carrera)
+        - si no, si #val("76"), es `cprof` (compl compensatorio carrera)
+        - si no, si #val("82"), es `sueldo` (sueldo base, debería ser solo de PI #nota[REVISAR])
+        - si no, si #val("83"), es `otvars` (huelga)
+        - si no, si #val("87"), es `otvars` (atrasos)
+        - si no, si #val("90"), es `prod` (cursos impartidos #nota[REVISAR]
+        - si no, si #val("98"), es `trienios` (diferencia trienios ley 1/1996)
+        - si no, hay un error.
+
+
+    Para cada par elemento-servicio, tomamos sus registros de #campo("retribuciones ordinarias") y hacemos la suma, porque de cada par elemento-servicio, para ese expediente, vamos a crear una unidad de coste.
+
+    A continuación, tenemos que mapear cada servicio al centro de coste que le corresponde, y asignar el elemento de coste #etqele("retribuciones-ordinarias") y la actividad #etqact("dag-general-universidad").
 
     El servicio indicado en el registro permite decidir el centro de coste y la actividad a las que se asigna la unidad de coste , con esta tabla de mapeo y una excepción que te digo después de la tabla para el servicio #val("368") (personal de suport):
 
@@ -3137,6 +3176,7 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
         [2922], etqcen("ps-fcs"), etqact("dag-conserjería-fcs"),
     )
 
+    El importe de la unidad de coste que hemos creado con ese elemento de coste, centro de coste y actividad es el importe total de las retribuciones ordinarias del servicio.
 ]
 
 
@@ -3213,9 +3253,14 @@ Para expediente de PDI hemos de construir una serie de datos, algunos escalares 
 
 == Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social
 
-Ahora interesa considerar a cada persona tomand en cuenta todos los expedientes asociados.
+Ahora interesa considerar a cada persona tomando en cuenta todos los expedientes asociados.
 
 Creamos una lista con todas las unidades de coste que se han asociado a algún expediente de la persona (vengan de nómina o de presupuesto). Clasificamos cada unidad de coste por su actividad y centro de coste. Con eso sabemos que retribuciones ha tenido cada par (actividad, centro de coste) y qué porcentaje suponen estas sobre el total percibido en el año. Para cada par (actividad, centro de coste) se crea una unidad de coste con su porcentaje de seguridad social. De este modo, se reparte la seguridad social entre las actividades y centros de coste a los que ha estado asociado cada persona a lo largo del año, teniendo en cuenta todos sus expedientes.
+
+Para estas unidades de coste pondremos como `id` de la unidad de coste un un código seriado de la forma `SS-XXX`, donde `XXX` es un número que se va incrementando a medida que se van creando unidades de coste de seguridad social. El elemento de coste depende del sector del expediente principal de la persona:
+- `ss-ptgas` para el sector PTGAS
+- `ss-pdi-func` para el sector PDI #nota[REVISAR porque se distingue funcionario y laboral, y aún hemos de ver el tema de la previsión.]
+- `ss-pvi-otpersonal` para el sector PVI
 
 Quiero que la #app permita, en un menú llamado Persona, elegir una persona (de las que han tenido al menos un expediente vivo en el año) y me muestre toda esta información. En esa ficha, al mostrar el detalle de unidades de coste se verán todas las asociadas a esa persona: las retributivas y las de costes sociales. De cada una de esas unidades quiero ver toda la información asociada y al pinchar en una, su detalle máximo. Ojo, las unidades de coste que se visualizan son:
 - todas las que ya había por nóminas o presupuesto vinculadas a algún expediente de la persona (y pueden ser muchas)

@@ -152,6 +152,8 @@ class ResultadoNóminas:
     n_uc_inyectadas: int = 0
     # UC generadas a partir de retribuciones ordinarias PTGAS.
     uc_ptgas: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # UC generadas a partir de retribuciones PVI.
+    uc_pvi: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 def _mapear_sector(expedientes: pl.DataFrame) -> pl.DataFrame:
@@ -226,19 +228,60 @@ def _asignar_uc_a_expedientes(
     return resultado
 
 
+# Mapeo categoría → XXX del elemento de coste PTGAS (ptgas-XXX-YYY).
+# La excepción de FC + per_id 65214 → "dir" se trata en código.
+_PTGAS_CAT_XXX: dict[str, str] = {
+    "FC": "func", "FI": "func", "E": "ev",
+    "LE": "lab", "LF": "lab", "LT": "lab",
+}
+
+# Mapeo concepto_retributivo → YYY del elemento de coste PTGAS.
+_PTGAS_CR_YYY: dict[str, str] = {
+    "01": "sueldo", "03": "trienios", "04": "paga-extra", "05": "paga-extra",
+    "06": "esp", "10": "dst", "15": "esp", "25": "prod", "32": "prod",
+    "34": "otvars", "47": "otvars", "48": "otvars", "53": "prod",
+    "55": "prod", "71": "esp", "75": "cprof", "76": "cprof",
+    "82": "sueldo", "83": "otvars", "87": "otvars", "90": "prod",
+    "98": "trienios",
+}
+
+# per_id de excepción: FC + este per_id → "dir" en vez de "func".
+_PTGAS_PER_ID_DIR = 65214
+
+
+def _elemento_coste_ptgas(categoría: str, concepto_retributivo: str, per_id: int | None) -> str | None:
+    """Calcula el elemento de coste ptgas-XXX-YYY. Devuelve None si hay error."""
+    cat = str(categoría).strip()
+    cr = str(concepto_retributivo).strip()
+
+    # XXX
+    if cat == "FC" and per_id == _PTGAS_PER_ID_DIR:
+        xxx = "dir"
+    elif cat in _PTGAS_CAT_XXX:
+        xxx = _PTGAS_CAT_XXX[cat]
+    else:
+        return None  # error
+
+    # YYY
+    yyy = _PTGAS_CR_YYY.get(cr)
+    if yyy is None:
+        return None  # error
+
+    return f"ptgas-{xxx}-{yyy}"
+
+
 def _generar_uc_ptgas(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame) -> pl.DataFrame:
     """Genera UC a partir de retribuciones ordinarias del PTGAS.
 
-    Agrupa por (expediente, servicio), mapea servicio → CC + actividad.
-    Excepción: servicio 368 usa centro_plaza.
+    Agrupa por (expediente, elemento_de_coste, servicio).
+    Elemento de coste = ptgas-XXX-YYY según categoría y concepto_retributivo.
+    Excepción: servicio 368 usa centro_plaza para CC/actividad.
     """
-    # Filtrar solo PTGAS
     exp_ptgas = _mapear_sector(expedientes)
     exp_ptgas = exp_ptgas.filter(pl.col("sector_mapeado") == "PTGAS")
     if exp_ptgas.is_empty():
         return pl.DataFrame()
 
-    # Registros de nómina de expedientes PTGAS
     registros = nóminas_filtradas.join(
         exp_ptgas.select("expediente", "per_id"),
         on="expediente",
@@ -253,9 +296,25 @@ def _generar_uc_ptgas(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFram
     if ordinarias.is_empty():
         return pl.DataFrame()
 
-    srv = pl.col("servicio").cast(pl.Utf8)
+    # Calcular elemento de coste para cada registro
+    ecs = [
+        _elemento_coste_ptgas(
+            row["categoría"], row["concepto_retributivo"], row["per_id"],
+        )
+        for row in ordinarias.select("categoría", "concepto_retributivo", "per_id").iter_rows(named=True)
+    ]
+    ordinarias = ordinarias.with_columns(pl.Series("_ec", ecs))
 
-    # Separar servicio 368 del resto
+    # Log errores
+    errores = ordinarias.filter(pl.col("_ec").is_null())
+    if not errores.is_empty():
+        n_err = len(errores)
+        imp_err = float(errores["importe"].sum())
+        print(f"    ⚠ {n_err:,} registros PTGAS sin elemento de coste ({imp_err:,.2f} €)")
+
+    ordinarias = ordinarias.filter(pl.col("_ec").is_not_null())
+
+    srv = pl.col("servicio").cast(pl.Utf8)
     resto = ordinarias.filter(srv != "368")
     srv_368 = ordinarias.filter(srv == "368")
 
@@ -266,10 +325,10 @@ def _generar_uc_ptgas(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFram
         _id_counter[0] += 1
         return f"N-{_id_counter[0]:05d}"
 
-    # Resto: agrupar por (expediente, servicio) y mapear
+    # Resto: agrupar por (expediente, _ec, servicio) y mapear
     if not resto.is_empty():
         agrup = (
-            resto.group_by("expediente", "servicio")
+            resto.group_by("expediente", "_ec", "servicio")
             .agg(pl.col("importe").sum())
         )
         filas = []
@@ -282,7 +341,7 @@ def _generar_uc_ptgas(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFram
             filas.append({
                 "id": _next_id(),
                 "expediente": row["expediente"],
-                "elemento_de_coste": "retribuciones-ordinarias",
+                "elemento_de_coste": row["_ec"],
                 "centro_de_coste": cc,
                 "actividad": act,
                 "importe": row["importe"],
@@ -293,10 +352,10 @@ def _generar_uc_ptgas(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFram
         if filas:
             uc_partes.append(pl.DataFrame(filas))
 
-    # Servicio 368: agrupar por (expediente, centro_plaza) y mapear
+    # Servicio 368: agrupar por (expediente, _ec, centro_plaza) y mapear
     if not srv_368.is_empty() and "centro_plaza" in srv_368.columns:
         agrup_368 = (
-            srv_368.group_by("expediente", "centro_plaza")
+            srv_368.group_by("expediente", "_ec", "centro_plaza")
             .agg(pl.col("importe").sum())
         )
         filas_368 = []
@@ -309,7 +368,7 @@ def _generar_uc_ptgas(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFram
             filas_368.append({
                 "id": _next_id(),
                 "expediente": row["expediente"],
-                "elemento_de_coste": "retribuciones-ordinarias",
+                "elemento_de_coste": row["_ec"],
                 "centro_de_coste": cc,
                 "actividad": act,
                 "importe": row["importe"],
@@ -324,6 +383,60 @@ def _generar_uc_ptgas(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFram
         return pl.DataFrame()
 
     return pl.concat(uc_partes)
+
+
+def _generar_uc_pvi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame) -> pl.DataFrame:
+    """Genera UC a partir de retribuciones del PVI.
+
+    Agrupa por (expediente, proyecto) y crea una UC por cada grupo.
+    """
+    exp_pvi = _mapear_sector(expedientes)
+    exp_pvi = exp_pvi.filter(pl.col("sector_mapeado") == "PVI")
+    if exp_pvi.is_empty():
+        return pl.DataFrame()
+
+    registros = nóminas_filtradas.join(
+        exp_pvi.select("expediente", "per_id"),
+        on="expediente",
+        how="inner",
+    )
+
+    # Retribuciones = todo menos SS
+    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+    retribuciones = registros.filter(~es_ss)
+
+    if retribuciones.is_empty():
+        return pl.DataFrame()
+
+    agrup = (
+        retribuciones.group_by("expediente", "proyecto")
+        .agg(pl.col("importe").sum())
+    )
+
+    _id_counter = [0]
+
+    def _next_id() -> str:
+        _id_counter[0] += 1
+        return f"V-{_id_counter[0]:05d}"
+
+    filas = []
+    for row in agrup.iter_rows(named=True):
+        filas.append({
+            "id": _next_id(),
+            "expediente": row["expediente"],
+            "elemento_de_coste": "",
+            "centro_de_coste": "",
+            "actividad": "",
+            "importe": row["importe"],
+            "origen": "nómina",
+            "origen_id": f"PVI-exp-{row['expediente']}-proy-{row['proyecto']}",
+            "origen_porción": 1.0,
+        })
+
+    if not filas:
+        return pl.DataFrame()
+
+    return pl.DataFrame(filas)
 
 
 def _generar_multiexpediente(
@@ -406,6 +519,7 @@ def _generar_reparto_ss_persona(
     nóminas: pl.DataFrame,
     expedientes: pl.DataFrame,
     uc_ptgas: pl.DataFrame,
+    uc_pvi: pl.DataFrame,
     uc_por_expediente: dict[int, pl.DataFrame],
     dir_salida: Path,
 ) -> None:
@@ -426,6 +540,8 @@ def _generar_reparto_ss_persona(
     partes: list[pl.DataFrame] = []
     if not uc_ptgas.is_empty():
         partes.append(uc_ptgas)
+    if not uc_pvi.is_empty():
+        partes.append(uc_pvi)
     for exp_id, df_uc in uc_por_expediente.items():
         if "actividad" in df_uc.columns and "centro_de_coste" in df_uc.columns:
             sub = df_uc.with_columns(pl.lit(exp_id).cast(pl.Int64).alias("expediente"))
@@ -500,26 +616,58 @@ def _generar_reparto_ss_persona(
 
     reparto.write_parquet(dir_salida / "persona_ss.parquet")
 
-    # Generar UC de costes sociales (una por cada par actividad/CC con SS > 0)
-    uc_ss = (
-        reparto.filter(pl.col("ss_proporcional") > 0)
+    # Sector principal por persona (prelación PTGAS > PVI > PDI)
+    exp_con_sector = _mapear_sector(expedientes)
+    sector_principal = (
+        exp_con_sector
         .with_columns(
-            pl.lit("costes-sociales").alias("elemento_de_coste"),
-            pl.col("ss_proporcional").alias("importe"),
-            pl.lit("nómina").alias("origen"),
-            (pl.lit("SS-") + pl.col("per_id").cast(pl.Utf8)
-             + pl.lit("-") + pl.col("actividad")).alias("origen_id"),
-            pl.lit(1.0).alias("origen_porción"),
-            pl.lit(None).cast(pl.Utf8).alias("id"),
-            pl.lit(None).cast(pl.Int64).alias("expediente"),
-            pl.lit("coste social").alias("tipo"),
+            pl.col("sector_mapeado")
+            .replace({s: str(i) for i, s in enumerate(_PRELACIÓN_SECTOR)})
+            .alias("_prio"),
         )
-        .select(
-            "per_id", "expediente", "id", "elemento_de_coste",
-            "centro_de_coste", "actividad", "importe",
-            "origen", "origen_id", "origen_porción", "tipo",
-        )
+        .sort("_prio")
+        .group_by("per_id")
+        .first()
+        .select("per_id", pl.col("sector_mapeado").alias("sector_principal"))
     )
+
+    # Mapeo sector → elemento de coste de SS
+    _EC_SS = {"PTGAS": "ss-ptgas", "PDI": "ss-pdi-func", "PVI": "ss-pvi-otpersonal"}
+
+    # Generar UC de costes sociales (una por cada par actividad/CC con SS > 0)
+    ss_base = (
+        reparto.filter(pl.col("ss_proporcional") > 0)
+        .join(sector_principal, on="per_id", how="left")
+    )
+
+    filas_ss = []
+    ss_counter = 0
+    for row in ss_base.iter_rows(named=True):
+        ss_counter += 1
+        sector = row.get("sector_principal", "")
+        filas_ss.append({
+            "per_id": row["per_id"],
+            "expediente": None,
+            "id": f"SS-{ss_counter:05d}",
+            "elemento_de_coste": _EC_SS.get(sector, f"ss-{sector.lower()}"),
+            "centro_de_coste": row["centro_de_coste"],
+            "actividad": row["actividad"],
+            "importe": row["ss_proporcional"],
+            "origen": "nómina",
+            "origen_id": f"SS-{row['per_id']}-{row['actividad']}",
+            "origen_porción": 1.0,
+            "tipo": "coste social",
+        })
+
+    if filas_ss:
+        uc_ss = pl.DataFrame(filas_ss)
+    else:
+        uc_ss = pl.DataFrame(schema={
+            "per_id": pl.Int64, "expediente": pl.Int64, "id": pl.Utf8,
+            "elemento_de_coste": pl.Utf8, "centro_de_coste": pl.Utf8,
+            "actividad": pl.Utf8, "importe": pl.Float64, "origen": pl.Utf8,
+            "origen_id": pl.Utf8, "origen_porción": pl.Float64, "tipo": pl.Utf8,
+        })
 
     # Unir retributivas + costes sociales
     todas = pl.concat([todas_uc, uc_ss], how="diagonal")
@@ -630,6 +778,13 @@ def preprocesar_nóminas(
         print(f"  UC PTGAS retrib. ordinarias: {len(uc_ptgas):,} UC, {importe_ptgas:,.2f} €")
         uc_ptgas.write_parquet(dir_salida / "uc_ptgas.parquet")
 
+    # -- UC de retribuciones PVI --
+    uc_pvi = _generar_uc_pvi(nóminas, expedientes)
+    if not uc_pvi.is_empty():
+        importe_pvi = float(uc_pvi["importe"].sum())
+        print(f"  UC PVI retribuciones: {len(uc_pvi):,} UC, {importe_pvi:,.2f} €")
+        uc_pvi.write_parquet(dir_salida / "uc_pvi.parquet")
+
     # -- Inyectar UC de presupuesto en expedientes --
     uc_por_expediente: dict[int, pl.DataFrame] = {}
     n_uc_inyectadas = 0
@@ -646,7 +801,7 @@ def preprocesar_nóminas(
 
     # -- Reparto de SS por persona --
     _generar_reparto_ss_persona(
-        nóminas, expedientes, uc_ptgas, uc_por_expediente, dir_salida,
+        nóminas, expedientes, uc_ptgas, uc_pvi, uc_por_expediente, dir_salida,
     )
 
     return ResultadoNóminas(
@@ -658,4 +813,5 @@ def preprocesar_nóminas(
         uc_por_expediente=uc_por_expediente,
         n_uc_inyectadas=n_uc_inyectadas,
         uc_ptgas=uc_ptgas,
+        uc_pvi=uc_pvi,
     )

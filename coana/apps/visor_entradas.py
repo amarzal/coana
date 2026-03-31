@@ -3084,10 +3084,9 @@ def _mostrar_persona():
         st.info("No hay datos de reparto de SS.")
         return
 
-    # Lista de personas con al menos una fila de reparto
+    # Construir tabla de personas con resumen
     personas_ids = reparto["per_id"].unique().sort().to_list()
 
-    # Construir tabla de personas para el selector
     personas_path = DIR_ENTRADA / "nóminas" / "personas.xlsx"
     if personas_path.exists():
         personas_ref = _load_excel(str(personas_path)).select(
@@ -3107,22 +3106,35 @@ def _mostrar_persona():
             "persona": [str(p) for p in personas_ids],
         })
 
-    # Selector con búsqueda
-    opciones = {
-        row["per_id"]: f"{row['per_id']} — {row['persona']}"
-        for row in personas_df.iter_rows(named=True)
-    }
-    seleccion = st.selectbox(
-        "Selecciona persona",
-        options=list(opciones.keys()),
-        format_func=lambda x: opciones[x],
-        key="persona_selector",
+    # Añadir importe retributivo y SS totales
+    resumen_persona = (
+        reparto.group_by("per_id")
+        .agg(
+            pl.col("importe_uc").sum().alias("importe retributivo"),
+            pl.col("ss_total").max().alias("SS total"),
+            pl.len().alias("nº pares act/CC"),
+        )
     )
-    if seleccion is None:
+    personas_df = personas_df.join(resumen_persona, on="per_id", how="left")
+
+    # Tabla filtrable para seleccionar persona
+    personas_f = _filtro_tabla(personas_df, "persona_lista")
+    ev = _st_df(
+        personas_f,
+        on_select="rerun",
+        selection_mode="single-row",
+        key="persona_lista_df",
+    )
+
+    filas_sel = ev.selection.rows if ev.selection else []
+    if not filas_sel or filas_sel[0] >= len(personas_f):
         return
 
-    per_id = seleccion
-    nombre = opciones[per_id]
+    fila = personas_f.row(filas_sel[0], named=True)
+    per_id = fila["per_id"]
+    nombre = f"{per_id} — {fila.get('persona', '')}"
+
+    st.divider()
     st.subheader(nombre)
 
     # Expedientes de esta persona
@@ -3288,12 +3300,24 @@ def _mostrar_personal():
                     detalle = detalle.join(lineas_ref, on="línea", how="left")
 
             if seccion == "Expedientes PVI":
-                es_fondos_uji = pl.col("tipo_línea") == "00"
                 grupos = [
                     ("Costes sociales", detalle.filter(es_coste_social)),
-                    ("Retribuciones con cargo a fondos UJI", detalle.filter(~es_coste_social & es_fondos_uji)),
-                    ("Retribuciones con cargo a financiación afectada", detalle.filter(~es_coste_social & ~es_fondos_uji)),
+                    ("Retribuciones", detalle.filter(~es_coste_social)),
                 ]
+                # UC generadas a partir de retribuciones PVI
+                uc_pvi_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_pvi.parquet"
+                if uc_pvi_path.exists():
+                    uc_pvi_all = pl.read_parquet(uc_pvi_path)
+                    uc_pvi_exp = uc_pvi_all.filter(pl.col("expediente") == expediente).drop("expediente")
+                    if not uc_pvi_exp.is_empty():
+                        grupos.append(("UC retribuciones", uc_pvi_exp))
+                # UC inyectadas desde presupuesto
+                uc_iny_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_presupuesto_en_nóminas.parquet"
+                if uc_iny_path.exists():
+                    uc_iny_all = pl.read_parquet(uc_iny_path)
+                    uc_iny_exp = uc_iny_all.filter(pl.col("expediente") == expediente).drop("expediente")
+                    if not uc_iny_exp.is_empty():
+                        grupos.append(("UC desde presupuesto", uc_iny_exp))
             elif seccion == "Expedientes PDI":
                 no_cs = detalle.filter(~es_coste_social)
                 finalista = no_cs.filter(pl.col("tipo_línea") != "00")
