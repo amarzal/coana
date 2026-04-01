@@ -3343,17 +3343,6 @@ def _mostrar_personal():
             nominas = _load_excel(str(nom_path))
             detalle = nominas.filter(pl.col("expediente") == expediente)
 
-            solo_filtradas = st.toggle(
-                "Solo registros que pasan el filtro de nóminas",
-                value=True,
-                key="nom_toggle_filtro",
-            )
-            _PROYECTOS_NÓMINA = ["1G019", "23G019", "02G041", "11G006", "1G046", "00000"]
-            if solo_filtradas:
-                es_ss = pl.col("aplicación").cast(pl.Utf8) == "1211"
-                es_proyecto = pl.col("proyecto").cast(pl.Utf8).is_in(_PROYECTOS_NÓMINA)
-                detalle = detalle.filter(es_ss | es_proyecto)
-
             st.subheader(f"Líneas de nómina del expediente {_lbl_exp}")
 
             sec_slug = {"Expedientes PTGAS": "ptgas", "Expedientes PDI": "pdi", "Expedientes PVI": "pvi"}[seccion]
@@ -3380,13 +3369,6 @@ def _mostrar_personal():
                     uc_pvi_exp = uc_pvi_all.filter(pl.col("expediente") == expediente).drop("expediente")
                     if not uc_pvi_exp.is_empty():
                         grupos.append(("UC retribuciones", uc_pvi_exp))
-                # UC inyectadas desde presupuesto
-                uc_iny_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_presupuesto_en_nóminas.parquet"
-                if uc_iny_path.exists():
-                    uc_iny_all = pl.read_parquet(uc_iny_path)
-                    uc_iny_exp = uc_iny_all.filter(pl.col("expediente") == expediente).drop("expediente")
-                    if not uc_iny_exp.is_empty():
-                        grupos.append(("UC desde presupuesto", uc_iny_exp))
             elif seccion == "Expedientes PDI":
                 no_cs = detalle.filter(~es_coste_social)
                 finalista = no_cs.filter(pl.col("tipo_línea") != "00")
@@ -3434,18 +3416,9 @@ def _mostrar_personal():
                     uc_ptgas_exp = uc_ptgas_all.filter(pl.col("expediente") == expediente).drop("expediente")
                     if not uc_ptgas_exp.is_empty():
                         grupos.append(("UC retrib. ordinarias", uc_ptgas_exp))
-                # UC inyectadas desde presupuesto
-                uc_iny_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_presupuesto_en_nóminas.parquet"
-                uc_iny_exp = pl.DataFrame()
-                if uc_iny_path.exists():
-                    uc_iny_all = pl.read_parquet(uc_iny_path)
-                    uc_iny_exp = uc_iny_all.filter(pl.col("expediente") == expediente).drop("expediente")
-                    if not uc_iny_exp.is_empty():
-                        grupos.append(("UC desde presupuesto", uc_iny_exp))
-
                 # Agrupación por actividades: todas las UC del expediente
                 _uc_partes = [
-                    df_uc for df_uc in [uc_ptgas_exp, uc_iny_exp]
+                    df_uc for df_uc in [uc_ptgas_exp]
                     if not df_uc.is_empty() and "actividad" in df_uc.columns
                 ]
                 if _uc_partes:
@@ -3467,7 +3440,8 @@ def _mostrar_personal():
                     grupos.append(("Agrupación por actividades", agrup_act))
 
             # Verificación cruzada de totales (excluir UC generadas)
-            grupos_nómina = [g for g in grupos if not g[0].startswith("UC ")]
+            _EXCLUIR_TOTALES = ("UC ", "Agrupación ")
+            grupos_nómina = [g for g in grupos if not any(g[0].startswith(p) for p in _EXCLUIR_TOTALES)]
             importe_subtablas = sum(float(g[1]["importe"].sum()) for g in grupos_nómina)
             total_expediente = float(detalle["importe"].sum())
             diferencia = abs(importe_subtablas - total_expediente)

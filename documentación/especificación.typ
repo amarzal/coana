@@ -866,69 +866,13 @@ Queremos generar dos tablas internas:
 
 La #app ha de mostrar las dos tablas mediante opciones de un desplegable «Presupuesto» y permitir descargarlas en formato Excel. Además, se ha de mostrar un resumen de la información que contienen, con el número de filas y el importe total de cada una de ellas.
 
+== Preparación de un módulo para clasificar actividades
 
-== Generación de UC a partir de presupuesto
+Tanto en presupuesto como en nóminas necesitaré establecer la actividad a la que un registro asocia el gasto. Vamos a preparar un módulo que permita clasificar actividades a partir de reglas. Usará campos que tenemos tanto en presupuesto como en nóminas. En particular, el capítulo del gasto, su aplicación, su proyecto, el centro y subcentro... y puede haber más. Algunas de las actividades ya existirán en árbol de actividades y otras se crearán a partir de las reglas.
 
-=== Reglas para generar unidades de coste a partir de apuntes presupuestarios
+El árbol que hemos de leer *y editar* para determinar actividades es el de actividades, que se encuentra en #ruta("data", "entrada", "estructuras", "actividades.tree").
 
-Lo primero es filtrar cieros registros del presupuesto de gasto, para quedarnos solo con los que nos interesan para generar unidades de coste. Para eso se definen una serie de reglas de filtrado, que se aplican a cada registro del presupuesto. Si un registro no pasa el filtro, no se genera unidad de coste a partir de él.
-
-Una vez filtrado el presupuesto, se aplican una serie de reglas para generar unidades de coste a partir de los apuntes presupuestarios. Cada regla tiene una condición y un resultado. El resultado es la etiqueta de actividad, centro de coste o elemento de coste que se asigna a la unidad de coste que se genera a partir del apunte presupuestario si se cumple la condición.
-Las reglas se aplican en orden y la primera que tiene éxito asigna actividad, centro de coste o elemento de coste a la unidad de coste. La división en secciones no tiene efectos en cuanto a la regla de _primera en coincidir, se aplica y detiene la búsqueda_.
-
-Cuando se han aplicado las reglas de un fichero, se ha asignado una actividad, un centro de coste y un elemento de coste a cada unidad de coste. Si una unidad de coste no tiene asignados los tres campos, se considera incompleta.
-
-La #app tendrá un desplegable «Presupuesto» con opciones para poder examinar todo lo que se hace en este paso de generación de unidades de coste a partir de apuntes presupuestarios.
-
-En la #app se ha mostrar luego cuántas veces se ha aplicado cada regla de cada conjunto de reglas. Al seleccionar una regla, se mostrará los apuntes que han se han tratado y al pinchar en el apunte, las unidades de coste a las que ha dado lugar, con su importe y el resto de campos que tienen asignados.
-
-
-==== Filtro del presupuesto
-
-El fichero #ruta("apuntes presupuesto de gasto.xlsx"), que se obtiene del presupuesto liquidado, contiene muchas filas que no deben considerarse para generar unidades de coste porque son registros que ya encuentran tratamiento por otros medios. En particular, el capítulo #val("1") se trata en nóminas y el capítulo #val("6") por amortizaciones de inventario, exceptuando aplicación #val("6711"), que es de adquisiciones bibliográficas y se trata como el resto del presupuesto.
-
-Hay ciertos suministros que pueden imputarse con relativa precisión si se conoce la superficie que ocupa cada centro de coste en cada edificio. La OTOP lleva un registro de gasto en energía eléctrica, agua y gas en función de dónde tiene contadores (suelen ser edificios o conjuntos de edificios). Como se tratan en otra sección, se eliminan sus líneas del presupuesto en esta etapa.
-
-Las reglas de filtrado que recogen estas ideas son las siguientes:
-
-#reglas[
-    - #nombre-regla[Filtro de capítulos financieros]
-        Si el #campo("capítulo") es #val("8") o #val("9"), no pasa el filtro.
-
-    - #nombre-regla[Filtro de la Seguridad Social]
-        Si el #campo("aplicación") es #val("1211"), no pasa el filtro.
-
-    - #nombre-regla[Filtro de proyectos de nómina genéricos]
-        Si el #campo("proyecto") es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006") o #val("1G046"), no pasa el filtro. (Todo es capítulo 1.)
-
-    - #nombre-regla[Filtro de las nóminas del proyecto general]
-        Si el #campo("proyecto") es #val("00000") y el #campo("capítulo") es #val("1"), no pasa el filtro.
-
-
-    - #nombre-regla[Filtro de las asistencias del proyecto general]
-        Si el #campo("proyecto") es #val("00000") y el #campo("aplicación") es #val("2321") (Asistencias), no pasa el filtro.
-
-    - #nombre-regla[Supresión de capítulo 6 excepto 6711]
-        Si #campo("capítulo") #val("6") y el #campo("aplicación") es distinto de #val("6711"), no pasa el filtro.
-
-    - #nombre-regla[Supresión de consumos de energía, agua y gas]
-        Si la #campo("aplicación") es #val("2231"), #val("2232") o #val("2233"), estamos ante un suministro de energía eléctrica, agua o gas, respectivamente. Esas filas las eliminamos porque tenemos un procedimiento distinto para generar unidades de coste a partir de los datos que nos facilita la OTOP, que conoce el coste desglosado por zonas, edificios o complejos de la universidad.
-]
-
-#nota[Falta algo del endosatario.]
-
-#align(center, image("img/filtro presupuesto.drawio.pdf"))
-
-En la #app, hay que informar al usuario de cuántas filas se han filtrado por cada uno de estos motivos y qué importe se ha eliminado de cada capítulo, concepto o aplicación. También se ha de poder acceder a cada una de las filas filtradas, que han de estar enriquecidas con información de la regla que la ha filtrado.
-
-#nota[Ver qué pasa con los apuntes de limpieza, seguridad y mantenimientos.]
-
-
-==== Determinación de la actividad
-
-El árbol que hemos de leer *y editar* para asignar actividades a los apuntes presupuestarios es el de actividades, que se encuentra en #ruta("data", "entrada", "estructuras", "actividades.tree").
-
-El árbol de actividades modificado por las reglas se ha de mostrar en la #app, con una opción de un desplegable #val("Presupuesto") para mostrarlo o descargarlo en formato `.tree`. Además, se ha de mostrar un resumen de la información que contiene, con el número de filas y el importe total de cada una de ellas. Los nodos añadidos se han de mostrar de un color distinto y se ha de indicar cuantos nodos se han añadido.
+El árbol de actividades modificado por las reglas se ha de mostrar en la #app, con una opción de un desplegable #val("Tras fase 1") para mostrarlo o descargarlo en formato `.tree`. Además, se ha de mostrar un resumen de la información que contiene, con el número de filas y el importe total de cada una de ellas. Los nodos añadidos se han de mostrar de un color distinto y se ha de indicar cuantos nodos se han añadido.
 
 ===== Conceptos previos
 
@@ -1059,6 +1003,7 @@ Esta tabla, a la que llamamos TABLA-TRADUCCIÓN-VICES, contiene las traducciones
 ))
 
 ===== Gastos del #campo("capítulo") 4 (ayudas) en un #campo("programa") distinto del #val("541-A")
+
 Vamos con las reglas de esta sección:
 
 #reglas[
@@ -1073,6 +1018,7 @@ Vamos con las reglas de esta sección:
 ]
 
 ===== Costes en proyectos de Investigación y transferencia
+
 #reglas[
     - #nombre-regla[Proyectos de investigación, artículos 60, cátedras, patentes y líneas]
         Si el #campo("tipo de proyecto") es #val("0000I"), #val("A11I"), #val("A1TI"), #val("A83CA"), #val("CA"), #val("PCT") o #val("IDI")
@@ -1123,11 +1069,6 @@ Vamos con las reglas de esta sección:
         Si #campo("tipo de proyecto") #val("05G"), y #campo("tipo de línea de financiación") no es #val("00"), la actividad es #etqact("ai-internacional").
 ]
 
-Hay que tener en cuenta que cada una de las unidades de coste que provienen de #campo("capítulo") #val("1") o
-- de #campo("aplicación") #val("2321") (asistencia de proyecto general)
-- de #val("2322") (asistencias como externo, que a veces aparecen)
-- o de #val("2281") (cobro de cánones por propiedad industrial)
-cuando afectan a una persona con un expediente activo han de guardar una copia de la unidad de coste creada en una de las estructuras de nóminas que se crean cuando hablamos de nóminas. La idea es coger el campo #campo("per_id_endosatario") y meter la unidad de costes en la lista de unidades de coste de un expediente de esa persona. Si la persona solo tiene un expediente, esto es trivial. Pero si tiene dos o más expedientes, hay que decidir a cuál. Lo haremos con esta prelación: si es PTGAS y además otra cosa, va a su expediente de PTGAS. Si no, si es PI y además otra cosa, va a su expediente de PI.
 
 ===== Distinto de investigación y transferencia
 
@@ -2066,7 +2007,10 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
 
 ]
 
-==== Determinación del centro de coste
+== Preparación de un módulo para clasificar centros de coste
+
+Del mismo modo que antes hemos usado información que puede estar en registros de nómina o de presupuesto para conocer la actividad, queremos hacer los mismo para obtener el centro de coste.
+
 El árbol de centros de coste modificado por las reglas se ha de mostrar en la #app, con una opción de un desplegable #val("Presupuesto") para mostrarlo o descargarlo en formato `.tree`. Además, se ha de mostrar un resumen de la información que contiene, con el número de filas y el importe total de cada una de ellas. Los nodos añadidos se han de mostrar de un color distinto y se ha de indicar cuantos nodos se han añadido.
 
 #reglas[
@@ -2136,6 +2080,146 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             table.hline(),
         ))
 
+
+
+    - #nombre-regla[Por servicio existe servicio y el proyecto uno de la línea]
+        Si hay un servicio y el proyecto es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), el servicio indicado en el registro permite decidir el centro de coste con esta tabla de mapeo y una excepción que te digo después de la tabla para el servicio #val("368") (personal de suport):
+
+        #table(
+            columns: (.5fr, 1fr, 1fr),
+            align: (left, left, left),
+            table.header(table.hline(), [*Servicio*], [*Centro de coste*], [*Actividad*], table.hline()),
+            [523], [#etqcen("asesoría-jurídica")], [#etqact("dag-asesoría-jurídica")],
+            [660], [#etqcen("bibliotecas")], [#etqact("dag-biblioteca")],
+            [640], [#etqcen("cent")], [#etqact("dag-cent")],
+            [263], [#etqcen("consejo-social")], [#etqact("dag-consejo-social")],
+            [2984], [#etqcen("consejo-estudiantes")], [#etqact("dag-consejo-estudiantes")],
+            [1862], [#etqcen("cátedras-investigación-1I201")], [#etqact("otras-ait-financiación-propia-1I201")],
+            [1662], [#etqcen("cátedras-investigación-1I235")], [#etqact("")],
+            [4267], [#etqcen("delegado")], [#etqact("dag-delegado")],
+            [101], [#etqcen("daem")], [#etqact("dag-daem")],
+            [93], [#etqcen("deco")], [#etqact("dag-deco")],
+            [3466], [#etqcen("dea")], [#etqact("dag-dede")],
+            [2103], [#etqcen("dmc")], [#etqact("dag-dmc")],
+            [81], [#etqcen("deq")], [#etqact("dag-deq")],
+            [2102], [#etqcen("desid")], [#etqact("dag-desid")],
+            [1442], [#etqcen("dicc")], [#etqact("dag-dicc")],
+            [1882], [#etqcen("dea")], [#etqact("dag-dea")],
+            [104], [#etqcen("dhga")], [#etqact("dag-dhga")],
+            [4207], [#etqcen("dbbcn")], [#etqact("dag-dbbcn")],
+            [2502], [#etqcen("dcc")], [#etqact("dag-dcc")],
+            [90], [#etqcen("ddpub")], [#etqact("dag-ddpub")],
+            [1883], [#etqcen("dfce")], [#etqact("dag-dfce")],
+            [2503], [#etqcen("dfs")], [#etqact("dag-dfs")],
+            [102], [#etqcen("dfc")], [#etqact("dag-dfc")],
+            [2283], [#etqcen("dfis")], [#etqact("dag-dfis")],
+            [1443], [#etqcen("dlsi")], [#etqact("dag-dlsi")],
+            [92], [#etqcen("dmat")], [#etqact("dag-dmat")],
+            [3465], [#etqcen("dpdcsll")], [#etqact("dag-dpdcsll")],
+            [97], [#etqcen("dpbcp")], [#etqact("dag-dpbcp")],
+            [96], [#etqcen("dpeesm")], [#etqact("dag-dpeesm")],
+            [2284], [#etqcen("dqfa")], [#etqact("dag-dqfa")],
+            [98], [#etqcen("dqio")], [#etqact("dag-dqio")],
+            [99], [#etqcen("dtc")], [#etqact("dag-dtc")],
+            [4], [#etqcen("estce")], [#etqact("dag-estce")],
+            [3165], [#etqcen("ed")], [#etqact("dag-escuela-doctorado")],
+            [2], [#etqcen("fchs")], [#etqact("dag-fchs")],
+            [3], [#etqcen("fcje")], [#etqact("dag-fcje")],
+            [2922], [#etqcen("fcs")], [#etqact("dag-fcs")],
+            [3405], [#etqcen("rectorado")], [#etqact("dag-rectorado")],
+            [261], [#etqcen("gerencia")], [#etqact("dag-gerencia")],
+            [4907], [#etqcen("inspección-servicios")], [#etqact("dag-inspección-servicios")],
+            [3145], [#etqcen("iidl")], [#etqact("dag-iidl")],
+            [3285], [#etqcen("inam")], [#etqact("dag-inam")],
+            [2603], [#etqcen("init")], [#etqact("dag-init")],
+            [2022], [#etqcen("iupa")], [#etqact("dag-iupa")],
+            [264], [#etqcen("iutc")], [#etqact("dag-iutc")],
+            [1982], [#etqcen("labcom")], [#etqact("dag-labcom")],
+            [4168], [#etqcen("ol")], [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
+            [364], [#etqcen("otop")], [#etqact("dag-otros-servicios-obras-proyectos")],
+            [3408], [#etqcen("oe")], [#etqact("dag-oe")],
+            [3406], [#etqcen("oir")], [#etqact("dag-otros-servicios-información-registro")],
+            [3425], [#etqcen("oiati")], [#etqact("dag-otros-servicios-ti")],
+            [2883], [#etqcen("oipep")], [#etqact("dag-oipep")],
+            [1723], [#etqcen("ocds")], [#etqact("cooperación")],
+            [242], [#etqcen("ocit")], [#etqact("dag-ocit")],
+            [3847], [#etqcen("opp")], [#etqact("dag-opp")],
+            [4567], [#etqcen("oppsm")], [#etqact("dag-otros-servicios-prevención-gestión-medioambiental")],
+            [2882], [#etqcen("ori")], [#etqact("dag-otros-servicios-relaciones-internacionales")],
+            [1722], [#etqcen("opaq")], [#etqact("dag-otros-servicios-promoción-evaluación-calidad")],
+            // [368], [#etqcen("")], [#etqact("")],
+            [311], [#etqcen("secretaría-general")], [#etqact("dag-secretaría-general")],
+            [720], [#etqcen("scic")], [#etqact("dag-scic")],
+            [251], [#etqcen("sasc")], [#etqact("cultura")],
+            [760], [#etqcen("se")], [#etqact("deportes")],
+            [3004], [#etqcen("sea")], [#etqact("dag-sea")],
+            [1530], [#etqcen("sic")], [#etqact("dag-sic")],
+            [366], [#etqcen("scp")], [#etqact("dag-otros-servicios-comunicación-publicaciones")],
+            [1544], [#etqcen("scag")], [#etqact("dag-scag")],
+            [1529], [#etqcen("sci")], [#etqact("dag-sci")],
+            [1543], [#etqcen("sge")], [#etqact("dag-sge")],
+            [361], [#etqcen("sgde")], [#etqact("dag-sgde")],
+            [4887], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [350], [#etqcen("slt")], [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
+            [362], [#etqcen("srh")], [#etqact("dag-srh")],
+            [2942], [#etqcen("upi")], [#etqact("dag-upi")],
+            [95], [#etqcen("updtssee")], [#etqact("dag-updtssee")],
+            [2943], [#etqcen("upm")], [#etqact("dag-upm")],
+            [3427], [#etqcen("uadti")], [#etqact("dag-otros-servicios-ti")],
+            [4167], [#etqcen("gencisub")], [#etqact("dag-gencisub")],
+            [2822], [#etqcen("ui")], [#etqact("dag-otros-servicios-promoción-fomento-igualdad")],
+            [218], [#etqcen("uiic")], [#etqact("dag-otros-servicios-ti")],
+            [4487], [#etqcen("uo")], [#etqact("dag-uo")],
+            [4687], [#etqcen("udpea")], [#etqact("otras-extensión-universitaria-refinamiento")],
+            [4488], [#etqcen("udd")], [#etqact("dag-otros-servicios-atención-diversidad-apoyo-educativo")],
+            [4489], [#etqcen("ufie")], [#etqact("dag-ufie")],
+            [344], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [3409], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [3445], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [345], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [347], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [346], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [348], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [349], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [2263], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [4647], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            // UG
+            [2342], [#etqcen("universidad-mayores")], [#etqact("universidad-mayores")],
+            [4251], [#etqcen("vevs")], [#etqact("dag-vevs")],
+            [4252], [#etqcen("vefp")], [#etqact("dag-vefp")],
+            [4248], [#etqcen("vis")], [#etqact("dag-vis")],
+            [4250], [#etqcen("vitdc")], [#etqact("dag-vitdc")],
+            [4247], [#etqcen("vi")], [#etqact("dag-vi")],
+            [2224], [#etqcen("voap")], [#etqact("dag-voap")],
+            [4253], [#etqcen("vcls")], [#etqact("dag-vcls")],
+            [4255], [#etqcen("vpee")], [#etqact("dag-vpee")],
+            [4254], [#etqcen("vri")], [#etqact("dag-vri")],
+            [4249], [#etqcen("vrspii")], [#etqact("dag-vrspii")],
+        )
+
+        Con el servicio #val("368") hay una información adicional en el campo #campo("centro_plaza"). Su valor determina el centro de coste y la actividad con esta otra tabla:
+
+        #table(
+            columns: 3,
+            align: (left, left, left),
+            table.header(table.hline(), [*Centro plaza*], [*Centro de coste*], [*Actividad*], table.hline()),
+            [2], etqcen("ps-fchs"), etqact("dag-conserjería-fchs"),
+            [3], etqcen("ps-fcje"), etqact("dag-conserjería-fcje"),
+            [4], etqcen("ps-estce"), etqact("dag-conserjería-estce"),
+            [212], etqcen("ps-rectorado"), etqact("dag-conserjería-rectorado"),
+            [263], etqcen("ps-escuela-doctorado-consejo-social"), etqact("dag-conserjería-consejo-social"),
+            [2402], etqcen("ps-parque-tecnológico"), etqact("dag-conserjería-parque-tecnológico"),
+            [2922], etqcen("ps-fcs"), etqact("dag-conserjería-fcs"),
+        )
 
     - #nombre-regla[Por centro y subcentro]
         La siguiente tabla relaciona pares #campo("centro")/#campo("subcentro") con un centro de coste. El % significa #emph[cualquier valor].
@@ -2255,7 +2339,65 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
 
             table.hline(),
         ))
+
 ]
+
+== Generación de UC a partir de presupuesto
+
+=== Reglas para generar unidades de coste a partir de apuntes presupuestarios
+
+Lo primero es filtrar cieros registros del presupuesto de gasto, para quedarnos solo con los que nos interesan para generar unidades de coste. Para eso se definen una serie de reglas de filtrado, que se aplican a cada registro del presupuesto. Si un registro no pasa el filtro, no se genera unidad de coste a partir de él.
+
+Una vez filtrado el presupuesto, se aplican una serie de reglas para generar unidades de coste a partir de los apuntes presupuestarios. Cada regla tiene una condición y un resultado. El resultado es la etiqueta de actividad, centro de coste o elemento de coste que se asigna a la unidad de coste que se genera a partir del apunte presupuestario si se cumple la condición.
+Las reglas se aplican en orden y la primera que tiene éxito asigna actividad, centro de coste o elemento de coste a la unidad de coste. La división en secciones no tiene efectos en cuanto a la regla de _primera en coincidir, se aplica y detiene la búsqueda_.
+
+Cuando se han aplicado las reglas de un fichero, se ha asignado una actividad, un centro de coste y un elemento de coste a cada unidad de coste. Si una unidad de coste no tiene asignados los tres campos, se considera incompleta.
+
+La #app tendrá un desplegable «Presupuesto» con opciones para poder examinar todo lo que se hace en este paso de generación de unidades de coste a partir de apuntes presupuestarios.
+
+En la #app se ha mostrar luego cuántas veces se ha aplicado cada regla de cada conjunto de reglas. Al seleccionar una regla, se mostrará los apuntes que han se han tratado y al pinchar en el apunte, las unidades de coste a las que ha dado lugar, con su importe y el resto de campos que tienen asignados.
+
+
+==== Filtro del presupuesto
+
+El fichero #ruta("apuntes presupuesto de gasto.xlsx"), que se obtiene del presupuesto liquidado, contiene muchas filas que no deben considerarse para generar unidades de coste porque son registros que ya encuentran tratamiento por otros medios. En particular, el capítulo #val("1") se trata en nóminas y el capítulo #val("6") por amortizaciones de inventario, exceptuando aplicación #val("6711"), que es de adquisiciones bibliográficas y se trata como el resto del presupuesto.
+
+Hay ciertos suministros que pueden imputarse con relativa precisión si se conoce la superficie que ocupa cada centro de coste en cada edificio. La OTOP lleva un registro de gasto en energía eléctrica, agua y gas en función de dónde tiene contadores (suelen ser edificios o conjuntos de edificios). Como se tratan en otra sección, se eliminan sus líneas del presupuesto en esta etapa.
+
+Las reglas de filtrado que recogen estas ideas son las siguientes:
+
+#reglas[
+    - #nombre-regla[Filtro de capítulos financieros]
+        Si el #campo("capítulo") es #val("8") o #val("9"), no pasa el filtro.
+
+    - #nombre-regla[Filtro del capítulo 1 que va por nóminas]
+        Si el #campo("capítulo") es #val("1"), no pasa el filtro.
+
+    - #nombre-regla[Filtro otros gastos que van por nóminas]
+        Si la #campo("aplicación") es #val("2321") (asistencias) o #val("2281") (patentes), no pasa el filtro.
+
+    - #nombre-regla[Supresión de capítulo 6 excepto 6711]
+        Si #campo("capítulo") #val("6") y el #campo("aplicación") es distinto de #val("6711"), no pasa el filtro.
+
+    - #nombre-regla[Supresión de consumos de energía, agua y gas]
+        Si la #campo("aplicación") es #val("2231"), #val("2232") o #val("2233"), estamos ante un suministro de energía eléctrica, agua o gas, respectivamente. Esas filas las eliminamos porque tenemos un procedimiento distinto para generar unidades de coste a partir de los datos que nos facilita la OTOP, que conoce el coste desglosado por zonas, edificios o complejos de la universidad.
+]
+
+#align(center, image("img/filtro presupuesto.drawio.pdf"))
+
+En la #app, hay que informar al usuario de cuántas filas se han filtrado por cada uno de estos motivos y qué importe se ha eliminado de cada capítulo, concepto o aplicación. También se ha de poder acceder a cada una de las filas filtradas, que han de estar enriquecidas con información de la regla que la ha filtrado.
+
+#nota[Ver qué pasa con los apuntes de limpieza, seguridad y mantenimientos.]
+
+
+==== Determinación de la actividad
+
+Hay que utilizar el módulo de clasificación de actividades con los registros del presupuesto.
+
+
+==== Determinación del centro de coste
+
+Hay que utilizar el módulo de clasificación de centros de coste con los registros del presupuesto.
 
 ==== Determinación del elemento de coste para apuntes presupuestarios
 El árbol de elementos de coste modificado por las reglas se ha de mostrar en la #app, con una opción de un desplegable #val("Presupuesto") para mostrarlo o descargarlo en formato `.tree`. Además, se ha de mostrar un resumen de la información que contiene, con el número de filas y el importe total de cada una de ellas. Los nodos añadidos se han de mostrar de un color distinto y se ha de indicar cuantos nodos se han añadido.
@@ -2954,17 +3096,6 @@ En la #app informa de cuántos casos han quedado sin poder cumplimentar.
 
 == Generación de unidades de coste a partir de información de nóminas
 
-=== Filtro de nóminas
-
-Las nóminas que se han abordado como gasto en presupuesto han de eliminarse ahora de este procesamiento. Para eso, vamos a filtrar las nóminas.
-
-#reglas[
-    - #nombre-regla[La SS ha de entrar toda]
-        Todos los registros con #campo("aplicación") que es #val("1211") han de pasar el filtro, porque corresponden a la Seguridad Social, que no se ha abordado en presupuesto.
-    - #nombre-regla[Supresión de nóminas en todos los proyectos excepto unos pocos]
-        Solo han de pasar el filtro los registros con #campo("proyecto") igual a #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000").
-]
-
 === Preprocesamiento nóminas
 
 En primer lugar, vamos a agrupar todas la entradas de #ruta("nóminas y seguridad social.xlsx") por #campo("expediente"). Los expedientes se van a clasificar en una lista (o tabla) de PDI, otra de PTGAS (que está codificado como sector PAS) y otra PVI (que está codificado como sector PI).
@@ -3038,145 +3169,10 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
 
     A continuación, tenemos que mapear cada servicio al centro de coste que le corresponde, y asignar el elemento de coste #etqele("retribuciones-ordinarias") y la actividad #etqact("dag-general-universidad").
 
-    El servicio indicado en el registro permite decidir el centro de coste y la actividad a las que se asigna la unidad de coste , con esta tabla de mapeo y una excepción que te digo después de la tabla para el servicio #val("368") (personal de suport):
-
-    #table(
-        columns: (.5fr, 1fr, 1fr),
-        align: (left, left, left),
-        table.header(table.hline(), [*Servicio*], [*Centro de coste*], [*Actividad*], table.hline()),
-        [523], [#etqcen("asesoría-jurídica")], [#etqact("dag-asesoría-jurídica")],
-        [660], [#etqcen("bibliotecas")], [#etqact("dag-biblioteca")],
-        [640], [#etqcen("cent")], [#etqact("dag-cent")],
-        [263], [#etqcen("consejo-social")], [#etqact("dag-consejo-social")],
-        [2984], [#etqcen("consejo-estudiantes")], [#etqact("dag-consejo-estudiantes")],
-        [1862], [#etqcen("cátedras-investigación-1I201")], [#etqact("otras-ait-financiación-propia-1I201")],
-        [1662], [#etqcen("cátedras-investigación-1I235")], [#etqact("")],
-        [4267], [#etqcen("delegado")], [#etqact("dag-delegado")],
-        [101], [#etqcen("daem")], [#etqact("dag-daem")],
-        [93], [#etqcen("deco")], [#etqact("dag-deco")],
-        [3466], [#etqcen("dea")], [#etqact("dag-dede")],
-        [2103], [#etqcen("dmc")], [#etqact("dag-dmc")],
-        [81], [#etqcen("deq")], [#etqact("dag-deq")],
-        [2102], [#etqcen("desid")], [#etqact("dag-desid")],
-        [1442], [#etqcen("dicc")], [#etqact("dag-dicc")],
-        [1882], [#etqcen("dea")], [#etqact("dag-dea")],
-        [104], [#etqcen("dhga")], [#etqact("dag-dhga")],
-        [4207], [#etqcen("dbbcn")], [#etqact("dag-dbbcn")],
-        [2502], [#etqcen("dcc")], [#etqact("dag-dcc")],
-        [90], [#etqcen("ddpub")], [#etqact("dag-ddpub")],
-        [1883], [#etqcen("dfce")], [#etqact("dag-dfce")],
-        [2503], [#etqcen("dfs")], [#etqact("dag-dfs")],
-        [102], [#etqcen("dfc")], [#etqact("dag-dfc")],
-        [2283], [#etqcen("dfis")], [#etqact("dag-dfis")],
-        [1443], [#etqcen("dlsi")], [#etqact("dag-dlsi")],
-        [92], [#etqcen("dmat")], [#etqact("dag-dmat")],
-        [3465], [#etqcen("dpdcsll")], [#etqact("dag-dpdcsll")],
-        [97], [#etqcen("dpbcp")], [#etqact("dag-dpbcp")],
-        [96], [#etqcen("dpeesm")], [#etqact("dag-dpeesm")],
-        [2284], [#etqcen("dqfa")], [#etqact("dag-dqfa")],
-        [98], [#etqcen("dqio")], [#etqact("dag-dqio")],
-        [99], [#etqcen("dtc")], [#etqact("dag-dtc")],
-        [4], [#etqcen("estce")], [#etqact("dag-estce")],
-        [3165], [#etqcen("ed")], [#etqact("dag-escuela-doctorado")],
-        [2], [#etqcen("fchs")], [#etqact("dag-fchs")],
-        [3], [#etqcen("fcje")], [#etqact("dag-fcje")],
-        [2922], [#etqcen("fcs")], [#etqact("dag-fcs")],
-        [3405], [#etqcen("rectorado")], [#etqact("dag-rectorado")],
-        [261], [#etqcen("gerencia")], [#etqact("dag-gerencia")],
-        [4907], [#etqcen("inspección-servicios")], [#etqact("dag-inspección-servicios")],
-        [3145], [#etqcen("iidl")], [#etqact("dag-iidl")],
-        [3285], [#etqcen("inam")], [#etqact("dag-inam")],
-        [2603], [#etqcen("init")], [#etqact("dag-init")],
-        [2022], [#etqcen("iupa")], [#etqact("dag-iupa")],
-        [264], [#etqcen("iutc")], [#etqact("dag-iutc")],
-        [1982], [#etqcen("labcom")], [#etqact("dag-labcom")],
-        [4168], [#etqcen("ol")], [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
-        [364], [#etqcen("otop")], [#etqact("dag-otros-servicios-obras-proyectos")],
-        [3408], [#etqcen("oe")], [#etqact("dag-oe")],
-        [3406], [#etqcen("oir")], [#etqact("dag-otros-servicios-información-registro")],
-        [3425], [#etqcen("oiati")], [#etqact("dag-otros-servicios-ti")],
-        [2883], [#etqcen("oipep")], [#etqact("dag-oipep")],
-        [1723], [#etqcen("ocds")], [#etqact("cooperación")],
-        [242], [#etqcen("ocit")], [#etqact("dag-ocit")],
-        [3847], [#etqcen("opp")], [#etqact("dag-opp")],
-        [4567], [#etqcen("oppsm")], [#etqact("dag-otros-servicios-prevención-gestión-medioambiental")],
-        [2882], [#etqcen("ori")], [#etqact("dag-otros-servicios-relaciones-internacionales")],
-        [1722], [#etqcen("opaq")], [#etqact("dag-otros-servicios-promoción-evaluación-calidad")],
-        // [368], [#etqcen("")], [#etqact("")],
-        [311], [#etqcen("secretaría-general")], [#etqact("dag-secretaría-general")],
-        [720], [#etqcen("scic")], [#etqact("dag-scic")],
-        [251], [#etqcen("sasc")], [#etqact("cultura")],
-        [760], [#etqcen("se")], [#etqact("deportes")],
-        [3004], [#etqcen("sea")], [#etqact("dag-sea")],
-        [1530], [#etqcen("sic")], [#etqact("dag-sic")],
-        [366], [#etqcen("scp")], [#etqact("dag-otros-servicios-comunicación-publicaciones")],
-        [1544], [#etqcen("scag")], [#etqact("dag-scag")],
-        [1529], [#etqcen("sci")], [#etqact("dag-sci")],
-        [1543], [#etqcen("sge")], [#etqact("dag-sge")],
-        [361], [#etqcen("sgde")], [#etqact("dag-sgde")],
-        [4887], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        [350], [#etqcen("slt")], [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
-        [362], [#etqcen("srh")], [#etqact("dag-srh")],
-        [2942], [#etqcen("upi")], [#etqact("dag-upi")],
-        [95], [#etqcen("updtssee")], [#etqact("dag-updtssee")],
-        [2943], [#etqcen("upm")], [#etqact("dag-upm")],
-        [3427], [#etqcen("uadti")], [#etqact("dag-otros-servicios-ti")],
-        [4167], [#etqcen("gencisub")], [#etqact("dag-gencisub")],
-        [2822], [#etqcen("ui")], [#etqact("dag-otros-servicios-promoción-fomento-igualdad")],
-        [218], [#etqcen("uiic")], [#etqact("dag-otros-servicios-ti")],
-        [4487], [#etqcen("uo")], [#etqact("dag-uo")],
-        [4687], [#etqcen("udpea")], [#etqact("otras-extensión-universitaria-refinamiento")],
-        [4488], [#etqcen("udd")], [#etqact("dag-otros-servicios-atención-diversidad-apoyo-educativo")],
-        [4489], [#etqcen("ufie")], [#etqact("dag-ufie")],
-        [344], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [3409], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [3445], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [345], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [347], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [346], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [348], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [349], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [2263], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [4647], [#etqcen("sgit")], [#etqact("dag-sgit")],
-        // UG
-        [2342], [#etqcen("universidad-mayores")], [#etqact("universidad-mayores")],
-        [4251], [#etqcen("vevs")], [#etqact("dag-vevs")],
-        [4252], [#etqcen("vefp")], [#etqact("dag-vefp")],
-        [4248], [#etqcen("vis")], [#etqact("dag-vis")],
-        [4250], [#etqcen("vitdc")], [#etqact("dag-vitdc")],
-        [4247], [#etqcen("vi")], [#etqact("dag-vi")],
-        [2224], [#etqcen("voap")], [#etqact("dag-voap")],
-        [4253], [#etqcen("vcls")], [#etqact("dag-vcls")],
-        [4255], [#etqcen("vpee")], [#etqact("dag-vpee")],
-        [4254], [#etqcen("vri")], [#etqact("dag-vri")],
-        [4249], [#etqcen("vrspii")], [#etqact("dag-vrspii")],
-    )
-
-    Con el servicio #val("368") hay una información adicional en el campo #campo("centro_plaza"). Su valor determina el centro de coste y la actividad con esta otra tabla:
-
-    #table(
-        columns: 3,
-        align: (left, left, left),
-        table.header(table.hline(), [*Centro plaza*], [*Centro de coste*], [*Actividad*], table.hline()),
-        [2], etqcen("ps-fchs"), etqact("dag-conserjería-fchs"),
-        [3], etqcen("ps-fcje"), etqact("dag-conserjería-fcje"),
-        [4], etqcen("ps-estce"), etqact("dag-conserjería-estce"),
-        [212], etqcen("ps-rectorado"), etqact("dag-conserjería-rectorado"),
-        [263], etqcen("ps-escuela-doctorado-consejo-social"), etqact("dag-conserjería-consejo-social"),
-        [2402], etqcen("ps-parque-tecnológico"), etqact("dag-conserjería-parque-tecnológico"),
-        [2922], etqcen("ps-fcs"), etqact("dag-conserjería-fcs"),
-    )
-
     El importe de la unidad de coste que hemos creado con ese elemento de coste, centro de coste y actividad es el importe total de las retribuciones ordinarias del servicio.
+
+
+    - La actividad se ha de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
 ]
 
 

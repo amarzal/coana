@@ -168,22 +168,13 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2024) -> None:
     dir_nominas = dir_salida / "auxiliares" / "nóminas"
     resultado_nom = preprocesar_nóminas(
         ctx_nom, dir_nominas,
-        uc_presupuesto=traductor.uc_para_nóminas,
+        ctx_enriquecimiento=ctx,
+        árbol_actividades=ctx.actividades,
+        obtener_descripciones=traductor._obtener_descripciones,
     )
     for sector, n_exp in resultado_nom.expedientes_por_sector.items():
         importe = resultado_nom.importe_por_sector.get(sector, 0)
         print(f"  {sector}: {_fmt_n(n_exp)} expedientes, {importe:,.2f} €")
-    resumen_dict["nominas_expedientes_por_sector"] = resultado_nom.expedientes_por_sector
-    resumen_dict["nominas_importe_por_sector"] = resultado_nom.importe_por_sector
-
-    # Guardar UC inyectadas desde presupuesto en expedientes de nóminas
-    if resultado_nom.uc_por_expediente:
-        partes = []
-        for exp_id, df_uc in resultado_nom.uc_por_expediente.items():
-            partes.append(df_uc.with_columns(pl.lit(exp_id).alias("expediente")))
-        uc_inyectadas = pl.concat(partes, how="diagonal")
-        uc_inyectadas.write_parquet(dir_nominas / "uc_presupuesto_en_nóminas.parquet")
-    resumen_dict["nominas_n_uc_inyectadas"] = resultado_nom.n_uc_inyectadas
 
     # UC generadas a partir de nóminas PTGAS
     if not resultado_nom.uc_ptgas.is_empty():
