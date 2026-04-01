@@ -3117,6 +3117,30 @@ def _mostrar_persona():
     )
     personas_df = personas_df.join(resumen_persona, on="per_id", how="left")
 
+    # Añadir sectores (solo expedientes con pagos en el año)
+    exp_path = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+    nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+    if exp_path.exists() and nom_path.exists():
+        _MAPEO_SECTOR_VIS = {"PAS": "PTGAS", "PI": "PVI"}
+        exp_df = _load_excel(str(exp_path))
+        nom_df = _load_excel(str(nom_path))
+        # Expedientes con al menos un registro de nómina
+        exp_con_pagos = nom_df.select("expediente").unique()
+        sectores_por_persona = (
+            exp_df.filter(pl.col("per_id").is_in(personas_ids))
+            .join(exp_con_pagos, on="expediente", how="inner")
+            .with_columns(
+                pl.col("sector").replace(_MAPEO_SECTOR_VIS).alias("sector_m"),
+            )
+            .group_by("per_id")
+            .agg(pl.col("sector_m").unique().sort().alias("_sectores"))
+            .with_columns(
+                pl.col("_sectores").list.join(", ").alias("sectores"),
+            )
+            .select("per_id", "sectores")
+        )
+        personas_df = personas_df.join(sectores_por_persona, on="per_id", how="left")
+
     # Tabla filtrable para seleccionar persona
     personas_f = _filtro_tabla(personas_df, "persona_lista")
     ev = _st_df(
@@ -3197,7 +3221,52 @@ def _mostrar_persona():
 
             filas_sel = ev_uc.selection.rows if ev_uc.selection else []
             if filas_sel and filas_sel[0] < len(uc_vista):
+                fila_uc = uc_vista.row(filas_sel[0], named=True)
                 _ficha_registro(uc_vista, filas_sel[0], key_suffix="_persona_uc")
+
+                # Detalle de origen
+                origen = fila_uc.get("origen", "")
+                origen_id = str(fila_uc.get("origen_id", ""))
+                expediente_uc = fila_uc.get("expediente")
+
+                if origen == "presupuesto":
+                    # Buscar el apunte presupuestario por asiento
+                    apuntes_path = DIR_ENTRADA / "presupuesto" / "apuntes presupuesto de gasto.xlsx"
+                    if apuntes_path.exists():
+                        apuntes = _load_excel(str(apuntes_path))
+                        asiento = origen_id
+                        detalle_ap = apuntes.filter(pl.col("asiento").cast(pl.Utf8) == asiento)
+                        if not detalle_ap.is_empty():
+                            st.caption(f"Apunte presupuestario (asiento {asiento})")
+                            _st_df(detalle_ap, key="persona_uc_det_pres")
+
+                elif origen == "nómina" and expediente_uc is not None and not origen_id.startswith("SS-"):
+                    # Buscar registros de nómina del expediente
+                    nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+                    if nom_path.exists():
+                        nom_df = _load_excel(str(nom_path))
+                        det_nom = nom_df.filter(pl.col("expediente") == expediente_uc)
+
+                        # Filtrar por servicio si está en el origen_id
+                        import re as _re
+                        m_srv = _re.search(r"srv-(\d+)", origen_id)
+                        m_cp = _re.search(r"cp-(\d+)", origen_id)
+                        if m_srv:
+                            srv_val = m_srv.group(1)
+                            det_nom = det_nom.filter(pl.col("servicio").cast(pl.Utf8) == srv_val)
+                            if m_cp:
+                                cp_val = m_cp.group(1)
+                                det_nom = det_nom.filter(pl.col("centro_plaza").cast(pl.Utf8) == cp_val)
+
+                        # Solo retribuciones ordinarias (no SS)
+                        es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+                        es_ord = pl.col("proyecto").cast(pl.Utf8).is_in(["1G019", "23G019"])
+                        det_nom = det_nom.filter(~es_ss & es_ord)
+
+                        if not det_nom.is_empty():
+                            st.caption(f"Registros de nómina ({len(det_nom):,} filas, expediente {expediente_uc})")
+                            det_nom_f = _filtro_tabla(det_nom, "persona_uc_det_nom")
+                            _st_df(det_nom_f, key="persona_uc_det_nom_df")
 
 
 def _mostrar_personal():

@@ -3187,12 +3187,13 @@ Cada expediente del PVI tendrá varias tablas en las que se almacenan los regist
 
 - un, #campo("costes sociales") con lo que es Seguridad Social (#campo("aplicación") que empieza por 12),
 - otra, #campo("retribuciones") con el resto de registros.
+- otra, #campo("unidades de coste"), con una lista de unidades de coste asociadas a esta persona. Estas unidades se pueden crear desde el presupuesto o desde las nóminas.
 
 En la #app, al selecciona un expediente de PVI, veré sus tres tablas y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones.
 
 La #app mostrará los totales de cada tabla y comprobará que los totales suman el total de la nómina del PVI, para detectar posibles errores en la clasificación de los registros en las tablas.
 
-En la #app se han de mostrar también las unidad de coste que ya se han creado para cada expediente de PTGAS, para facilitar comprobaciones y evitar duplicidades.
+En la #app se han de mostrar también las unidad de coste que ya se han creado para cada expediente de PVI, para facilitar comprobaciones y evitar duplicidades.
 
 ==== Creación de unidades de coste a partir de registros de nómina
 
