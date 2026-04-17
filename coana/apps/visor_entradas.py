@@ -18,6 +18,8 @@ import coana.util as _m_util
 _importlib.reload(_m_excel_cache)
 _importlib.reload(_m_util)
 
+from coana.fase1.clasificador_centros_coste import PROYECTOS_ORDINARIOS
+
 # ============================================================
 # Configuración de página
 # ============================================================
@@ -690,8 +692,11 @@ if st.session_state.get("_ejecutar_fase1"):
             import coana.fase1.amortizaciones as _m_amort
             import coana.fase1.nóminas.contexto as _m_nom_ctx
             import coana.fase1.nóminas as _m_nom
+            import coana.fase1.clasificador_centros_coste as _m_cls_cc
+            import coana.fase1.clasificador_actividades as _m_cls_act
             import coana.fase1 as _m_fase1
-            for _m in [_m_ctx, _m_trad, _m_pres,
+            for _m in [_m_cls_cc, _m_cls_act,
+                       _m_ctx, _m_trad, _m_pres,
                        _m_inv_ctx, _m_proc, _m_inv,
                        _m_sum, _m_amort, _m_nom_ctx, _m_nom, _m_fase1]:
                 importlib.reload(_m)
@@ -2326,6 +2331,25 @@ def _pres_arbol_modificado(nombre: str) -> None:
 DIR_AMORT = DIR_FASE1 / "auxiliares" / "amortizaciones"
 
 
+def _sin_tildes(s: str) -> str:
+    """Minúsculas sin tildes/diacríticos (para búsqueda insensible)."""
+    import unicodedata
+    return "".join(
+        c for c in unicodedata.normalize("NFD", s)
+        if unicodedata.category(c) != "Mn"
+    ).lower()
+
+
+def _col_sin_tildes(col: str) -> pl.Expr:
+    """Expresión polars: columna a minúsculas y sin diacríticos (rango Mn)."""
+    return (
+        pl.col(col).cast(pl.Utf8)
+        .str.to_lowercase()
+        .str.normalize("NFD")
+        .str.replace_all(r"[\u0300-\u036f]", "")
+    )
+
+
 def _filtro_tabla(df: pl.DataFrame, key_prefix: str) -> pl.DataFrame:
     """Widget de filtro genérico: texto + columna + ordenación. Devuelve el df filtrado y ordenado."""
     fc1, fc2, fc3, fc4 = st.columns([4, 1, 1, 0.5])
@@ -2347,14 +2371,13 @@ def _filtro_tabla(df: pl.DataFrame, key_prefix: str) -> pl.DataFrame:
         desc = st.toggle("Desc", value=True, key=f"{key_prefix}_desc")
     if filtro:
         cols = df.columns if col_filtro == "(todas)" else [col_filtro]
-        busca_null = filtro.lower() in ("none", "null")
+        filtro_norm = _sin_tildes(filtro)
+        busca_null = filtro_norm in ("none", "null")
         mask = pl.lit(False)
         for col in cols:
             if busca_null:
                 mask = mask | pl.col(col).is_null()
-            mask = mask | pl.col(col).cast(pl.Utf8).str.to_lowercase().str.contains(
-                filtro.lower(), literal=True
-            )
+            mask = mask | _col_sin_tildes(col).str.contains(filtro_norm, literal=True)
         df = df.filter(mask)
     if col_orden != "(ninguna)":
         df = df.sort(col_orden, descending=desc)
@@ -3260,7 +3283,7 @@ def _mostrar_persona():
 
                         # Solo retribuciones ordinarias (no SS)
                         es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-                        es_ord = pl.col("proyecto").cast(pl.Utf8).is_in(["1G019", "23G019"])
+                        es_ord = pl.col("proyecto").cast(pl.Utf8).is_in(PROYECTOS_ORDINARIOS)
                         det_nom = det_nom.filter(~es_ss & es_ord)
 
                         if not det_nom.is_empty():
@@ -3329,7 +3352,7 @@ def _mostrar_personal():
 
     # Detalle: líneas de nómina del expediente seleccionado
     filas_sel = ev.selection.rows if ev.selection else []
-    if filas_sel:
+    if filas_sel and filas_sel[0] < len(df):
         fila = df.row(filas_sel[0], named=True)
         expediente = fila["expediente"]
         persona = fila.get("persona", "")
@@ -3347,6 +3370,7 @@ def _mostrar_personal():
 
             sec_slug = {"Expedientes PTGAS": "ptgas", "Expedientes PDI": "pdi", "Expedientes PVI": "pvi"}[seccion]
             es_coste_social = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+            agrupaciones: list[tuple[str, pl.DataFrame]] = []
 
             if seccion in ("Expedientes PVI", "Expedientes PDI"):
                 # Enriquecer con tipo_línea
@@ -3357,18 +3381,18 @@ def _mostrar_personal():
                     )
                     detalle = detalle.join(lineas_ref, on="línea", how="left")
 
+            uc_exp = pl.DataFrame()
             if seccion == "Expedientes PVI":
                 grupos = [
                     ("Costes sociales", detalle.filter(es_coste_social)),
                     ("Retribuciones", detalle.filter(~es_coste_social)),
                 ]
-                # UC generadas a partir de retribuciones PVI
-                uc_pvi_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_pvi.parquet"
-                if uc_pvi_path.exists():
-                    uc_pvi_all = pl.read_parquet(uc_pvi_path)
-                    uc_pvi_exp = uc_pvi_all.filter(pl.col("expediente") == expediente).drop("expediente")
-                    if not uc_pvi_exp.is_empty():
-                        grupos.append(("UC retribuciones", uc_pvi_exp))
+                uc_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_pvi.parquet"
+                if uc_path.exists():
+                    uc_all = pl.read_parquet(uc_path)
+                    uc_exp = uc_all.filter(pl.col("expediente") == expediente).drop("expediente")
+                    if not uc_exp.is_empty():
+                        grupos.append(("UC retribuciones", uc_exp))
             elif seccion == "Expedientes PDI":
                 no_cs = detalle.filter(~es_coste_social)
                 finalista = no_cs.filter(pl.col("tipo_línea") != "00")
@@ -3400,34 +3424,36 @@ def _mostrar_personal():
                     ("Retribuciones por incentivos", incentivos),
                     ("Retribuciones para regla 23", regla_23),
                 ]
+                uc_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_pdi.parquet"
+                if uc_path.exists():
+                    uc_all = pl.read_parquet(uc_path)
+                    uc_exp = uc_all.filter(pl.col("expediente") == expediente).drop("expediente")
+                    if not uc_exp.is_empty():
+                        grupos.append(("UC retribuciones", uc_exp))
             else:
                 # PTGAS
-                es_proyecto_ord = pl.col("proyecto").is_in(["1G019", "23G019"])
+                es_proyecto_ord = pl.col("proyecto").is_in(PROYECTOS_ORDINARIOS)
                 grupos = [
                     ("Costes sociales", detalle.filter(es_coste_social)),
                     ("Retribuciones ordinarias", detalle.filter(~es_coste_social & es_proyecto_ord)),
                     ("Retribuciones extra", detalle.filter(~es_coste_social & ~es_proyecto_ord)),
                 ]
-                # UC generadas a partir de retribuciones ordinarias PTGAS
-                uc_ptgas_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_ptgas.parquet"
-                uc_ptgas_exp = pl.DataFrame()
-                if uc_ptgas_path.exists():
-                    uc_ptgas_all = pl.read_parquet(uc_ptgas_path)
-                    uc_ptgas_exp = uc_ptgas_all.filter(pl.col("expediente") == expediente).drop("expediente")
-                    if not uc_ptgas_exp.is_empty():
-                        grupos.append(("UC retrib. ordinarias", uc_ptgas_exp))
-                # Agrupación por actividades: todas las UC del expediente
-                _uc_partes = [
-                    df_uc for df_uc in [uc_ptgas_exp]
-                    if not df_uc.is_empty() and "actividad" in df_uc.columns
-                ]
-                if _uc_partes:
-                    todas_uc_exp = pl.concat(_uc_partes, how="diagonal")
-                    total_uc = float(todas_uc_exp["importe"].sum())
-                    total_ss = float(detalle.filter(es_coste_social)["importe"].sum())
-                    agrup_act = (
-                        todas_uc_exp
-                        .group_by("actividad")
+                uc_path = DIR_FASE1 / "auxiliares" / "nóminas" / "uc_ptgas.parquet"
+                if uc_path.exists():
+                    uc_all = pl.read_parquet(uc_path)
+                    uc_exp = uc_all.filter(pl.col("expediente") == expediente).drop("expediente")
+                    if not uc_exp.is_empty():
+                        grupos.append(("UC retrib. ordinarias", uc_exp))
+
+            # Agrupaciones comunes: por actividad, centro y elemento de coste
+            if not uc_exp.is_empty():
+                total_uc = float(uc_exp["importe"].sum())
+                total_ss = float(detalle.filter(es_coste_social)["importe"].sum())
+
+                def _agrupar(col: str) -> pl.DataFrame:
+                    return (
+                        uc_exp
+                        .group_by(col)
                         .agg(pl.col("importe").sum().alias("importe"))
                         .sort("importe", descending=True)
                         .with_columns([
@@ -3437,11 +3463,23 @@ def _mostrar_personal():
                             if total_uc else pl.lit(0.0).alias("SS proporcional"),
                         ])
                     )
-                    grupos.append(("Agrupación por actividades", agrup_act))
+
+                def _tiene_col(col: str) -> bool:
+                    if col not in uc_exp.columns:
+                        return False
+                    return uc_exp.filter(
+                        pl.col(col).is_not_null() & (pl.col(col) != "")
+                    ).height > 0
+
+                if _tiene_col("actividad"):
+                    agrupaciones.append(("Agrupación por actividades", _agrupar("actividad")))
+                if _tiene_col("centro_de_coste"):
+                    agrupaciones.append(("Agrupación por centros", _agrupar("centro_de_coste")))
+                if _tiene_col("elemento_de_coste"):
+                    agrupaciones.append(("Agrupación por elemento de coste", _agrupar("elemento_de_coste")))
 
             # Verificación cruzada de totales (excluir UC generadas)
-            _EXCLUIR_TOTALES = ("UC ", "Agrupación ")
-            grupos_nómina = [g for g in grupos if not any(g[0].startswith(p) for p in _EXCLUIR_TOTALES)]
+            grupos_nómina = [g for g in grupos if not g[0].startswith("UC ")]
             importe_subtablas = sum(float(g[1]["importe"].sum()) for g in grupos_nómina)
             total_expediente = float(detalle["importe"].sum())
             diferencia = abs(importe_subtablas - total_expediente)
@@ -3510,7 +3548,7 @@ def _mostrar_personal():
                     if nombre_grupo == "Retribuciones ordinarias" and "proyecto" in df_grupo.columns:
                         proyectos_otros = (
                             df_grupo
-                            .filter(~pl.col("proyecto").is_in(["1G019", "23G019"]))
+                            .filter(~pl.col("proyecto").is_in(PROYECTOS_ORDINARIOS))
                             .get_column("proyecto")
                             .unique()
                             .to_list()
@@ -3524,6 +3562,19 @@ def _mostrar_personal():
                     filas_g = ev_g.selection.rows if ev_g.selection else []
                     if filas_g and filas_g[0] < len(df_grupo_f):
                         _ficha_registro(df_grupo_f, filas_g[0], key_suffix=f"_{sec_slug}_{slug}")
+
+            # Segunda fila de tabs: agrupaciones de las UC del expediente
+            agrup_no_vacías = [(n, d) for n, d in agrupaciones if not d.is_empty()]
+            if agrup_no_vacías:
+                labels_agrup = [
+                    f"{n} ({len(d):,} · {_fmt_euro(float(d['importe'].sum()))})"
+                    for n, d in agrup_no_vacías
+                ]
+                tabs_agrup = st.tabs(labels_agrup)
+                for tab, (nombre_ag, df_ag) in zip(tabs_agrup, agrup_no_vacías):
+                    slug_ag = nombre_ag.lower().replace(" ", "_")
+                    with tab:
+                        _st_df(df_ag, key=f"{sec_slug}_agrup_{slug_ag}")
 
             # Docencia del PDI
             if seccion == "Expedientes PDI" and "per_id" in fila:

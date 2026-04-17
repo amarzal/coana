@@ -275,8 +275,9 @@ _CENTRO_PLAZA_CC: dict[str, tuple[str, str]] = {
 }
 
 # Proyectos ordinarios: si el proyecto está en esta lista, se aplica
-# la regla de servicio para asignar centro de coste en presupuesto.
-_PROYECTOS_ORDINARIOS: list[str] = [
+# la regla de servicio para asignar centro de coste en presupuesto
+# y se consideran retribuciones ordinarias en nóminas PTGAS.
+PROYECTOS_ORDINARIOS: list[str] = [
     "1G019", "23G019", "02G041", "11G006", "1G046", "00000",
 ]
 
@@ -366,6 +367,30 @@ def clasificar_centros_coste(
         .alias("_cc_cát")
     )
 
+    # 0b. INVES sin cátedra: CC = mapeo del centro_origen del proyecto
+    if "_centro_origen" in df.columns:
+        df_co = _df_genérico(_CC_GENÉRICO, "_cc_co")
+        df = df.join(
+            df_co.rename({"centro": "_centro_origen"}),
+            on="_centro_origen",
+            how="left",
+        )
+        df = df.with_columns(
+            pl.when(
+                (pl.col("centro") == "INVES")
+                & pl.col("_cc_cát").is_null()
+                & pl.col("_cc_co").is_not_null()
+            )
+            .then(pl.col("_cc_co"))
+            .otherwise(pl.lit(None))
+            .cast(pl.Utf8)
+            .alias("_cc_inv_co")
+        ).drop("_cc_co")
+    else:
+        df = df.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias("_cc_inv_co")
+        )
+
     # 1. Pares específicos
     df_esp = _df_específico(_CC_ESPECÍFICO, "_cc_esp")
     df = df.join(df_esp, on=["centro", "subcentro"], how="left")
@@ -373,7 +398,8 @@ def clasificar_centros_coste(
     # 2. Por servicio: solo cuando servicio no es null y proyecto es ordinario
     tiene_servicio = "servicio" in df.columns
     if tiene_servicio:
-        # Construir DataFrame de mapeo servicio → centro de coste
+        # Castear a Utf8 para poder unir con los mapeos (que son str→str).
+        df = df.with_columns(pl.col("servicio").cast(pl.Utf8))
         srv_rows = [(k, v[0]) for k, v in _SERVICIO_CC.items()]
         df_srv = pl.DataFrame(
             srv_rows, schema=["servicio", "_cc_srv"], orient="row",
@@ -381,6 +407,7 @@ def clasificar_centros_coste(
         tiene_centro_plaza = "centro_plaza" in df.columns
         # Excepción servicio 368: mapeo por centro_plaza
         if tiene_centro_plaza:
+            df = df.with_columns(pl.col("centro_plaza").cast(pl.Utf8))
             cp_rows = [(k, v[0]) for k, v in _CENTRO_PLAZA_CC.items()]
             df_cp = pl.DataFrame(
                 cp_rows, schema=["centro_plaza", "_cc_cp"], orient="row",
@@ -389,7 +416,7 @@ def clasificar_centros_coste(
         # Join con mapeo de servicio
         df = df.join(df_srv, on="servicio", how="left")
         # La regla de servicio solo aplica a proyectos ordinarios
-        es_ordinario = pl.col("proyecto").cast(pl.Utf8).is_in(_PROYECTOS_ORDINARIOS)
+        es_ordinario = pl.col("proyecto").cast(pl.Utf8).is_in(PROYECTOS_ORDINARIOS)
         srv_no_null = pl.col("servicio").is_not_null()
         if tiene_centro_plaza:
             # Servicio 368 usa centro_plaza; el resto usa servicio
@@ -455,6 +482,7 @@ def clasificar_centros_coste(
     # Conteo por nivel de regla (antes de coalescer)
     summ = pl.col("_cc_sum")
     cát = pl.col("_cc_cát")
+    inv_co = pl.col("_cc_inv_co")
     esp = pl.col("_cc_esp")
     srv = pl.col("_cc_servicio")
     sub = pl.col("_cc_sub")
@@ -469,23 +497,22 @@ def clasificar_centros_coste(
     n_sum, i_sum = _cc_stats(summ.is_not_null())
     no_sum = summ.is_null()
     n_cát, i_cát = _cc_stats(no_sum & cát.is_not_null())
-    n_esp, i_esp = _cc_stats(no_sum & cát.is_null() & esp.is_not_null())
-    n_srv, i_srv = _cc_stats(
-        no_sum & cát.is_null() & esp.is_null() & srv.is_not_null()
-    )
-    n_sub, i_sub = _cc_stats(
-        no_sum & cát.is_null() & esp.is_null() & srv.is_null() & sub.is_not_null()
-    )
-    n_gen, i_gen = _cc_stats(
-        no_sum & cát.is_null() & esp.is_null() & srv.is_null() & sub.is_null() & gen.is_not_null()
-    )
-    n_sin, i_sin = _cc_stats(
-        no_sum & cát.is_null() & esp.is_null() & srv.is_null() & sub.is_null() & gen.is_null()
-    )
+    no_cát = no_sum & cát.is_null()
+    n_inv, i_inv = _cc_stats(no_cát & inv_co.is_not_null())
+    no_inv = no_cát & inv_co.is_null()
+    n_esp, i_esp = _cc_stats(no_inv & esp.is_not_null())
+    no_esp = no_inv & esp.is_null()
+    n_srv, i_srv = _cc_stats(no_esp & srv.is_not_null())
+    no_srv = no_esp & srv.is_null()
+    n_sub, i_sub = _cc_stats(no_srv & sub.is_not_null())
+    no_sub = no_srv & sub.is_null()
+    n_gen, i_gen = _cc_stats(no_sub & gen.is_not_null())
+    n_sin, i_sin = _cc_stats(no_sub & gen.is_null())
 
     conteo_cc: list[tuple[str, int, float]] = [
         ("[Suministros distribuidos] SC001 + aplicación", n_sum, i_sum),
         ("[Cátedras y aulas de empresa] INVES + proyecto", n_cát, i_cát),
+        ("INVES → centro_origen del proyecto", n_inv, i_inv),
         ("Par específico (centro/subcentro)", n_esp, i_esp),
         ("Por servicio (proyecto ordinario)", n_srv, i_srv),
         ("Subcentro (%/subcentro)", n_sub, i_sub),
@@ -497,6 +524,7 @@ def clasificar_centros_coste(
     df = df.with_columns(
         pl.when(summ.is_not_null()).then(pl.lit("[Suministros distribuidos] SC001 + aplicación"))
         .when(cát.is_not_null()).then(pl.lit("[Cátedras y aulas de empresa] INVES + proyecto"))
+        .when(inv_co.is_not_null()).then(pl.lit("INVES → centro_origen del proyecto"))
         .when(esp.is_not_null()).then(pl.lit("Par específico (centro/subcentro)"))
         .when(srv.is_not_null()).then(pl.lit("Por servicio (proyecto ordinario)"))
         .when(sub.is_not_null()).then(pl.lit("Subcentro (%/subcentro)"))
@@ -505,10 +533,10 @@ def clasificar_centros_coste(
         .alias("_regla_cc")
     )
 
-    # Coalescer: suministros > cátedras > específico > servicio > subcentro > genérico
+    # Coalescer: suministros > cátedras > inves_co > específico > servicio > subcentro > genérico
     df = df.with_columns(
-        pl.coalesce("_cc_sum", "_cc_cát", "_cc_esp", "_cc_servicio", "_cc_sub", "_cc_gen")
+        pl.coalesce("_cc_sum", "_cc_cát", "_cc_inv_co", "_cc_esp", "_cc_servicio", "_cc_sub", "_cc_gen")
         .alias("_centro_de_coste")
-    ).drop("_cc_sum", "_cc_cát", "_cc_esp", "_cc_servicio", "_cc_sub", "_cc_gen")
+    ).drop("_cc_sum", "_cc_cát", "_cc_inv_co", "_cc_esp", "_cc_servicio", "_cc_sub", "_cc_gen")
 
     return df, conteo_cc

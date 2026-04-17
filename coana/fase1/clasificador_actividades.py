@@ -409,21 +409,31 @@ def enriquecer_para_actividades(
         if col in df.columns:
             df = df.with_columns(pl.col(col).cast(pl.Utf8))
 
-    # tipo_proyecto y nombre_proyecto ← proyectos
+    # tipo_proyecto, nombre_proyecto y centro_origen ← proyectos
     if ctx.proyectos is not None:
+        cols_proj = [
+            pl.col("proyecto").cast(pl.Utf8),
+            pl.col("tipo").cast(pl.Utf8).str.strip_chars().alias("_tipo_proyecto"),
+            pl.col("nombre").cast(pl.Utf8).alias("_nombre_proyecto"),
+        ]
+        if "centro_origen" in ctx.proyectos.columns:
+            cols_proj.append(
+                pl.col("centro_origen").cast(pl.Utf8).alias("_centro_origen")
+            )
         df = df.join(
-            ctx.proyectos.select(
-                pl.col("proyecto").cast(pl.Utf8),
-                pl.col("tipo").cast(pl.Utf8).str.strip_chars().alias("_tipo_proyecto"),
-                pl.col("nombre").cast(pl.Utf8).alias("_nombre_proyecto"),
-            ),
+            ctx.proyectos.select(cols_proj),
             on="proyecto",
             how="left",
         )
+        if "_centro_origen" not in df.columns:
+            df = df.with_columns(
+                pl.lit(None).cast(pl.Utf8).alias("_centro_origen")
+            )
     else:
         df = df.with_columns(
             pl.lit(None).cast(pl.Utf8).alias("_tipo_proyecto"),
             pl.lit(None).cast(pl.Utf8).alias("_nombre_proyecto"),
+            pl.lit(None).cast(pl.Utf8).alias("_centro_origen"),
         )
 
     # tipo_línea ← líneas de financiación

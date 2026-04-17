@@ -12,6 +12,8 @@ from coana.fase1.clasificador_actividades import (
 from coana.fase1.clasificador_centros_coste import (
     _SERVICIO_CC,
     _CENTRO_PLAZA_CC,
+    PROYECTOS_ORDINARIOS,
+    clasificar_centros_coste,
 )
 from coana.fase1.nóminas.contexto import ContextoNóminas
 
@@ -35,6 +37,8 @@ class ResultadoNóminas:
     uc_ptgas: pl.DataFrame = field(default_factory=pl.DataFrame)
     # UC generadas a partir de retribuciones PVI.
     uc_pvi: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # UC generadas a partir de retribuciones PDI.
+    uc_pdi: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 def _mapear_sector(expedientes: pl.DataFrame) -> pl.DataFrame:
@@ -59,14 +63,41 @@ _PTGAS_CAT_XXX: dict[str, str] = {
     "LE": "lab", "LF": "lab", "LT": "lab",
 }
 
+# Mapeo categoría → XXX del elemento de coste PDI (pdi-XXX-YYY).
+# Sin default: una categoría no reconocida es error.
+_PDI_CAT_XXX: dict[str, str] = {
+    "CU": "cu",
+    "TU": "tu", "TUI": "tu",
+    "CEU": "ceu",
+    "TEU": "teu",
+    "AJ": "aj", "AJD": "aj", "AJDII": "aj",
+    "PAA": "as", "PAL": "as",
+    "PS": "ps",
+    "PEME": "em",
+    "PPL": "pl", "PPLV": "pl",
+    "PVI": "pv",
+    "PD": "pd",
+    "PCD": "pcd",
+    "PC": "pc",
+}
+
 # Mapeo concepto_retributivo → YYY del elemento de coste PTGAS.
+# Refleja la tabla de la especificación (§ «Tabla para determinar parte del
+# elemento de coste a partir del concepto retributivo»).
 _PTGAS_CR_YYY: dict[str, str] = {
-    "01": "sueldo", "03": "trienios", "04": "paga-extra", "05": "paga-extra",
-    "06": "esp", "10": "dst", "15": "esp", "25": "prod", "32": "prod",
-    "34": "otvars", "47": "otvars", "48": "otvars", "53": "prod",
-    "55": "prod", "71": "esp", "75": "cprof", "76": "cprof",
-    "82": "sueldo", "83": "otvars", "87": "otvars", "90": "prod",
-    "98": "trienios",
+    "01": "sueldo",     "03": "trienios",   "04": "paga-extra", "05": "esp",
+    "06": "esp",        "10": "dst",        "12": "dst",        "13": "otvars",
+    "15": "esp",        "17": "otfij",      "18": "esp",        "19": "cargos",
+    "20": "quin",       "24": "dst",        "25": "otvars",     "26": "sexinv",
+    "30": "cargos",     "32": "prod",       "34": "otfij",      "35": "otvars",
+    "43": "otvars",     "44": "trienios",   "47": "otvars",     "48": "otvars",
+    "53": "otvars",
+    "55": "otvars",     "56": "esp",        "57": "otfij",      "59": "dst",
+    "62": "otvars",     "64": "otvars",     "67": "otvars",     "68": "esp",
+    "70": "otvars",     "71": "esp",        "72": "trienios",   "75": "cprof",
+    "76": "cprof",      "77": "sextransf",  "78": "otvars",     "80": "otvars",
+    "82": "sueldo",     "83": "otvars",     "86": "quin",       "87": "otvars",
+    "90": "otvars",     "98": "trienios",   "99": "quin",
 }
 
 # per_id de excepción: FC + este per_id → "dir" en vez de "func".
@@ -94,17 +125,69 @@ def _elemento_coste_ptgas(categoría: str, concepto_retributivo: str, per_id: in
     return f"ptgas-{xxx}-{yyy}"
 
 
+def _xxx_pvi(categoría: str, perceptor, provisión) -> str:
+    """Calcula el XXX del elemento de coste PVI (piyotper-XXX-YYY).
+
+    Reglas first-match-wins; la última absorbe el resto → `pid`.
+    """
+    per = str(perceptor).strip() if perceptor is not None else ""
+    cat = str(categoría).strip() if categoría is not None else ""
+    prov = str(provisión).strip() if provisión is not None else ""
+    if per == "35":
+        return "act"
+    if cat == "PREDO":
+        return "pif"
+    if prov == "PD":
+        return "pif"
+    if prov == "P2":
+        return "idi"
+    return "pid"
+
+
+def _elemento_coste_pvi(
+    categoría: str,
+    perceptor,
+    provisión,
+    concepto_retributivo: str,
+) -> str | None:
+    """Calcula el elemento de coste piyotper-XXX-YYY. Devuelve None si error."""
+    cr = str(concepto_retributivo).strip()
+    xxx = _xxx_pvi(categoría, perceptor, provisión)
+    yyy = _PTGAS_CR_YYY.get(cr)
+    if yyy is None:
+        return None
+    return f"piyotper-{xxx}-{yyy}"
+
+
+def _elemento_coste_pdi(categoría: str, concepto_retributivo: str) -> str | None:
+    """Calcula el elemento de coste pdi-XXX-YYY. Devuelve None si error."""
+    cat = str(categoría).strip() if categoría is not None else ""
+    cr = str(concepto_retributivo).strip()
+    xxx = _PDI_CAT_XXX.get(cat)
+    if xxx is None:
+        return None
+    yyy = _PTGAS_CR_YYY.get(cr)
+    if yyy is None:
+        return None
+    return f"pdi-{xxx}-{yyy}"
+
+
 def _generar_uc_ptgas(
     nóminas_filtradas: pl.DataFrame,
     expedientes: pl.DataFrame,
     ctx_enriquecimiento=None,
     árbol_actividades=None,
+    árbol_cc=None,
+    distribución_costes=None,
     obtener_descripciones=None,
 ) -> pl.DataFrame:
     """Genera UC a partir de retribuciones del PTGAS.
 
-    - Retribuciones ordinarias: agrupadas por (expediente, elemento_de_coste, servicio).
-    - Retribuciones extra: actividad determinada por el clasificador de actividades.
+    El centro de coste de cada fila se obtiene con el clasificador de CC
+    compartido (mismo usado en presupuesto). La actividad:
+    - En ordinarias (proyecto en `PROYECTOS_ORDINARIOS`): se toma de la
+      tabla servicio→actividad (`_SERVICIO_CC`, `_CENTRO_PLAZA_CC`).
+    - En extras: del clasificador de actividades.
     """
     exp_ptgas = _mapear_sector(expedientes)
     exp_ptgas = exp_ptgas.filter(pl.col("sector_mapeado") == "PTGAS")
@@ -118,34 +201,50 @@ def _generar_uc_ptgas(
     )
 
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    es_ord = pl.col("proyecto").cast(pl.Utf8).is_in(["1G019", "23G019"])
-    ordinarias = registros.filter(~es_ss & es_ord)
-    extras = registros.filter(~es_ss & ~es_ord)
-
-    if ordinarias.is_empty() and extras.is_empty():
+    registros = registros.filter(~es_ss)
+    if registros.is_empty():
         return pl.DataFrame()
 
-    # Calcular elemento de coste para cada registro
+    # Elemento de coste por fila
     ecs = [
         _elemento_coste_ptgas(
             row["categoría"], row["concepto_retributivo"], row["per_id"],
         )
-        for row in ordinarias.select("categoría", "concepto_retributivo", "per_id").iter_rows(named=True)
+        for row in registros.select("categoría", "concepto_retributivo", "per_id").iter_rows(named=True)
     ]
-    ordinarias = ordinarias.with_columns(pl.Series("_ec", ecs))
-
-    # Log errores
-    errores = ordinarias.filter(pl.col("_ec").is_null())
+    registros = registros.with_columns(pl.Series("_ec", ecs))
+    errores = registros.filter(pl.col("_ec").is_null())
     if not errores.is_empty():
         n_err = len(errores)
         imp_err = float(errores["importe"].sum())
         print(f"    ⚠ {n_err:,} registros PTGAS sin elemento de coste ({imp_err:,.2f} €)")
+    registros = registros.filter(pl.col("_ec").is_not_null())
 
-    ordinarias = ordinarias.filter(pl.col("_ec").is_not_null())
+    _desc_fn = obtener_descripciones or (lambda col, vals: {})
 
-    srv = pl.col("servicio").cast(pl.Utf8)
-    resto = ordinarias.filter(srv != "368")
-    srv_368 = ordinarias.filter(srv == "368")
+    # Enriquecimiento y clasificación compartida
+    if ctx_enriquecimiento is not None:
+        registros = enriquecer_para_actividades(registros, ctx_enriquecimiento)
+    if árbol_cc is not None:
+        registros, _ = clasificar_centros_coste(
+            registros, árbol_cc, distribución_costes, _desc_fn,
+        )
+    else:
+        registros = registros.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias("_centro_de_coste")
+        )
+    if árbol_actividades is not None:
+        registros, _ = clasificar_actividades(
+            registros, árbol_actividades, _desc_fn,
+        )
+    elif "_actividad" not in registros.columns:
+        registros = registros.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias("_actividad")
+        )
+
+    es_ord = pl.col("proyecto").cast(pl.Utf8).is_in(PROYECTOS_ORDINARIOS)
+    ordinarias = registros.filter(es_ord)
+    extras = registros.filter(~es_ord)
 
     uc_partes: list[pl.DataFrame] = []
     _id_counter = [0]
@@ -154,105 +253,88 @@ def _generar_uc_ptgas(
         _id_counter[0] += 1
         return f"N-{_id_counter[0]:05d}"
 
-    # Resto: agrupar por (expediente, _ec, servicio) y mapear
-    if not resto.is_empty():
-        agrup = (
-            resto.group_by("expediente", "_ec", "servicio")
-            .agg(pl.col("importe").sum())
-        )
-        filas = []
-        for row in agrup.iter_rows(named=True):
-            srv_key = str(row["servicio"])
-            mapping = _SERVICIO_CC.get(srv_key)
-            if mapping is None:
-                continue
-            cc, act = mapping
-            filas.append({
-                "id": _next_id(),
-                "expediente": row["expediente"],
-                "elemento_de_coste": row["_ec"],
-                "centro_de_coste": cc,
-                "actividad": act,
-                "importe": row["importe"],
-                "origen": "nómina",
-                "origen_id": f"PTGAS-exp-{row['expediente']}-srv-{srv_key}",
-                "origen_porción": 1.0,
-            })
-        if filas:
-            uc_partes.append(pl.DataFrame(filas))
+    # Retribuciones ordinarias
+    # La actividad en ordinarias se toma de la tabla servicio→actividad
+    # (o centro_plaza para servicio 368).  El CC viene del clasificador.
+    if not ordinarias.is_empty():
+        srv = pl.col("servicio").cast(pl.Utf8)
+        resto = ordinarias.filter(srv != "368")
+        srv_368 = ordinarias.filter(srv == "368")
 
-    # Servicio 368: agrupar por (expediente, _ec, centro_plaza) y mapear
-    if not srv_368.is_empty() and "centro_plaza" in srv_368.columns:
-        agrup_368 = (
-            srv_368.group_by("expediente", "_ec", "centro_plaza")
-            .agg(pl.col("importe").sum())
-        )
-        filas_368 = []
-        for row in agrup_368.iter_rows(named=True):
-            cp_key = str(row["centro_plaza"])
-            mapping = _CENTRO_PLAZA_CC.get(cp_key)
-            if mapping is None:
-                continue
-            cc, act = mapping
-            filas_368.append({
-                "id": _next_id(),
-                "expediente": row["expediente"],
-                "elemento_de_coste": row["_ec"],
-                "centro_de_coste": cc,
-                "actividad": act,
-                "importe": row["importe"],
-                "origen": "nómina",
-                "origen_id": f"PTGAS-exp-{row['expediente']}-srv-368-cp-{cp_key}",
-                "origen_porción": 1.0,
-            })
-        if filas_368:
-            uc_partes.append(pl.DataFrame(filas_368))
-
-    # Retribuciones extra: usar clasificador de actividades
-    if not extras.is_empty() and ctx_enriquecimiento is not None:
-        extras_enr = enriquecer_para_actividades(extras, ctx_enriquecimiento)
-        _desc_fn = obtener_descripciones or (lambda col, vals: {})
-        extras_enr, _ = clasificar_actividades(
-            extras_enr, árbol_actividades, _desc_fn,
-        )
-        # Solo las que tienen actividad asignada
-        con_act = extras_enr.filter(pl.col("_actividad").is_not_null())
-        if not con_act.is_empty():
-            # Calcular elemento de coste
-            ecs_extra = [
-                _elemento_coste_ptgas(
-                    row["categoría"], row["concepto_retributivo"], row["per_id"],
-                )
-                for row in con_act.select("categoría", "concepto_retributivo", "per_id").iter_rows(named=True)
-            ]
-            con_act = con_act.with_columns(pl.Series("_ec", ecs_extra))
-            con_act = con_act.filter(pl.col("_ec").is_not_null())
-
-            # CC desde servicio (mismo mapeo)
-            filas_extra = []
-            for row in con_act.iter_rows(named=True):
+        if not resto.is_empty():
+            agrup = (
+                resto.group_by("expediente", "_ec", "servicio", "_centro_de_coste")
+                .agg(pl.col("importe").sum())
+            )
+            filas = []
+            for row in agrup.iter_rows(named=True):
                 srv_key = str(row["servicio"])
-                if srv_key == "368" and "centro_plaza" in con_act.columns:
-                    mapping = _CENTRO_PLAZA_CC.get(str(row["centro_plaza"]))
-                else:
-                    mapping = _SERVICIO_CC.get(srv_key)
-                if mapping is None:
+                mapping = _SERVICIO_CC.get(srv_key)
+                if mapping is None or row["_centro_de_coste"] is None:
                     continue
-                cc, _ = mapping  # actividad viene del clasificador
-                filas_extra.append({
+                _, act = mapping
+                filas.append({
                     "id": _next_id(),
                     "expediente": row["expediente"],
                     "elemento_de_coste": row["_ec"],
-                    "centro_de_coste": cc,
-                    "actividad": row["_actividad"],
+                    "centro_de_coste": row["_centro_de_coste"],
+                    "actividad": act,
                     "importe": row["importe"],
                     "origen": "nómina",
-                    "origen_id": f"PTGAS-extra-exp-{row['expediente']}-{row['proyecto']}",
-                    "origen_porción": row.get("_origen_porción", 1.0),
+                    "origen_id": f"PTGAS-exp-{row['expediente']}-srv-{srv_key}",
+                    "origen_porción": 1.0,
                 })
-            if filas_extra:
-                uc_partes.append(pl.DataFrame(filas_extra))
-                print(f"    UC PTGAS extra: {len(filas_extra):,} UC")
+            if filas:
+                uc_partes.append(pl.DataFrame(filas))
+
+        if not srv_368.is_empty() and "centro_plaza" in srv_368.columns:
+            agrup_368 = (
+                srv_368.group_by("expediente", "_ec", "centro_plaza", "_centro_de_coste")
+                .agg(pl.col("importe").sum())
+            )
+            filas_368 = []
+            for row in agrup_368.iter_rows(named=True):
+                cp_key = str(row["centro_plaza"])
+                mapping = _CENTRO_PLAZA_CC.get(cp_key)
+                if mapping is None or row["_centro_de_coste"] is None:
+                    continue
+                _, act = mapping
+                filas_368.append({
+                    "id": _next_id(),
+                    "expediente": row["expediente"],
+                    "elemento_de_coste": row["_ec"],
+                    "centro_de_coste": row["_centro_de_coste"],
+                    "actividad": act,
+                    "importe": row["importe"],
+                    "origen": "nómina",
+                    "origen_id": f"PTGAS-exp-{row['expediente']}-srv-368-cp-{cp_key}",
+                    "origen_porción": 1.0,
+                })
+            if filas_368:
+                uc_partes.append(pl.DataFrame(filas_368))
+
+    # Retribuciones extra: CC y actividad del clasificador
+    if not extras.is_empty():
+        con_todo = extras.filter(
+            pl.col("_centro_de_coste").is_not_null()
+            & pl.col("_actividad").is_not_null()
+        )
+        filas_extra = []
+        for row in con_todo.iter_rows(named=True):
+            filas_extra.append({
+                "id": _next_id(),
+                "expediente": row["expediente"],
+                "elemento_de_coste": row["_ec"],
+                "centro_de_coste": row["_centro_de_coste"],
+                "actividad": row["_actividad"],
+                "importe": row["importe"],
+                "origen": "nómina",
+                "origen_id": f"PTGAS-extra-exp-{row['expediente']}-{row['proyecto']}",
+                "origen_porción": row.get("_origen_porción", 1.0),
+            })
+        if filas_extra:
+            uc_partes.append(pl.DataFrame(filas_extra))
+            print(f"    UC PTGAS extra: {len(filas_extra):,} UC")
 
     if not uc_partes:
         return pl.DataFrame()
@@ -260,10 +342,85 @@ def _generar_uc_ptgas(
     return pl.concat(uc_partes)
 
 
+def _generar_uc_pdi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame) -> pl.DataFrame:
+    """Genera UC a partir de retribuciones del PDI.
+
+    Cada fila no-SS del PDI recibe un elemento_de_coste ``pdi-XXX-YYY``
+    calculado a partir de (categoría, concepto_retributivo).
+    Las UC se agrupan por (expediente, proyecto, elemento_de_coste).
+    Centro de coste y actividad quedan vacíos hasta el rediseño.
+    """
+    exp_pdi = _mapear_sector(expedientes)
+    exp_pdi = exp_pdi.filter(pl.col("sector_mapeado") == "PDI")
+    if exp_pdi.is_empty():
+        return pl.DataFrame()
+
+    registros = nóminas_filtradas.join(
+        exp_pdi.select("expediente", "per_id"),
+        on="expediente",
+        how="inner",
+    )
+
+    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+    retribuciones = registros.filter(~es_ss)
+    if retribuciones.is_empty():
+        return pl.DataFrame()
+
+    ecs = [
+        _elemento_coste_pdi(row["categoría"], row["concepto_retributivo"])
+        for row in retribuciones.select(
+            "categoría", "concepto_retributivo",
+        ).iter_rows(named=True)
+    ]
+    retribuciones = retribuciones.with_columns(pl.Series("_ec", ecs))
+
+    errores = retribuciones.filter(pl.col("_ec").is_null())
+    if not errores.is_empty():
+        n_err = len(errores)
+        imp_err = float(errores["importe"].sum())
+        print(f"    ⚠ {n_err:,} registros PDI sin elemento de coste ({imp_err:,.2f} €)")
+    retribuciones = retribuciones.filter(pl.col("_ec").is_not_null())
+    if retribuciones.is_empty():
+        return pl.DataFrame()
+
+    agrup = (
+        retribuciones.group_by("expediente", "proyecto", "_ec")
+        .agg(pl.col("importe").sum())
+    )
+
+    _id_counter = [0]
+
+    def _next_id() -> str:
+        _id_counter[0] += 1
+        return f"D-{_id_counter[0]:05d}"
+
+    filas = []
+    for row in agrup.iter_rows(named=True):
+        filas.append({
+            "id": _next_id(),
+            "expediente": row["expediente"],
+            "elemento_de_coste": row["_ec"],
+            "centro_de_coste": "",
+            "actividad": "",
+            "importe": row["importe"],
+            "origen": "nómina",
+            "origen_id": f"PDI-exp-{row['expediente']}-proy-{row['proyecto']}-ec-{row['_ec']}",
+            "origen_porción": 1.0,
+        })
+
+    if not filas:
+        return pl.DataFrame()
+
+    return pl.DataFrame(filas)
+
+
 def _generar_uc_pvi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame) -> pl.DataFrame:
     """Genera UC a partir de retribuciones del PVI.
 
-    Agrupa por (expediente, proyecto) y crea una UC por cada grupo.
+    Cada fila no-SS del PVI recibe un elemento_de_coste ``piyotper-XXX-YYY``
+    calculado a partir de (categoría, perceptor, provisión, concepto_retributivo).
+    Las UC se agrupan por (expediente, proyecto, elemento_de_coste).
+    Centro de coste y actividad quedan vacíos hasta el rediseño.
     """
     exp_pvi = _mapear_sector(expedientes)
     exp_pvi = exp_pvi.filter(pl.col("sector_mapeado") == "PVI")
@@ -283,8 +440,27 @@ def _generar_uc_pvi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
     if retribuciones.is_empty():
         return pl.DataFrame()
 
+    ecs = [
+        _elemento_coste_pvi(
+            row["categoría"], row["perceptor"], row["provisión"], row["concepto_retributivo"],
+        )
+        for row in retribuciones.select(
+            "categoría", "perceptor", "provisión", "concepto_retributivo",
+        ).iter_rows(named=True)
+    ]
+    retribuciones = retribuciones.with_columns(pl.Series("_ec", ecs))
+
+    errores = retribuciones.filter(pl.col("_ec").is_null())
+    if not errores.is_empty():
+        n_err = len(errores)
+        imp_err = float(errores["importe"].sum())
+        print(f"    ⚠ {n_err:,} registros PVI sin elemento de coste ({imp_err:,.2f} €)")
+    retribuciones = retribuciones.filter(pl.col("_ec").is_not_null())
+    if retribuciones.is_empty():
+        return pl.DataFrame()
+
     agrup = (
-        retribuciones.group_by("expediente", "proyecto")
+        retribuciones.group_by("expediente", "proyecto", "_ec")
         .agg(pl.col("importe").sum())
     )
 
@@ -299,12 +475,12 @@ def _generar_uc_pvi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
         filas.append({
             "id": _next_id(),
             "expediente": row["expediente"],
-            "elemento_de_coste": "",
+            "elemento_de_coste": row["_ec"],
             "centro_de_coste": "",
             "actividad": "",
             "importe": row["importe"],
             "origen": "nómina",
-            "origen_id": f"PVI-exp-{row['expediente']}-proy-{row['proyecto']}",
+            "origen_id": f"PVI-exp-{row['expediente']}-proy-{row['proyecto']}-ec-{row['_ec']}",
             "origen_porción": 1.0,
         })
 
@@ -561,6 +737,8 @@ def preprocesar_nóminas(
     dir_salida: Path,
     ctx_enriquecimiento=None,
     árbol_actividades=None,
+    árbol_cc=None,
+    distribución_costes=None,
     obtener_descripciones=None,
 ) -> ResultadoNóminas:
     """Agrupa nóminas por expediente, clasifica por sector y guarda parquets.
@@ -633,6 +811,8 @@ def preprocesar_nóminas(
         nóminas, expedientes,
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
+        árbol_cc=árbol_cc,
+        distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
     )
     if not uc_ptgas.is_empty():
@@ -647,6 +827,13 @@ def preprocesar_nóminas(
         print(f"  UC PVI retribuciones: {len(uc_pvi):,} UC, {importe_pvi:,.2f} €")
         uc_pvi.write_parquet(dir_salida / "uc_pvi.parquet")
 
+    # -- UC de retribuciones PDI --
+    uc_pdi = _generar_uc_pdi(nóminas, expedientes)
+    if not uc_pdi.is_empty():
+        importe_pdi = float(uc_pdi["importe"].sum())
+        print(f"  UC PDI retribuciones: {len(uc_pdi):,} UC, {importe_pdi:,.2f} €")
+        uc_pdi.write_parquet(dir_salida / "uc_pdi.parquet")
+
     # -- Reparto de SS por persona --
     _generar_reparto_ss_persona(
         nóminas, expedientes, uc_ptgas, uc_pvi, {}, dir_salida,
@@ -657,4 +844,5 @@ def preprocesar_nóminas(
         importe_por_sector=importe_por_sector,
         uc_ptgas=uc_ptgas,
         uc_pvi=uc_pvi,
+        uc_pdi=uc_pdi,
     )

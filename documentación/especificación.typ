@@ -874,7 +874,7 @@ El árbol que hemos de leer *y editar* para determinar actividades es el de acti
 
 El árbol de actividades modificado por las reglas se ha de mostrar en la #app, con una opción de un desplegable #val("Tras fase 1") para mostrarlo o descargarlo en formato `.tree`. Además, se ha de mostrar un resumen de la información que contiene, con el número de filas y el importe total de cada una de ellas. Los nodos añadidos se han de mostrar de un color distinto y se ha de indicar cuantos nodos se han añadido.
 
-===== Conceptos previos
+=== Conceptos previos
 
 Sean estos los #campo("tipo de proyecto") de investigación y transferencia:
 
@@ -1002,7 +1002,7 @@ Esta tabla, a la que llamamos TABLA-TRADUCCIÓN-VICES, contiene las traducciones
     table.hline(),
 ))
 
-===== Gastos del #campo("capítulo") 4 (ayudas) en un #campo("programa") distinto del #val("541-A")
+=== Gastos del #campo("capítulo") 4 (ayudas) en un #campo("programa") distinto del #val("541-A")
 
 Vamos con las reglas de esta sección:
 
@@ -1017,7 +1017,7 @@ Vamos con las reglas de esta sección:
         - y el #campo("tipo de proyecto") es de investigación y transferencia pero el #campo("programa") no es #val("541-A"), la actividad es #etqact("otras-ayudas-estudiantes") + #campo("proyecto").
 ]
 
-===== Costes en proyectos de Investigación y transferencia
+=== Costes en proyectos de Investigación y transferencia
 
 #reglas[
     - #nombre-regla[Proyectos de investigación, artículos 60, cátedras, patentes y líneas]
@@ -1070,7 +1070,7 @@ Vamos con las reglas de esta sección:
 ]
 
 
-===== Distinto de investigación y transferencia
+=== Distinto de investigación y transferencia
 
 Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("VEF"), #val("VEV"), #val("VI"), #val("VIN"), #val("VPE"), #val("VRI"), #val("VRS"), #val("VTD").
 
@@ -2221,6 +2221,10 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             [2922], etqcen("ps-fcs"), etqact("dag-conserjería-fcs"),
         )
 
+    - #nombre-regla[Lo que es de INVES debe ir al centro_origen]
+        Si el #campo("centro") es #val("INVES"), el centro de coste es el mismo que el centro de origen.
+        #nota[Esto, en un futuro tendrá el grupo de investigación.]
+
     - #nombre-regla[Por centro y subcentro]
         La siguiente tabla relaciona pares #campo("centro")/#campo("subcentro") con un centro de coste. El % significa #emph[cualquier valor].
 
@@ -3098,72 +3102,156 @@ En la #app informa de cuántos casos han quedado sin poder cumplimentar.
 
 === Preprocesamiento nóminas
 
-En primer lugar, vamos a agrupar todas la entradas de #ruta("nóminas y seguridad social.xlsx") por #campo("expediente"). Los expedientes se van a clasificar en una lista (o tabla) de PDI, otra de PTGAS (que está codificado como sector PAS) y otra PVI (que está codificado como sector PI).
+En primer lugar, vamos a agrupar todas la entradas de #ruta("nóminas y seguridad social.xlsx") por #campo("expediente"). Los expedientes se van a clasificar en una lista (o tabla) de PDI y PVI (el PVI está codificado como sector PI) y otra de PTGAS.
 
 En la #app, quiero poder ver, por separado, los expedientes de cada uno de estos sectores. Si aparece algún expediente que no se pueda clasificar en ninguno de estos sectores, quiero poder verlo también para analizarlo.
 
 También quiero ver en la #app la relación de personas que tiene más de un expediente de tipos distintos. En una entrada de menú aparecerá Multiexpediente y dentro, en un tabs, tendré: PTGAS + PDI, PTGAS + PVI, PDI + PVI, PTGAS + PDI + PDI. En cada uno de esos tabs, veré la relación de personas que tienen expedientes de ambos tipos, con el número de expedientes de cada tipo que tienen, para analizar si es correcto o no que tengan expedientes de ambos tipos. Al seleccionar la persona, veré los doce meses del año y en qué meses tenía activos que expedientes (número y colectivo al que pertenece).
 
-Cada una de esas listas (PDI, PTGAS, PVI) se va a procesar de un modo distinto, lo que vamos a describir en los siguientes apartados.
-
-
-=== Tratamiento del PTGAS
+Cada una de esas listas (PDI+PVI y PTGAS) se va a procesar de un modo distinto, lo que vamos a describir en los siguientes apartados.
 
 ==== Agrupamiento de los registros
 
-Cada expediente del PTGAS tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
+Cada expediente del PTGAS, PDI o PVI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
 
 - una, #campo("costes sociales"), con los registros asociados a la Seguridad Social (#campo("aplicación") que empieza por 12),
-- otra, #campo("retribuciones ordinarias") con lo que es nómina ordinaria ( #campo("proyecto") #val("1G019") o #val("23G019"))
+- otra, #campo("retribuciones ordinarias") con lo que es nómina ordinaria (cuando #campo("proyecto") es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"))
 - otra, #campo("retribuciones extra"), con el resto.
-- otra, #campo("unidades de coste"), con una lista de unidades de coste asociadas a esta persona. Estas unidades se pueden crear desde el presupuesto o desde las nóminas.
+- otra, #campo("unidades de coste"), con una lista de unidades de coste asociadas a este expediente. Estas unidades se pueden crear desde el presupuesto o desde las nóminas.
 
-En la #app, al seleccionar un expediente de PTGAS, veré sus tres tablas y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones.
+En la #app, al seleccionar un expediente, veré sus tres tablas y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones.
 
-La #app mostrará los totales de cada tabla y comprobará que los totales de las tres primeras suman el total de la nómina del PTGAS, para detectar posibles errores en la clasificación de los registros en las tablas.
+La #app mostrará los totales de cada tabla y comprobará que los totales de las tres primeras suman el total de la nómina del expediente, para detectar posibles errores en la clasificación de los registros en las tablas.
 
-En la #app se han de mostrar también las unidad de coste que ya se han creado para cada expediente de PTGAS, para facilitar comprobaciones y evitar duplicidades.
+En la #app se han de mostrar también las unidad de coste que ya se han creado para cada expediente, para facilitar comprobaciones y evitar duplicidades.
 
+
+=== Tabla para determinar parte del elemento de coste a partir del concepto retributivo
+
+Esta tabla se va a usar para determinar parte del elemento de coste de las unidades de coste que se van a generar a partir de los registros de nómina. Es común a todos (PDI+PVI y PTGAS) La tabla es la siguiente:
+
+#table(
+    columns: 3,
+    align: (center, left, center),
+
+    table.header(
+        table.hline(),
+        [Concepto retributivo], [Descripción], [Etiqueta para elemento de coste],
+        table.hline(),
+    ),
+    [#val("01")], [Sou base], [#val("sueldo")],
+    [#val("03")], [Triennis], [#val("trienios")],
+    [#val("04")], [Paga extraordinària], [#val("paga-extra")],
+    [#val("05")], [Paga addicional complement específic], [#val("esp")],
+    [#val("06")], [Component compensatori del complement específic], [#val("esp")],
+    [#val("10")], [Complement de destinació], [#val("dst")],
+    [#val("12")], [Complement de destinació ajudants], [#val("dst")],
+    [#val("13")], [Complement art. 55.2 LOU], [#val("otvars")],
+    [#val("15")], [Complement específic del lloc de treball], [#val("esp")],
+    [#val("17")], [Complement associats Consell de Govern 26/05/08], [#val("otfij")],
+    [#val("18")], [Complement específic professorat], [#val("esp")],
+    [#val("19")], [Complement específic per càrrecs acadèmics (Docents)], [#val("cargos")],
+    [#val("20")], [Complement per mèrits docents], [#val("quin")],
+    [#val("24")], [Complement de destinació professorat associat], [#val("dst")],
+    [#val("25")], [Complement activitat professional (no docent)], [#val("otvars")],
+    [#val("26")], [Complement de productivitat per investigació], [#val("sexinv")],
+    [#val("30")], [Endarreriments Carrecs], [#val("cargos")],
+    [#val("32")], [Complement activitat professional PTGAS], [#val("prod")],
+    [#val("34")], [Component d'exercici lloc de treball LD], [#val("otfij")],
+    [#val("35")], [Rendiments de llicència de patents], [#val("otvars")],
+    [#val("43")], [Millora addicional], [#val("otvars")],
+    [#val("44")], [Complement per antiguitat], [#val("trienios")],
+    [#val("47")], [Indemnització finalització contracte laboral], [#val("otvars")],
+    [#val("48")], [Indemnització per assistències], [#val("otvars")],
+    [#val("53")], [Gratificació per serveis de caràcter extraordinari (art.60 LOSU)], [#val("otvars")],
+    [#val("55")], [Gratificacions per serveis de caràcter extraordinari], [#val("otvars")],
+    [#val("56")], [Complement específic C Sanitat], [#val("esp")],
+    [#val("57")], [Complement carrera professional Sanitat], [#val("otfij")],
+    [#val("59")], [Complement de destinació professorat visitant], [#val("dst")],
+    [#val("62")], [Despeses de trasllat], [#val("otvars")],
+    [#val("64")], [Retribució addicional mèrit individual projectes UE (art.76 LOSU)], [#val("otvars")],
+    [#val("67")], [Retribució addicional del professorat universitari. Decret 174/2002], [#val("otvars")],
+    [#val("68")], [Paga addicional complement específic pdi], [#val("esp")],
+    [#val("70")], [Retribució addicional mèrit indicvidual càtedres i aules (art.76 LOSU)], [#val("otvars")],
+    [#val("71")], [Complement per càrrec de gerent], [#val("esp")],
+    [#val("72")], [Antiguitat Conselleria de Sanitat], [#val("trienios")],
+    [#val("75")], [Complement carrera professional], [#val("cprof")],
+    [#val("76")], [Complement compensatòri carrera professional], [#val("cprof")],
+    [#val("77")], [Complement de productivitat per transferència], [#val("sextransf")],
+    [#val("78")], [Col.laboració en projectes d'investigació], [#val("otvars")],
+    [#val("80")], [Ajust nòmines], [#val("otvars")],
+    [#val("82")], [Sou Base], [#val("sueldo")],
+    [#val("83")], [Deducció per vaga], [#val("otvars")],
+    [#val("86")], [Diferència mèrits docents RD 1086/89 art 5.9], [#val("quin")],
+    [#val("87")], [Endarreriments], [#val("otvars")],
+    [#val("90")], [Retribució per cursos impartits], [#val("otvars")],
+    [#val("98")], [Diferència valor triennis Llei 1/96], [#val("trienios")],
+    [#val("99")], [Complement per mèrits docents no universitaris], [#val("quin")],
+    table.hline(),
+)
 
 ==== Creación de unidades de coste a partir de registros de nómina
 
 #reglas[
     - En primer lugar hemos de agrupar los registros que hemos puesto en #campo("retribuciones ordinarias") por el par `elemento de coste`-`servicio` (una `persona`, desde un expediente, puede haber trabajado en más de un servicio a lo largo del año).
 
-    El primer problema es determinar el elemento de coste, que no es trivial. Su etiqueta tiene la forma `ptgas-XXX-YYY`, donde `XXX` depende de la categoría e `YYY` depende del tipo de retribución. Para determinar `XXX` y `YYY` hay que aplicar una serie de reglas.
+    El primer problema es determinar el elemento de coste, que no es trivial. Su etiqueta tiene la forma `ZZZ-XXX-YYY`, donde
+    - `ZZZ` depende del sector:
+        - el sector PTGAS se corresponde con `ptgas`
+        - el sector PDI se corresponde con `pdi`
+        - el sector PVI se corresponde con `piyotper`
+    - `XXX` depende de la categoría u otros campos,
+    - e `YYY` depende del tipo de retribución.
 
-    - Para determinar el valor de `XXX` miramos el campo #campo("categoría") del registro:
-        - Si el valor es #val("FC") y el #campo("per_id") es #val("65214") (AMV), `XXX` es `dir`.
-        - Si no, si el valor es #val("FC") o #val("FI"), `XXX` es `func`.
-        - Si no, si el valor es #val("E"), `XXX` es `ev`.
-        - Si no, si el valor es #val("LE"), #val("LF") o #val("LT"), `XXX` es `lab`.
-        - Si no, marca un error, porque no debería de pasar.
+    Para determinar `XXX` y `YYY` hay que aplicar una serie de reglas.
 
-    - Para determinal el valor de `YYY` hay que mirar el campo #campo("concepto_retributivo") del registro:
-        - si #val("01"), es `sueldo` (Sou base)
-        - si no, si #val("03"), es `trienios`
-        - si no, si #val("04"), es `paga-extra`
-        - si no, si #val("05"), es `paga-extra` (paga extra del específico)
-        - si no, si #val("06"), es `esp` (ccee)
-        - si no, si #val("10"), es `dst` (destino)
-        - si no, si #val("15"), es `esp` (específico)
-        - si no, si #val("25"), es `prod` (es la productividad por funciones especiales en el puesto)
-        - si no, si #val("32"), es `prod` (productividad)
-        - si no, si #val("34"), es `otvars` (componente de ejercicio puesto trabajo LD #nota[REVISAR])
-        - si no, si #val("47"), es `otvars` (indemnización por finalización del contrato #nota[REVISAR])
-        - si no, si #val("48"), es `otvars` (indemnización por asistencia #nota[REVISAR])
-        - si no, si #val("53"), es `prod` (participaciónen artículos 60, debería haberse ido a presupuesto)
-        - si no, si #val("55"), es `prod` (gratificiación servicios carácter extraordinario)
-        - si no, si #val("71"), es `esp` (específico gerencia)
-        - si no, si #val("75"), es `cprof` (carrera)
-        - si no, si #val("76"), es `cprof` (compl compensatorio carrera)
-        - si no, si #val("82"), es `sueldo` (sueldo base, debería ser solo de PI #nota[REVISAR])
-        - si no, si #val("83"), es `otvars` (huelga)
-        - si no, si #val("87"), es `otvars` (atrasos)
-        - si no, si #val("90"), es `prod` (cursos impartidos #nota[REVISAR]
-        - si no, si #val("98"), es `trienios` (diferencia trienios ley 1/1996)
-        - si no, hay un error.
+    - Para determinar el valor de `XXX`
+        - En el caso del PTGAS, miramos el campo #campo("categoría") del registro. Estas son las reglas:
+            - Si el valor es #val("FC") y el #campo("per_id") es #val("65214") (AMV), `XXX` es #val("dir").
+            - Si no, si el valor es #val("FC") o #val("FI"), `XXX` es #val("func").
+            - Si no, si el valor es #val("E"), `XXX` es #val("ev").
+            - Si no, si el valor es #val("LE"), #val("LF") o #val("LT"), `XXX` es #val("lab").
+            - Si no, marca un error, porque no debería de pasar.
+        - En el caso del PVI o PDI, los campos relevantes son #campo("categoría"), #campo("perceptor") y #campo("provisión"). Estas son las reglas (las celdas en blanco significan que no importa el valor de ese campo):
+            #table(
+                columns: 4,
+                table.header(
+                    table.hline(),
+                    [#campo("categoría")], [#campo("perceptor")], [#campo("provisión")], [Valor de `XXX`],
+                    table.hline(),
+                ),
+                table.cell(colspan: 4, align: center)[_PVI — se aplica la primera regla que encaja_],
+                [], val("35"), [], val("act"),
+                val("PREDO"), [], [], val("pif"),
+                [], [], val("PD"), val("pif"),
+                [], [], val("P2"), val("idi"),
+                [], [], [], val("pid"),
+                table.hline(),
+                table.cell(colspan: 4, align: center)[_PDI — por #campo("categoría") exacta_],
+                val("CU"), [], [], val("cu"),
+                val("TU"), [], [], val("tu"),
+                val("TUI"), [], [], val("tu"),
+                val("CEU"), [], [], val("ceu"),
+                val("TEU"), [], [], val("teu"),
+                val("AJ"), [], [], val("aj"),
+                val("AJD"), [], [], val("aj"),
+                val("AJDII"), [], [], val("aj"),
+                val("PAA"), [], [], val("as"),
+                val("PAL"), [], [], val("as"),
+                val("PS"), [], [], val("ps"),
+                val("PEME"), [], [], val("em"),
+                val("PPL"), [], [], val("pl"),
+                val("PPLV"), [], [], val("pl"),
+                val("PVI"), [], [], val("pv"),
+                val("PD"), [], [], val("pd"),
+                val("PCD"), [], [], val("pcd"),
+                val("PC"), [], [], val("pc"),
+                table.hline(),
+            )
 
+    - Para determinar el valor de `YYY` hay que mirar el campo #campo("concepto_retributivo") del registro y usar la tabla que hemos definido antes para determinar la etiqueta del elemento de coste a partir del concepto retributivo. Por ejemplo, si el concepto retributivo es #val("01"), el valor de `YYY` es #val("sueldo"). Si el concepto retributivo es #val("03"), el valor de `YYY` es #val("trienios"). Y así sucesivamente.
+
+    Cuando generas un etiqueta `ZZZ-XXX-YYY` has de comprobar que existe en el árbol de elementos de coste. Si no existe, has de dar un error.
 
     Para cada par elemento-servicio, tomamos sus registros de #campo("retribuciones ordinarias") y hacemos la suma, porque de cada par elemento-servicio, para ese expediente, vamos a crear una unidad de coste.
 
@@ -3176,51 +3264,11 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
 ]
 
 
-=== Tratamiento del PVI
+=== Tratamiento del PVI y del PDI
 
-==== Agrupamiento de los registros
-Cada expediente del PVI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
+El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»). La generación de unidades de coste para PVI y PDI sigue la misma estructura `ZZZ-XXX-YYY` descrita en el apartado anterior, con `ZZZ` = #val("piyotper") para PVI y #val("pdi") para PDI, y las reglas específicas de `XXX` de la tabla anterior.
 
-- un, #campo("costes sociales") con lo que es Seguridad Social (#campo("aplicación") que empieza por 12),
-- otra, #campo("retribuciones") con el resto de registros.
-- otra, #campo("unidades de coste"), con una lista de unidades de coste asociadas a esta persona. Estas unidades se pueden crear desde el presupuesto o desde las nóminas.
-
-En la #app, al selecciona un expediente de PVI, veré sus tres tablas y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones.
-
-La #app mostrará los totales de cada tabla y comprobará que los totales suman el total de la nómina del PVI, para detectar posibles errores en la clasificación de los registros en las tablas.
-
-En la #app se han de mostrar también las unidad de coste que ya se han creado para cada expediente de PVI, para facilitar comprobaciones y evitar duplicidades.
-
-==== Creación de unidades de coste a partir de registros de nómina
-
-#reglas[
-    - Con los registros que hemos puesto en #campo("retribuciones") hacemos la suma por proyecto y creamos una unidad de coste.  El importe de la unidad de coste es el importe total de las retribuciones ordinarias del servicio.
-]
-
-=== Tratamiento del PDI
-
-Cada expediente del PDI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
-
-- una de #val("costes sociales") con las unidades de coste de Seguridad Social (#campo("aplicación") que empieza por 12),
-- una de #val("retribuciones con financiación finalista") con lo que tiene TIPO DE LÍNEA distinto de #val("00")
-- otra de #val("retribuciones ordinarias docencia") cuando se cumple todo esto:
-    - el  #campo("proyecto") es #val("1G019") o #val("23G019")
-    - y el #campo("concepto") RETRIBUTIVO es #val("17"), #val("20"), #val("24"), #val("44"), #val("86") o #val("99")
-- otra de #val("retribuciones ordinarias gestión") cuando se cumple todo esto:
-    - el  #campo("proyecto") es #val("02G041"), #val("11G006"), #val("1G019") o #val("23G019")
-    - y el #campo("concepto") RETRIBUTIVO es #val("19") o #val("30")
-- otra de #val("retribuciones ordinarias investigación") cuando se cumple todo esto:
-    - el  #campo("proyecto") es #val("1G019") o #val("23G019")
-    - y el #campo("concepto") RETRIBUTIVO es #val("26") o #val("77")
-- otra de #val("retribuciones por incentivos") cuando se cumple:
-    - el #campo("concepto") RETRIBUTIVO es #val("13") o #val("67")
-- otra, #val("retribuciones para regla 23"), con el resto.
-
-En la #app, al selecciona un expediente de PDI, veré sus tres tablas y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones. Por cada una de esas tablas en un elemento colapsable para no ensuciar mucho la vista.
-
-La #app mostrará los totales de cada tabla y comprobará que los totales suman el total de la nómina del PDI, para detectar posibles errores en la clasificación de los registros en las tablas.
-
-Para cada expediente del PDI hemos de construir una serie de datos, algunos escalares y otros de tipo tabla, que nos ayudarán, a continuación, a generar unidades de coste con información de nóminas. Algunos elementos de las nóminas se podrán enviar a actividades con relativa facilidad, pero los que denominamos #val("retribuciones para regla 23") tienen unos cálculos complejos que necesitan procesar los datos que ahora te voy a describir:
+#nota[Los detalles de la generación de unidades de coste para PVI y PDI (agrupación, cálculo de actividad y centro de coste) se definirán en un siguiente paso.]
 
 ==== Dedicación docente en créditos a las distintas titulaciones en las que tiene docencia
 
@@ -3237,15 +3285,6 @@ Para tener controlados los casos raros, quiero que haya una opción en «Persona
 - Asignaturas sin titulación conocida (código y nombre), con todos los  #campo("per_id") (y nombre) de profesorado que tengan asignaturas sin titulación conocida, con el número de créditos que imparte en cada una de esas asignaturas. Se ha de mostrar, también el total de créditos anómales sobre el total de créditos impartidos por el profesorado, para tener una idea de la magnitud del problema.
 
 #nota[Con el doctorado no sabemos qué hacer aún. ¿Asignaturas? Por otra parte, se considera actividad de investigación.]
-
-
-
-
-
-
-=== Reglas para generar unidades de coste a partir de nóminas
-
-Para expediente de PDI hemos de construir una serie de datos, algunos escalares y otros de tipo tabla, que nos ayudarán, a continuación, a generar unidades de coste con información de nóminas. Algunos elementos de las nóminas se podrán enviar a actividades con relativa facilidad, pero los que denominamos
 
 
 == Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social

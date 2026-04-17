@@ -170,6 +170,8 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2024) -> None:
         ctx_nom, dir_nominas,
         ctx_enriquecimiento=ctx,
         árbol_actividades=ctx.actividades,
+        árbol_cc=ctx.centros_de_coste,
+        distribución_costes=resultado_inv.distribución_costes,
         obtener_descripciones=traductor._obtener_descripciones,
     )
     for sector, n_exp in resultado_nom.expedientes_por_sector.items():
@@ -181,6 +183,8 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2024) -> None:
         todas_uc.append(resultado_nom.uc_ptgas)
     if not resultado_nom.uc_pvi.is_empty():
         todas_uc.append(resultado_nom.uc_pvi)
+    if not resultado_nom.uc_pdi.is_empty():
+        todas_uc.append(resultado_nom.uc_pdi)
 
     # -- Fichero combinado --
     if todas_uc:
