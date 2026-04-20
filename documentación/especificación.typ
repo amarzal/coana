@@ -635,7 +635,7 @@ Los datos de docencia sirven para determinar a qué actividades docentes se dedi
 Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y son las siguientes:
 
 #let ficheros_campos_docencia = (
-    "docencia.xlsx": (
+    "pod.xlsx": (
         descripción: [Fichero con los datos de docencia de cada profesor],
         campos: (
             per_id: [Identificador (entero) de persona. Ver #ruta("data", "entrada", "nóminas", "personas.xlsx").],
@@ -665,13 +665,6 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
             máster: [Identificador (entero) de la titulación en la que se imparte la asignatura, por ejemplo #val("58005"). Ver #ruta("másteres.xlsx").],
         ),
     ),
-    "estudios.xlsx": (
-        descripción: [Fichero con los estudios de grado y máster],
-        campos: (
-            estudio: [Identificador (entero, >90000).],
-            nombre: [Nombre del estudio],
-        ),
-    ),
     "grados.xlsx": (
         descripción: [Fichero con los grados],
         campos: (
@@ -688,6 +681,13 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
             oficial: [#val("S") o #val("N"), según sea oficial o no],
             interuniversitario: [#val("S") o #val("N"), según sea interuniversitario o no],
             estudio: [Código del estudio (entero, >90000). Ver #ruta("estudios.xlsx").],
+        ),
+    ),
+    "estudios.xlsx": (
+        descripción: [Fichero con los estudios de grado y máster. Un mismo estudio puede instanciarse con varias titulaciones. Por ejemplo, cada edición del plan de estudios de una misma titulación se representa como una titulación diferente de un mismo estudio.],
+        campos: (
+            estudio: [Identificador (entero, >90000).],
+            nombre: [Nombre del estudio],
         ),
     ),
     "microcredenciales.xlsx": (
@@ -3266,25 +3266,52 @@ Esta tabla se va a usar para determinar parte del elemento de coste de las unida
 
 === Tratamiento del PVI y del PDI
 
-El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»). La generación de unidades de coste para PVI y PDI sigue la misma estructura `ZZZ-XXX-YYY` descrita en el apartado anterior, con `ZZZ` = #val("piyotper") para PVI y #val("pdi") para PDI, y las reglas específicas de `XXX` de la tabla anterior.
+El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»).
 
-#nota[Los detalles de la generación de unidades de coste para PVI y PDI (agrupación, cálculo de actividad y centro de coste) se definirán en un siguiente paso.]
+Vamos a generar unidades de costes con sus tres coordenadas: elemento de coste, centro de coste y actividad. Primero habrá unas unidades (de poco importe normalmente) que irán a unidades completamente definidas y luego nos quedara una masa económica normalmente grande que irá a unas reglas de reparto complejas: lo que denominamos "regla 23".
+
+==== Elementos de coste
+
+La generación de elementos de coste para PVI y PDI sigue la misma estructura `ZZZ-XXX-YYY` descrita en el apartado anterior, con `ZZZ` = #val("piyotper") para PVI y #val("pdi") para PDI, y las reglas específicas de `XXX` de la tabla anterior.
+
+#nota[Los detalles de la generación de unidades de coste para PVI y PDI (agrupación, cálculo de actividad y centro de coste) para conceptos especiales se definirán en un siguiente paso. De momento, vamos a ir fijando la regla 23.]
+
+
+==== Regla 23
+
+Lo primero es asociar a cada expediente una dedicación a diferentes palos. #nota[Vamos a empezar con los asociados (PAA y PAL) porque tienen un tratamiento singular para lo que no es docencia y su regla 23 es más sencilla.]
+
+Para cada expediente se va a construir una serie de diccionarios de actividades (no en el sentido de la analítica, sino en uno pragmático: por ejemplo, 5 créditos en la actividad titulación "tal"). Esos diccionarios servirán para hacer una serie de cálculos que se acaban traduciendo en horas. Y con esas horas vamos a tener porcentajes de distribución de su masa salarial indiferenciada a actividades y centro de la contabilidad analítica.
+
+Nos vamos a centrar en esos diccionarios que son heterogéneos en origen por sus unidades (créditos, proyectos final de grado dirigidos, tesis dirigidas, proyectos de investigación en los que se participa...). Es información instrumental para la dedicación en horas, pero es importante que esté bien calculada y la vamos a querer visulizar en la app frecuentemente.
+
+El siguiente apartado se dedica a ir construyendo esos diccionarios.
+
+==== Construcción del diccionario de registro de actividades reales a las que dedica tiempo el PDI o PVI
 
 ==== Dedicación docente en créditos a las distintas titulaciones en las que tiene docencia
 
-A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("docencia") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia y cuántos créditos imparte (columna `créditos_impartidos`).
+Filtro previo. Al cargar #ruta("entrada", "docencia", "pod.xlsx"), las asignatura con 0 créditos impartido y 0 crédito computables se filtran y no se tienen en cuentan.
 
-Si la asignatura está en la tabla #ruta("asignaturas grados") (columna  #campo("asignatura")) podemos averiguar su nombre ( #campo("nombre")) y el grado al que pertenece ( #campo("grado")). Para saber la titulación hay que ir a la tabla #ruta("grados") y ver si ese código tiene un valor en la columna  #campo("grado"). Si es así, la columna  #campo("estudio") nos da otro número. ¡Es número conduce, por fin, a la titulación con la columna  #campo("estudio") de la tabla  #campo("estudio"): es el que dice su columna  #campo("nombre").
+A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia y cuántos créditos imparte (columna `créditos_impartidos`). Anotemos esa información en un diccionario de la forma {asignatura: créditos impartidos}.
 
-Para los másteres hay que hacer lo mismo, pero con la tabla #ruta("asignaturas másteres") en lugar de #ruta("asignaturas grados").
+Ahora vamos con otro diccionario que dice cuantos créditos imparte en cada titulación. Ojo que la clave será una tupla (código de titulación, nombre de titulación).
 
-La #app ha de mostrar la tabla con las asignaturas en las que tiene docencia, los créditos que imparte de cada una, el grado al que pertenece cada asignatura y la titulación a la que pertenece cada grado, sumarizando la información por titulación y el total. Todo eso en un desplegable «Docencia».
+En la #app ha de haber un grupo de páginas que se llame Regla 23 y es ahí donde vamos a visualizar estos diccionarios. Una de ellas contendrá la información docente y este diccionario es parte de lo docente.
 
-Para tener controlados los casos raros, quiero que haya una opción en «Personal» llamada «Anomalías PDI». Se recogerán las siguientes anomalías:
+Las titulaciones y estudios que tengan 0 créditos activos en el año que estamos considerando, se muestran una hoja aparte, pero su código y nombre no lían las páginas útiles con información que sirve para la analítica.
 
-- Asignaturas sin titulación conocida (código y nombre), con todos los  #campo("per_id") (y nombre) de profesorado que tengan asignaturas sin titulación conocida, con el número de créditos que imparte en cada una de esas asignaturas. Se ha de mostrar, también el total de créditos anómales sobre el total de créditos impartidos por el profesorado, para tener una idea de la magnitud del problema.
+// Si la asignatura está en la tabla #ruta("asignaturas grados") (columna  #campo("asignatura")) podemos averiguar su nombre ( #campo("nombre")) y el grado al que pertenece ( #campo("grado")). Para saber la titulación hay que ir a la tabla #ruta("grados") y ver si ese código tiene un valor en la columna  #campo("grado"). Si es así, la columna  #campo("estudio") nos da otro número. ¡Es número conduce, por fin, a la titulación con la columna  #campo("estudio") de la tabla  #campo("estudio"): es el que dice su columna  #campo("nombre").
 
-#nota[Con el doctorado no sabemos qué hacer aún. ¿Asignaturas? Por otra parte, se considera actividad de investigación.]
+// Para los másteres hay que hacer lo mismo, pero con la tabla #ruta("asignaturas másteres") en lugar de #ruta("asignaturas grados").
+
+// La #app ha de mostrar la tabla con las asignaturas en las que tiene docencia, los créditos que imparte de cada una, el grado al que pertenece cada asignatura y la titulación a la que pertenece cada grado, sumarizando la información por titulación y el total. Todo eso en un desplegable «Docencia».
+
+// Para tener controlados los casos raros, quiero que haya una opción en «Personal» llamada «Anomalías PDI». Se recogerán las siguientes anomalías:
+
+// - Asignaturas sin titulación conocida (código y nombre), con todos los  #campo("per_id") (y nombre) de profesorado que tengan asignaturas sin titulación conocida, con el número de créditos que imparte en cada una de esas asignaturas. Se ha de mostrar, también el total de créditos anómales sobre el total de créditos impartidos por el profesorado, para tener una idea de la magnitud del problema.
+
+// #nota[Con el doctorado no sabemos qué hacer aún. ¿Asignaturas? Por otra parte, se considera actividad de investigación.]
 
 
 == Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social

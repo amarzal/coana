@@ -30,6 +30,26 @@ st.set_page_config(
     layout="wide",
 )
 
+# Desactiva la ordenación por cabecera del st.dataframe: en Streamlit 1.54
+# es sólo visual y la selección devuelve el índice del DataFrame subyacente,
+# lo que provoca que la fila seleccionada no coincida con la que el usuario
+# ve tras ordenar. Forzamos el uso del dropdown «Ordenar por» (server-side).
+st.markdown(
+    """
+    <style>
+    /* Cualquier click dentro de la cabecera es ignorado (sort, reordenar…) */
+    [data-testid="stDataFrame"] [role="columnheader"],
+    [data-testid="stDataFrame"] [role="columnheader"] *,
+    [data-testid="stDataFrameResizable"] [role="columnheader"],
+    [data-testid="stDataFrameResizable"] [role="columnheader"] * {
+        pointer-events: none !important;
+        cursor: default !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 DIR_ENTRADA = Path("data/entrada")
 
 # Columnas de ubicaciones que identifican una zona.
@@ -479,6 +499,8 @@ if "pres_seccion" not in st.session_state:
     st.session_state.pres_seccion = "Resumen"
 if "personal_seccion" not in st.session_state:
     st.session_state.personal_seccion = "Resumen"
+if "regla23_seccion" not in st.session_state:
+    st.session_state.regla23_seccion = "Dedicación docente"
 if "resultados_seccion" not in st.session_state:
     st.session_state.resultados_seccion = "Resumen"
 
@@ -507,6 +529,11 @@ def _ir_a_pres(seccion: str) -> None:
 def _ir_a_personal(seccion: str) -> None:
     st.session_state.vista = "personal"
     st.session_state.personal_seccion = seccion
+
+
+def _ir_a_regla23(seccion: str) -> None:
+    st.session_state.vista = "regla23"
+    st.session_state.regla23_seccion = seccion
 
 
 def _ir_a_resultados(seccion: str) -> None:
@@ -564,6 +591,11 @@ _PERSONAL_SECCIONES = [
     "Persona",
     "Anomalías PDI",
 ]
+_REGLA23_SECCIONES = [
+    "Dedicación docente",
+    "Estructura estudios",
+    "Asignaturas sin titulación",
+]
 _SUP_SECCIONES = ["Resumen", "Totales", "Presencia centros"]
 _RESULTADOS_SECCIONES = [
     "Resumen",
@@ -578,6 +610,7 @@ _NAV_SECTIONS: list[tuple[str, str, list[str], callable]] = [
     ("Presupuesto",      "presupuesto",    _PRES_SECCIONES,       _ir_a_pres),
     ("Amortizaciones",   "amortizaciones", _AMORT_SECCIONES,      _ir_a_amort),
     ("Personal",         "personal",       _PERSONAL_SECCIONES,   _ir_a_personal),
+    ("Regla 23",         "regla23",        _REGLA23_SECCIONES,    _ir_a_regla23),
     ("Superficies",      "superficies",    _SUP_SECCIONES,        _ir_a_sup),
     ("Resultados Fase 1","resultados",     _RESULTADOS_SECCIONES, _ir_a_resultados),
 ]
@@ -691,6 +724,7 @@ if st.session_state.get("_ejecutar_fase1"):
             import coana.fase1.suministros as _m_sum
             import coana.fase1.amortizaciones as _m_amort
             import coana.fase1.nóminas.contexto as _m_nom_ctx
+            import coana.fase1.nóminas.regla_23 as _m_r23
             import coana.fase1.nóminas as _m_nom
             import coana.fase1.clasificador_centros_coste as _m_cls_cc
             import coana.fase1.clasificador_actividades as _m_cls_act
@@ -698,7 +732,7 @@ if st.session_state.get("_ejecutar_fase1"):
             for _m in [_m_cls_cc, _m_cls_act,
                        _m_ctx, _m_trad, _m_pres,
                        _m_inv_ctx, _m_proc, _m_inv,
-                       _m_sum, _m_amort, _m_nom_ctx, _m_nom, _m_fase1]:
+                       _m_sum, _m_amort, _m_nom_ctx, _m_r23, _m_nom, _m_fase1]:
                 importlib.reload(_m)
             ejecutar = _m_fase1.ejecutar
             with contextlib.redirect_stdout(_live):
@@ -2782,7 +2816,7 @@ def _mostrar_anomalias_pdi():
     from coana.util import read_excel as _read_xl
 
     dir_doc = DIR_ENTRADA / "docencia"
-    doc_path = dir_doc / "docencia.xlsx"
+    doc_path = dir_doc / "pod.xlsx"
     ag_path = dir_doc / "asignaturas grados.xlsx"
     am_path = dir_doc / "asignaturas másteres.xlsx"
     gr_path = dir_doc / "grados.xlsx"
@@ -3292,6 +3326,211 @@ def _mostrar_persona():
                             _st_df(det_nom_f, key="persona_uc_det_nom_df")
 
 
+def _mostrar_regla23():
+    seccion = st.session_state.regla23_seccion
+    _título(f"Regla 23 — {seccion}")
+    dir_n = DIR_FASE1 / "auxiliares" / "nóminas"
+
+    if seccion == "Dedicación docente":
+        asig_path = dir_n / "regla_23_dedicación_docente.parquet"
+        tit_path = dir_n / "regla_23_dedicación_titulaciones.parquet"
+        est_path = dir_n / "regla_23_dedicación_estudios.parquet"
+        if not asig_path.exists():
+            st.warning(f"Fichero no encontrado: `{asig_path}`. Ejecuta la Fase 1 primero.")
+            return
+
+        asig = pl.read_parquet(asig_path)
+        tit = pl.read_parquet(tit_path) if tit_path.exists() else pl.DataFrame()
+        est = pl.read_parquet(est_path) if est_path.exists() else pl.DataFrame()
+        if asig.is_empty():
+            st.info("Sin datos de dedicación docente.")
+            return
+
+        resumen = (
+            asig.group_by("expediente", "per_id")
+            .agg(
+                pl.len().alias("n_asignaturas"),
+                pl.col("créditos_impartidos").sum().round(2).alias("créditos"),
+            )
+            .sort("créditos", descending=True)
+        )
+        resumen = _enriquecer_per_id(resumen)
+
+        st.caption(
+            f"{resumen['expediente'].n_unique():,} expedientes PDI/PVI con "
+            f"{float(resumen['créditos'].sum()):,.2f} créditos impartidos totales"
+        )
+        resumen_f = _filtro_tabla(resumen, "regla23_ded_res")
+        ev = _st_df(
+            resumen_f,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="regla23_ded_res_df",
+        )
+
+        filas_sel = ev.selection.rows if ev.selection else []
+        if filas_sel and filas_sel[0] < len(resumen_f):
+            fila = resumen_f.row(filas_sel[0], named=True)
+            expediente = fila["expediente"]
+            persona = fila.get("persona", "")
+            _lbl_exp = f"{expediente} ({persona})" if persona else str(expediente)
+            st.divider()
+            st.subheader(f"Dedicación del expediente {_lbl_exp}")
+
+            det_asig = (
+                asig.filter(pl.col("expediente") == expediente)
+                .select("asignatura", "créditos_impartidos")
+                .sort("créditos_impartidos", descending=True)
+            )
+            det_tit = pl.DataFrame()
+            if not tit.is_empty():
+                det_tit = (
+                    tit.filter(pl.col("expediente") == expediente)
+                    .select("tipo", "titulación", "nombre_titulación", "créditos_impartidos")
+                    .sort("créditos_impartidos", descending=True)
+                )
+            det_est = pl.DataFrame()
+            if not est.is_empty():
+                det_est = (
+                    est.filter(pl.col("expediente") == expediente)
+                    .select("tipo_estudio", "código_estudio", "nombre_estudio", "créditos_impartidos")
+                    .sort("créditos_impartidos", descending=True)
+                )
+
+            tot_asig = float(det_asig["créditos_impartidos"].sum())
+            tot_tit = float(det_tit["créditos_impartidos"].sum()) if not det_tit.is_empty() else 0.0
+            tot_est = float(det_est["créditos_impartidos"].sum()) if not det_est.is_empty() else 0.0
+            tab_asig, tab_tit, tab_est = st.tabs([
+                f"Por asignatura ({len(det_asig):,} · {tot_asig:,.2f} cr)",
+                f"Por titulación ({len(det_tit):,} · {tot_tit:,.2f} cr)",
+                f"Por estudio ({len(det_est):,} · {tot_est:,.2f} cr)",
+            ])
+            with tab_asig:
+                det_f = _filtro_tabla(det_asig, "regla23_ded_asig_det")
+                _st_df(det_f, key="regla23_ded_asig_det_df")
+            with tab_tit:
+                if det_tit.is_empty():
+                    st.info("Sin titulaciones para este expediente.")
+                else:
+                    det_tit_f = _filtro_tabla(det_tit, "regla23_ded_tit_det")
+                    _st_df(det_tit_f, key="regla23_ded_tit_det_df")
+            with tab_est:
+                if det_est.is_empty():
+                    st.info("Sin estudios para este expediente.")
+                else:
+                    det_est_f = _filtro_tabla(det_est, "regla23_ded_est_det")
+                    _st_df(det_est_f, key="regla23_ded_est_det_df")
+
+    elif seccion == "Estructura estudios":
+        path = dir_n / "regla_23_estructura_estudios.parquet"
+        if not path.exists():
+            st.warning(f"Fichero no encontrado: `{path}`.")
+            return
+        tit = pl.read_parquet(path)
+
+        # Separamos por actividad y por estudio
+        activas = tit.filter(pl.col("activa"))
+        inactivas = tit.filter(~pl.col("activa"))
+        con_est = activas.filter(pl.col("estudio").is_not_null())
+        sin_est = activas.filter(pl.col("estudio").is_null())
+
+        tab_e, tab_huer, tab_ina = st.tabs([
+            f"Estudios con titulaciones ({con_est['estudio'].n_unique():,})",
+            f"Titulaciones huérfanas ({len(sin_est):,})",
+            f"Sin créditos este año ({len(inactivas):,})",
+        ])
+
+        with tab_e:
+            resumen_est = (
+                con_est.group_by("estudio", "nombre_estudio")
+                .agg(pl.len().alias("n_titulaciones"))
+                .sort("n_titulaciones", descending=True)
+            )
+            resumen_est_f = _filtro_tabla(resumen_est, "regla23_estr_res")
+            ev = _st_df(
+                resumen_est_f,
+                on_select="rerun",
+                selection_mode="single-row",
+                key="regla23_estr_res_df",
+            )
+            filas_sel = ev.selection.rows if ev.selection else []
+            if filas_sel and filas_sel[0] < len(resumen_est_f):
+                estudio_sel = resumen_est_f.row(filas_sel[0], named=True)["estudio"]
+                nombre_sel = resumen_est_f.row(filas_sel[0], named=True)["nombre_estudio"]
+                st.divider()
+                st.subheader(f"Titulaciones del estudio {estudio_sel} — {nombre_sel}")
+                det = con_est.filter(pl.col("estudio") == estudio_sel).select(
+                    "tipo", "titulación", "nombre_titulación",
+                )
+                det_f = _filtro_tabla(det, "regla23_estr_det")
+                _st_df(det_f, key="regla23_estr_det_df")
+
+        with tab_huer:
+            if sin_est.is_empty():
+                st.info("Todas las titulaciones activas están asociadas a un estudio.")
+            else:
+                huer = sin_est.select("tipo", "titulación", "nombre_titulación")
+                huer_f = _filtro_tabla(huer, "regla23_huer")
+                _st_df(huer_f, key="regla23_huer_df")
+
+        with tab_ina:
+            if inactivas.is_empty():
+                st.info("Todas las titulaciones tienen créditos este año.")
+            else:
+                ina = inactivas.select(
+                    "tipo", "titulación", "nombre_titulación",
+                    "estudio", "nombre_estudio",
+                )
+                ina_f = _filtro_tabla(ina, "regla23_inact")
+                _st_df(ina_f, key="regla23_inact_df")
+
+    elif seccion == "Asignaturas sin titulación":
+        path = dir_n / "regla_23_asignaturas_sin_titulación.parquet"
+        if not path.exists():
+            st.info("Sin asignaturas anómalas: todas las asignaturas impartidas tienen titulación.")
+            return
+        sin_tit = pl.read_parquet(path)
+        if sin_tit.is_empty():
+            st.info("Sin asignaturas anómalas.")
+            return
+
+        resumen = (
+            sin_tit.group_by("asignatura")
+            .agg(
+                pl.col("créditos_impartidos").sum().round(2).alias("créditos"),
+                pl.col("per_id").n_unique().alias("n_profes"),
+            )
+            .sort("créditos", descending=True)
+        )
+        st.caption(
+            f"{len(resumen):,} asignaturas sin titulación con "
+            f"{float(resumen['créditos'].sum()):,.2f} créditos impartidos"
+        )
+        resumen_f = _filtro_tabla(resumen, "regla23_sin_tit_res")
+        ev = _st_df(
+            resumen_f,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="regla23_sin_tit_res_df",
+        )
+
+        filas_sel = ev.selection.rows if ev.selection else []
+        if filas_sel and filas_sel[0] < len(resumen_f):
+            asignatura = resumen_f.row(filas_sel[0], named=True)["asignatura"]
+            st.divider()
+            st.subheader(f"Profesorado que imparte {asignatura}")
+            det = (
+                sin_tit.filter(pl.col("asignatura") == asignatura)
+                .select("per_id", "créditos_impartidos")
+                .group_by("per_id")
+                .agg(pl.col("créditos_impartidos").sum().round(2).alias("créditos"))
+                .sort("créditos", descending=True)
+            )
+            det = _enriquecer_per_id(det)
+            det_f = _filtro_tabla(det, "regla23_sin_tit_det")
+            _st_df(det_f, key="regla23_sin_tit_det_df")
+
+
 def _mostrar_personal():
     seccion = st.session_state.personal_seccion
     if seccion == "Anomalías PDI":
@@ -3580,8 +3819,8 @@ def _mostrar_personal():
             if seccion == "Expedientes PDI" and "per_id" in fila:
                 per_id = fila["per_id"]
                 dir_doc = DIR_ENTRADA / "docencia"
-                doc_path = dir_doc / "docencia.xlsx"
-                doc_pq = dir_doc / "_parquet" / "docencia.parquet"
+                doc_path = dir_doc / "pod.xlsx"
+                doc_pq = dir_doc / "_parquet" / "pod.parquet"
                 if doc_path.exists() or doc_pq.exists():
                     # Usar read_excel directamente (sin @st.cache_data) para evitar
                     # problemas de caché de streamlit con las tablas de referencia.
@@ -4035,6 +4274,8 @@ elif vista == "entradas":
     _mostrar_entradas()
 elif vista == "personal":
     _mostrar_personal()
+elif vista == "regla23":
+    _mostrar_regla23()
 elif vista == "resultados":
     _mostrar_resultados()
 else:

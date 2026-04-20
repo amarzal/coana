@@ -16,6 +16,13 @@ from coana.fase1.clasificador_centros_coste import (
     clasificar_centros_coste,
 )
 from coana.fase1.nóminas.contexto import ContextoNóminas
+from coana.fase1.nóminas.regla_23 import (
+    generar_asignaturas_sin_titulación,
+    generar_dedicación_docente,
+    generar_dedicación_estudios,
+    generar_dedicación_titulaciones,
+    generar_estructura_estudios_titulaciones,
+)
 
 # Mapeo de sectores codificados a nombres usados en el modelo.
 _MAPEO_SECTOR = {"PAS": "PTGAS", "PI": "PVI"}
@@ -740,6 +747,7 @@ def preprocesar_nóminas(
     árbol_cc=None,
     distribución_costes=None,
     obtener_descripciones=None,
+    ruta_base: Path = Path("data"),
 ) -> ResultadoNóminas:
     """Agrupa nóminas por expediente, clasifica por sector y guarda parquets.
 
@@ -838,6 +846,13 @@ def preprocesar_nóminas(
     _generar_reparto_ss_persona(
         nóminas, expedientes, uc_ptgas, uc_pvi, {}, dir_salida,
     )
+
+    # -- Regla 23: diccionarios de dedicación real (PDI/PVI) --
+    generar_dedicación_docente(expedientes, ruta_base, dir_salida)
+    generar_dedicación_titulaciones(expedientes, ruta_base, dir_salida)
+    generar_dedicación_estudios(expedientes, ruta_base, dir_salida)
+    generar_asignaturas_sin_titulación(expedientes, ruta_base, dir_salida)
+    generar_estructura_estudios_titulaciones(expedientes, ruta_base, dir_salida)
 
     return ResultadoNóminas(
         expedientes_por_sector=expedientes_por_sector,

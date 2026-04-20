@@ -173,6 +173,7 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2024) -> None:
         árbol_cc=ctx.centros_de_coste,
         distribución_costes=resultado_inv.distribución_costes,
         obtener_descripciones=traductor._obtener_descripciones,
+        ruta_base=ruta_base,
     )
     for sector, n_exp in resultado_nom.expedientes_por_sector.items():
         importe = resultado_nom.importe_por_sector.get(sector, 0)
