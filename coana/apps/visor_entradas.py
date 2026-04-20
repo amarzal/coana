@@ -31,19 +31,29 @@ st.set_page_config(
 )
 
 # Desactiva la ordenación por cabecera del st.dataframe: en Streamlit 1.54
-# es sólo visual y la selección devuelve el índice del DataFrame subyacente,
-# lo que provoca que la fila seleccionada no coincida con la que el usuario
-# ve tras ordenar. Forzamos el uso del dropdown «Ordenar por» (server-side).
+# es sólo visual y la selección devuelve el índice del DataFrame tal como
+# se pasó, con lo cual la fila seleccionada no coincide con la que el
+# usuario ve tras ordenar. Como st.dataframe usa Glide Data Grid (render
+# por canvas), CSS sobre el DOM no llega a los handlers; se superpone un
+# div transparente sobre la franja de cabecera para absorber los clicks.
 st.markdown(
     """
     <style>
-    /* Cualquier click dentro de la cabecera es ignorado (sort, reordenar…) */
-    [data-testid="stDataFrame"] [role="columnheader"],
-    [data-testid="stDataFrame"] [role="columnheader"] *,
-    [data-testid="stDataFrameResizable"] [role="columnheader"],
-    [data-testid="stDataFrameResizable"] [role="columnheader"] * {
-        pointer-events: none !important;
-        cursor: default !important;
+    [data-testid="stDataFrame"],
+    [data-testid="stDataFrameResizable"] {
+        position: relative !important;
+    }
+    [data-testid="stDataFrame"]::before,
+    [data-testid="stDataFrameResizable"]::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 36px;
+        z-index: 999;
+        background: transparent;
+        cursor: default;
     }
     </style>
     """,
