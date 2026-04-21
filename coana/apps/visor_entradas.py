@@ -605,6 +605,7 @@ _REGLA23_SECCIONES = [
     "Dedicación docente",
     "Estructura estudios",
     "Asignaturas sin titulación",
+    "Anomalías",
 ]
 _SUP_SECCIONES = ["Resumen", "Totales", "Presencia centros"]
 _RESULTADOS_SECCIONES = [
@@ -3493,6 +3494,120 @@ def _mostrar_regla23():
                 )
                 ina_f = _filtro_tabla(ina, "regla23_inact")
                 _st_df(ina_f, key="regla23_inact_df")
+
+    elif seccion == "Anomalías":
+        anom_res_path = dir_n / "regla_23_anomalías_resolución.parquet"
+        ofi_path = dir_n / "regla_23_múltiples_oficiales.parquet"
+
+        anom_res = pl.read_parquet(anom_res_path) if anom_res_path.exists() else pl.DataFrame()
+        ofi = pl.read_parquet(ofi_path) if ofi_path.exists() else pl.DataFrame()
+
+        n_res = len(anom_res)
+        c_res = float(anom_res["créditos_impartidos"].sum()) if not anom_res.is_empty() else 0.0
+        n_ofi = ofi["asignatura"].n_unique() if not ofi.is_empty() else 0
+
+        tab_res, tab_ofi = st.tabs([
+            f"Pod sin titulación efectiva ({n_res:,} · {c_res:,.2f} cr)",
+            f"Múltiples con oficial ({n_ofi:,} asignaturas)",
+        ])
+
+        with tab_res:
+            if anom_res.is_empty():
+                st.info("Todas las filas de pod tienen titulación efectiva resuelta.")
+            else:
+                anom_res = _enriquecer_per_id(anom_res)
+                anom_res_f = _filtro_tabla(anom_res, "regla23_anom_res")
+                ev = _st_df(
+                    anom_res_f,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key="regla23_anom_res_df",
+                )
+                filas_sel = ev.selection.rows if ev.selection else []
+                if filas_sel and filas_sel[0] < len(anom_res_f):
+                    fila = anom_res_f.row(filas_sel[0], named=True)
+                    per_id_sel = fila["per_id"]
+                    asig_sel = fila["asignatura"]
+                    _ficha_registro(
+                        anom_res_f, filas_sel[0], key_suffix="_regla23_anom_res",
+                    )
+
+                    # Filas de pod para ese (per_id, asignatura)
+                    pod_path = DIR_ENTRADA / "docencia" / "pod.xlsx"
+                    if pod_path.exists():
+                        pod_raw = _load_excel(str(pod_path))
+                        pod_f = pod_raw.filter(
+                            (pl.col("per_id") == per_id_sel)
+                            & (pl.col("asignatura") == asig_sel)
+                        )
+                        if not pod_f.is_empty():
+                            st.caption(
+                                f"Filas de pod.xlsx para per_id={per_id_sel} "
+                                f"asignatura={asig_sel} ({len(pod_f)} filas)"
+                            )
+                            _st_df(pod_f, key="regla23_anom_res_pod")
+
+                    # Titulaciones conocidas para esa asignatura
+                    titul_path = DIR_FASE1 / "auxiliares" / "nóminas" / "regla_23_múltiples_oficiales.parquet"
+                    ag = _load_excel(str(DIR_ENTRADA / "docencia" / "asignaturas grados.xlsx"))
+                    am = _load_excel(str(DIR_ENTRADA / "docencia" / "asignaturas másteres.xlsx"))
+                    gr_entradas = ag.filter(pl.col("asignatura") == asig_sel)
+                    am_entradas = am.filter(pl.col("asignatura") == asig_sel)
+                    if not gr_entradas.is_empty() or not am_entradas.is_empty():
+                        st.caption(
+                            f"Titulaciones a las que pertenece la asignatura en catálogo"
+                        )
+                        if not gr_entradas.is_empty():
+                            _st_df(gr_entradas, key="regla23_anom_res_grados", totales=False)
+                        if not am_entradas.is_empty():
+                            _st_df(am_entradas, key="regla23_anom_res_másteres", totales=False)
+                    else:
+                        st.caption("La asignatura no aparece en ningún catálogo (grados/másteres).")
+
+        with tab_ofi:
+            if ofi.is_empty():
+                st.info("Ninguna asignatura con múltiples titulaciones incluye máster oficial.")
+            else:
+                st.caption(
+                    "Asignaturas que aparecen en varias titulaciones y al menos una "
+                    "es un máster oficial. Según la regla, todas deberían ser no oficiales."
+                )
+                # Resumen por asignatura
+                resumen = (
+                    ofi.group_by("asignatura")
+                    .agg(
+                        pl.len().alias("n_titulaciones"),
+                        (pl.col("oficial") == "S").sum().alias("n_oficiales"),
+                    )
+                    .sort("n_oficiales", "n_titulaciones", descending=[True, True])
+                )
+                resumen_f = _filtro_tabla(resumen, "regla23_ofi_res")
+                ev = _st_df(
+                    resumen_f,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key="regla23_ofi_res_df",
+                )
+                filas_sel = ev.selection.rows if ev.selection else []
+                if filas_sel and filas_sel[0] < len(resumen_f):
+                    asig = resumen_f.row(filas_sel[0], named=True)["asignatura"]
+                    st.divider()
+                    st.subheader(f"Titulaciones de la asignatura {asig}")
+                    det = ofi.filter(pl.col("asignatura") == asig).select(
+                        "tipo", "titulación", "nombre_titulación", "oficial",
+                    )
+                    det_f = _filtro_tabla(det, "regla23_ofi_det")
+                    ev_det = _st_df(
+                        det_f,
+                        on_select="rerun",
+                        selection_mode="single-row",
+                        key="regla23_ofi_det_df",
+                    )
+                    filas_det = ev_det.selection.rows if ev_det.selection else []
+                    if filas_det and filas_det[0] < len(det_f):
+                        _ficha_registro(
+                            det_f, filas_det[0], key_suffix="_regla23_ofi_det",
+                        )
 
     elif seccion == "Asignaturas sin titulación":
         path = dir_n / "regla_23_asignaturas_sin_titulación.parquet"

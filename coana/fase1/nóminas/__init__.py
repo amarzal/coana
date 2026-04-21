@@ -22,6 +22,7 @@ from coana.fase1.nóminas.regla_23 import (
     generar_dedicación_estudios,
     generar_dedicación_titulaciones,
     generar_estructura_estudios_titulaciones,
+    generar_pod_resuelto,
 )
 
 # Mapeo de sectores codificados a nombres usados en el modelo.
@@ -849,8 +850,9 @@ def preprocesar_nóminas(
 
     # -- Regla 23: diccionarios de dedicación real (PDI/PVI) --
     generar_dedicación_docente(expedientes, ruta_base, dir_salida)
-    generar_dedicación_titulaciones(expedientes, ruta_base, dir_salida)
-    generar_dedicación_estudios(expedientes, ruta_base, dir_salida)
+    pod_resuelto = generar_pod_resuelto(expedientes, ruta_base, dir_salida)
+    generar_dedicación_titulaciones(pod_resuelto, dir_salida)
+    generar_dedicación_estudios(pod_resuelto, dir_salida)
     generar_asignaturas_sin_titulación(expedientes, ruta_base, dir_salida)
     generar_estructura_estudios_titulaciones(expedientes, ruta_base, dir_salida)
 

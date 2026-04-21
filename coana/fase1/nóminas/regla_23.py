@@ -43,9 +43,9 @@ def _asignatura_titulaciones(ruta_base: Path) -> pl.DataFrame:
     """Mapping asignatura → titulación.
 
     Columnas: ``asignatura, tipo, titulación, nombre_titulación,
-    estudio, nombre_estudio``. ``estudio`` y ``nombre_estudio`` pueden
-    ser null para titulaciones sin estudio (grados antiguos, másteres
-    no oficiales).
+    estudio, nombre_estudio, oficial``. ``estudio`` y ``nombre_estudio``
+    pueden ser null para titulaciones sin estudio. ``oficial`` es 'S'/'N'
+    para másteres y siempre 'S' para grados (todos se consideran oficiales).
     """
     d = Path(ruta_base) / "entrada" / "docencia"
     ag = read_excel(d / "asignaturas grados.xlsx").select("asignatura", "grado")
@@ -59,19 +59,24 @@ def _asignatura_titulaciones(ruta_base: Path) -> pl.DataFrame:
         pl.col("máster").alias("titulación"),
         pl.col("nombre").alias("nombre_titulación"),
         "estudio",
+        "oficial",
     )
     est = read_excel(d / "estudios.xlsx").select(
         "estudio", pl.col("nombre").alias("nombre_estudio"),
     )
 
+    COLS = ["asignatura", "tipo", "titulación", "nombre_titulación",
+            "estudio", "nombre_estudio", "oficial"]
     grado_tit = (
         ag.join(gr, left_on="grado", right_on="titulación", how="inner")
         .with_columns(
             pl.lit("grado").alias("tipo"),
             pl.col("grado").alias("titulación"),
+            pl.lit("S").alias("oficial"),
         )
         .drop("grado")
         .join(est, on="estudio", how="left")
+        .select(COLS)
     )
     máster_tit = (
         am.join(mr, left_on="máster", right_on="titulación", how="inner")
@@ -81,8 +86,132 @@ def _asignatura_titulaciones(ruta_base: Path) -> pl.DataFrame:
         )
         .drop("máster")
         .join(est, on="estudio", how="left")
+        .select(COLS)
     )
-    return pl.concat([grado_tit, máster_tit], how="vertical_relaxed")
+    return pl.concat([grado_tit, máster_tit], how="vertical")
+
+
+def _cargar_pod_másteres_no_oficiales(ruta_base: Path) -> pl.DataFrame | None:
+    """Carga ``pod_másteres_no_oficiales.xlsx``."""
+    p = Path(ruta_base) / "entrada" / "docencia" / "pod_másteres_no_oficiales.xlsx"
+    if not p.exists():
+        return None
+    return read_excel(p)
+
+
+def _resolver_titulación_efectiva(
+    pod: pl.DataFrame,
+    ruta_base: Path,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Determina para cada (per_id, asignatura) su titulación efectiva.
+
+    Regla:
+    - Asignatura con exactamente 1 titulación → ésa.
+    - Asignatura con >1 titulación → todas deben ser másteres no
+      oficiales; se busca el máster concreto en
+      ``pod_másteres_no_oficiales.xlsx`` para (per_id, asignatura).
+      Si alguna no es no oficial o no se encuentra la entrada, se marca
+      como anomalía.
+
+    Devuelve ``(pod_resuelto, anomalías, múltiples_oficiales)``:
+    - ``pod_resuelto``: pod con titulación efectiva resuelta.
+    - ``anomalías``: filas sin titulación efectiva resuelta (con columna
+      ``motivo``).
+    - ``múltiples_oficiales``: asignaturas con >1 titulación que incluyen
+      algún máster oficial (contra la regla). Columnas: ``asignatura,
+      titulación, nombre_titulación, oficial``.
+    """
+    asig_tit = _asignatura_titulaciones(ruta_base)
+    n_tit_por_asig = (
+        asig_tit.group_by("asignatura")
+        .agg(pl.len().alias("_n_tit"))
+    )
+    pod_n = pod.join(n_tit_por_asig, on="asignatura", how="left")
+
+    # Asignaturas con 1 sola titulación: join directo
+    simples = (
+        pod_n.filter(pl.col("_n_tit") == 1)
+        .join(asig_tit, on="asignatura", how="inner")
+    )
+
+    # Sin titulación en catálogo: anomalía (asignatura verdadera huérfana)
+    sin_cat = pod_n.filter(pl.col("_n_tit").is_null())
+
+    # Asignaturas con múltiples titulaciones: resolver por pod_másteres_no_oficiales
+    múltiples = pod_n.filter(pl.col("_n_tit") > 1)
+
+    anomalías: list[pl.DataFrame] = []
+    if not sin_cat.is_empty():
+        anomalías.append(
+            sin_cat.select("per_id", "asignatura", "créditos_impartidos")
+            .with_columns(pl.lit("sin titulación en catálogo").alias("motivo"))
+        )
+
+    resueltas_múltiples = pl.DataFrame()
+    múltiples_oficiales = pl.DataFrame()
+    if not múltiples.is_empty():
+        # Detectar asignaturas con alguna titulación oficial (no deberían)
+        asig_tit_múltiples = asig_tit.join(
+            múltiples.select("asignatura").unique(),
+            on="asignatura", how="inner",
+        )
+        ofi_por_asig = (
+            asig_tit_múltiples
+            .group_by("asignatura")
+            .agg((pl.col("oficial") == "S").any().alias("tiene_oficial"))
+        )
+        asig_con_ofi = ofi_por_asig.filter(pl.col("tiene_oficial")).select("asignatura")
+        if not asig_con_ofi.is_empty():
+            múltiples_oficiales = asig_tit_múltiples.join(
+                asig_con_ofi, on="asignatura", how="inner",
+            ).select(
+                "asignatura", "tipo", "titulación", "nombre_titulación", "oficial",
+            )
+
+        # Resolver con pod_másteres_no_oficiales: máster específico por (per_id, asignatura)
+        pnmo = _cargar_pod_másteres_no_oficiales(ruta_base)
+        if pnmo is not None:
+            resolución = pnmo.select("per_id", "asignatura", "máster").unique()
+            # Unimos la titulación concreta asignada
+            mr_info = asig_tit.filter(pl.col("tipo") == "máster").select(
+                "titulación", "nombre_titulación", "estudio", "nombre_estudio", "oficial",
+            ).unique()
+            resolución = resolución.join(
+                mr_info.rename({"titulación": "máster"}),
+                on="máster",
+                how="left",
+            ).with_columns(
+                pl.lit("máster").alias("tipo"),
+                pl.col("máster").alias("titulación"),
+            ).drop("máster")
+
+            resueltas_múltiples = múltiples.join(
+                resolución, on=["per_id", "asignatura"], how="left",
+            )
+            # Marcar como anomalía las que no se resolvieron
+            sin_resolver = resueltas_múltiples.filter(pl.col("titulación").is_null())
+            if not sin_resolver.is_empty():
+                anomalías.append(
+                    sin_resolver.select("per_id", "asignatura", "créditos_impartidos")
+                    .with_columns(pl.lit("máster múltiple no resuelto").alias("motivo"))
+                )
+            resueltas_múltiples = resueltas_múltiples.filter(
+                pl.col("titulación").is_not_null()
+            )
+        else:
+            # No hay tabla de resolución: todas las múltiples son anomalía
+            anomalías.append(
+                múltiples.select("per_id", "asignatura", "créditos_impartidos")
+                .with_columns(pl.lit("falta pod_másteres_no_oficiales").alias("motivo"))
+            )
+
+    partes = [simples.drop("_n_tit")]
+    if not resueltas_múltiples.is_empty():
+        partes.append(resueltas_múltiples.drop("_n_tit"))
+    pod_resuelto = pl.concat(partes, how="diagonal") if partes else pl.DataFrame()
+
+    anomalías_df = pl.concat(anomalías, how="diagonal") if anomalías else pl.DataFrame()
+    return pod_resuelto, anomalías_df, múltiples_oficiales
 
 
 def generar_dedicación_docente(
@@ -104,16 +233,47 @@ def generar_dedicación_docente(
     if exp.is_empty():
         return pl.DataFrame()
 
-    ded = exp.join(
-        pod.select("per_id", "asignatura", "créditos_impartidos"),
-        on="per_id",
-        how="inner",
+    # pod tiene varias filas por (per_id, asignatura) — una por grupo/subgrupo.
+    # El diccionario agrega por asignatura (créditos totales del profesor).
+    ded = (
+        exp.join(
+            pod.select("per_id", "asignatura", "créditos_impartidos"),
+            on="per_id",
+            how="inner",
+        )
+        .group_by("expediente", "per_id", "asignatura")
+        .agg(pl.col("créditos_impartidos").sum())
     )
     if ded.is_empty():
         return pl.DataFrame()
 
     dir_salida.mkdir(parents=True, exist_ok=True)
     ded.write_parquet(dir_salida / "regla_23_dedicación_docente.parquet")
+
+    # Validación: para cada profesor, la suma del diccionario (por persona,
+    # deduplicada tras multi-expediente) coincide con el total de pod.xlsx.
+    tot_dicc = (
+        ded.select("per_id", "asignatura", "créditos_impartidos").unique()
+        .group_by("per_id")
+        .agg(pl.col("créditos_impartidos").sum().alias("_suma_dicc"))
+    )
+    per_ids_en_dicc = ded["per_id"].unique().implode()
+    tot_pod = (
+        pod.filter(pl.col("per_id").is_in(per_ids_en_dicc))
+        .group_by("per_id")
+        .agg(pl.col("créditos_impartidos").sum().alias("_suma_pod"))
+    )
+    check = tot_dicc.join(tot_pod, on="per_id", how="left").with_columns(
+        pl.col("_suma_pod").fill_null(0.0),
+    )
+    discrepancias = check.filter(
+        (pl.col("_suma_dicc") - pl.col("_suma_pod")).abs() > 0.01
+    )
+    if not discrepancias.is_empty():
+        print(
+            f"    ⚠ {len(discrepancias):,} per_id con discrepancia "
+            "entre diccionario docente y pod.xlsx"
+        )
 
     n_exp = ded["expediente"].n_unique()
     tot_cred = float(ded["créditos_impartidos"].sum())
@@ -124,16 +284,13 @@ def generar_dedicación_docente(
     return ded
 
 
-def generar_dedicación_titulaciones(
+def generar_pod_resuelto(
     expedientes: pl.DataFrame,
     ruta_base: Path,
     dir_salida: Path,
 ) -> pl.DataFrame:
-    """Diccionario {(tipo, titulación, nombre): créditos} por expediente PDI/PVI.
-
-    Si una asignatura aparece en varias titulaciones (común en másteres),
-    sus créditos se reparten a partes iguales entre ellas.
-    """
+    """Persiste ``regla_23_pod_resuelto.parquet``: pod de expedientes
+    PDI/PVI con la titulación efectiva resuelta y las anomalías separadas."""
     pod = _cargar_pod(ruta_base)
     if pod is None:
         return pl.DataFrame()
@@ -142,29 +299,62 @@ def generar_dedicación_titulaciones(
     if exp.is_empty():
         return pl.DataFrame()
 
-    ded = exp.join(
-        pod.select("per_id", "asignatura", "créditos_impartidos"),
+    pod_pdi_pvi = pod.join(
+        exp.select("per_id").unique(), on="per_id", how="inner",
+    )
+    if pod_pdi_pvi.is_empty():
+        return pl.DataFrame()
+
+    resuelto, anomalías, múlt_ofi = _resolver_titulación_efectiva(
+        pod_pdi_pvi, ruta_base,
+    )
+
+    anom_path = dir_salida / "regla_23_anomalías_resolución.parquet"
+    if not anomalías.is_empty():
+        anomalías.write_parquet(anom_path)
+        n_anom = len(anomalías)
+        c_anom = float(anomalías["créditos_impartidos"].sum())
+        print(
+            f"  Regla 23 — anomalías resolución: {n_anom:,} filas de pod sin "
+            f"titulación efectiva ({c_anom:,.2f} créditos)"
+        )
+    elif anom_path.exists():
+        anom_path.unlink()
+
+    ofi_path = dir_salida / "regla_23_múltiples_oficiales.parquet"
+    if not múlt_ofi.is_empty():
+        múlt_ofi.write_parquet(ofi_path)
+        n_asig = múlt_ofi["asignatura"].n_unique()
+        print(
+            f"  Regla 23 — múltiples con oficial: {n_asig:,} asignaturas con "
+            "varias titulaciones y al menos un máster oficial"
+        )
+    elif ofi_path.exists():
+        ofi_path.unlink()
+
+    if resuelto.is_empty():
+        return pl.DataFrame()
+
+    ded = resuelto.join(
+        exp.select("expediente", "per_id"),
         on="per_id",
         how="inner",
     )
+    ded.write_parquet(dir_salida / "regla_23_pod_resuelto.parquet")
+    return ded
+
+
+def generar_dedicación_titulaciones(
+    ded: pl.DataFrame,
+    dir_salida: Path,
+) -> pl.DataFrame:
+    """Diccionario {(tipo, titulación, nombre): créditos} por expediente.
+
+    Parte de ``ded`` (pod con titulación resuelta) generado por
+    ``generar_pod_resuelto``.
+    """
     if ded.is_empty():
         return pl.DataFrame()
-
-    asig_tit = _asignatura_titulaciones(ruta_base).select(
-        "asignatura", "tipo", "titulación", "nombre_titulación",
-    )
-    n_tit = (
-        asig_tit.group_by("asignatura")
-        .agg(pl.len().alias("_n_tit"))
-    )
-    ded = (
-        ded.join(asig_tit, on="asignatura", how="inner")
-        .join(n_tit, on="asignatura", how="left")
-        .with_columns(
-            (pl.col("créditos_impartidos") / pl.col("_n_tit"))
-            .alias("créditos_impartidos")
-        )
-    )
 
     agrup = (
         ded.group_by("expediente", "per_id", "tipo", "titulación", "nombre_titulación")
@@ -184,35 +374,19 @@ def generar_dedicación_titulaciones(
 
 
 def generar_dedicación_estudios(
-    expedientes: pl.DataFrame,
-    ruta_base: Path,
+    ded: pl.DataFrame,
     dir_salida: Path,
 ) -> pl.DataFrame:
-    """Diccionario {(tipo, código, nombre): créditos} por expediente PDI/PVI.
+    """Diccionario {(tipo, código, nombre): créditos} por expediente.
 
     Si la titulación tiene estudio, la UC se agrega a ese estudio. Si
     no, la titulación se pasa directamente como estudio sintético
-    (``tipo`` = 'grado' o 'máster', ``código`` = código de la titulación).
+    (``tipo_estudio`` = 'estudio propio').
     """
-    pod = _cargar_pod(ruta_base)
-    if pod is None:
-        return pl.DataFrame()
-
-    exp = _expedientes_pdi_pvi(expedientes)
-    if exp.is_empty():
-        return pl.DataFrame()
-
-    ded = exp.join(
-        pod.select("per_id", "asignatura", "créditos_impartidos"),
-        on="per_id",
-        how="inner",
-    )
     if ded.is_empty():
         return pl.DataFrame()
 
-    asig_tit = _asignatura_titulaciones(ruta_base)
-    # Clave de estudio: real si hay estudio, sintética («estudio propio») si no.
-    asig_est = asig_tit.with_columns(
+    ded = ded.with_columns(
         pl.when(pl.col("estudio").is_not_null())
           .then(pl.lit("estudio"))
           .otherwise(pl.lit("estudio propio"))
@@ -224,21 +398,8 @@ def generar_dedicación_estudios(
         pl.when(pl.col("nombre_estudio").is_not_null())
           .then(pl.col("nombre_estudio"))
           .otherwise(pl.col("nombre_titulación"))
-          .alias("nombre_estudio"),
-    ).select("asignatura", "tipo_estudio", "código_estudio", "nombre_estudio").unique()
-
-    n_est = (
-        asig_est.group_by("asignatura")
-        .agg(pl.len().alias("_n_est"))
-    )
-    ded = (
-        ded.join(asig_est, on="asignatura", how="inner")
-        .join(n_est, on="asignatura", how="left")
-        .with_columns(
-            (pl.col("créditos_impartidos") / pl.col("_n_est"))
-            .alias("créditos_impartidos")
-        )
-    )
+          .alias("nombre_estudio_resuelto"),
+    ).drop("nombre_estudio").rename({"nombre_estudio_resuelto": "nombre_estudio"})
 
     agrup = (
         ded.group_by(

@@ -647,6 +647,17 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
             tutorías: [Valor (flotante).],
             créditos_impartidos: [Valor (flotante). Créditos impartidos por el profesor en esa asignatura ese curso académico ese semestre.],
             créditos_computables: [Valor (flotante). Créditos computables para el reparto de costes de esa asignatura ese curso académico ese semestre. #nota[¿Es necesario?]],
+            grupo: [Grupo de impartición de la asignatura],
+            subgrupo: [Subgrupo de impartición de la asignatura],
+        ),
+    ),
+    "pod_másteres_no_oficiales.xlsx": (
+        descripción: [Fichero con los datos de docencia de cada profesor],
+        campos: (
+            per_id: [Identificador (entero) de persona. Ver #ruta("data", "entrada", "nóminas", "personas.xlsx").],
+            curso_académico: [Año (actual o anterior).],
+            asignatura: [Código de asignatura de máster no oficial. Ver #ruta("másteres.xlsx").],,
+            máster: [Código del máster no oficial. Ver #ruta("másteres.xlsx").],
         ),
     ),
     "asignaturas grados.xlsx": (
@@ -3291,9 +3302,12 @@ El siguiente apartado se dedica a ir construyendo esos diccionarios.
 
 ==== Dedicación docente en créditos a las distintas titulaciones en las que tiene docencia
 
-Filtro previo. Al cargar #ruta("entrada", "docencia", "pod.xlsx"), las asignatura con 0 créditos impartido y 0 crédito computables se filtran y no se tienen en cuentan.
+Filtro previo. Al cargar #ruta("entrada", "docencia", "pod.xlsx"), las asignatura con 0 créditos impartido y 0 créditos computables se filtran y no se tienen en cuentan.
 
-A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia y cuántos créditos imparte (columna `créditos_impartidos`). Anotemos esa información en un diccionario de la forma {asignatura: créditos impartidos}.
+A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia. Si la asignatura tiene más de una titulación asociada, para averiguar la titulación efectiva, dejamos de buscar en #ruta("entrada", "docencia", "pod.xlsx") y consideramos #ruta("entrada", "docencia", "pod_másteres_no_oficiales.xlsx"). Todas las titulaciones vinculadas a esa asignatura "múltiple" deben ser másteres no oficiales; en caso contrario, marca un error.
+
+
+De cada asignatura nos interesa cuántos créditos imparte el profesor (columna `créditos_impartidos`). Anotemos esa información en un diccionario de la forma {asignatura: créditos impartidos}. Asegúrate de que la suma de créditos de ese diccionario coincide con el total de créditos impartidos por ese profesor según #ruta("entrada", "docencia", "pod.xlsx"), para detectar posibles errores en la asignación de créditos a asignaturas.
 
 Ahora vamos con otro diccionario que dice cuantos créditos imparte en cada titulación. Ojo que la clave será una tupla (código de titulación, nombre de titulación).
 
