@@ -517,29 +517,29 @@ Costes de personal | costes-personal
         Conferenciantes y profesores/as de titulaciones propias | indemnizaciones-servicio-confytp
         Personal investigador contratado | indemnizaciones-servicio-pic
         Personal con contrato de actividades científico-técnicas | indemnizaciones-servicio-act
-    Otras indemnizaciones | otindemn
-        PDI funcionario | otindemn-pdi-func
-            Catedráticos/as de Universidad | otindemn-pdi-cu
-            Profesores/as Titulares de Universidad | otindemn-pdi-tu
-        PDI laboral contratado | otindemn-pdi-lab
-            Profesores/as Ayudantes Doctores/as | otindemn-pdi-aj
-            Profesores/as Asociados/as | otindemn-pdi-as
-            Profesores/as Sustitutos/as | otindemn-pdi-ps
-            Profesores/as Eméritos/as | otindemn-pdi-em
-            Profesores/as Permanentes Laborales | otindemn-pdi-pl
-            Profesores/as Visitantes | otindemn-pdi-pv
-            Profesores/as Distinguidos/as | otindemn-pdi-pd
-        PTGAS funcionario | otindemn-ptgas-func
-        PTGAS laboral | otindemn-ptgas-lab
-            PTGAS laboral fijo | otindemn-ptgas-lab-fijo
-            PTGAS laboral indefinido no fijo | otindemn-ptgas-lab-nofijo
-            PTGAS laboral temporal | otindemn-ptgas-lab-temp
-        Personal eventual | otindemn-ptgas-ev
-        Personal directivo | otindemn-ptgas-dir
-        Personal investigador en formación | otindemn-pif
-        Conferenciantes y profesores/as de titulaciones propias | otindemn-confytp
-        Personal investigador contratado | otindemn-pic
-        Personal con contrato de actividades científico-técnicas | otindemn-act
+    Otras indemnizaciones | otras-indemnizaciones
+        PDI funcionario | otras-indemnizaciones-pdi-func
+            Catedráticos/as de Universidad | otras-indemnizaciones-pdi-cu
+            Profesores/as Titulares de Universidad | otras-indemnizaciones-pdi-tu
+        PDI laboral contratado | otras-indemnizaciones-pdi-lab
+            Profesores/as Ayudantes Doctores/as | otras-indemnizaciones-pdi-aj
+            Profesores/as Asociados/as | otras-indemnizaciones-pdi-as
+            Profesores/as Sustitutos/as | otras-indemnizaciones-pdi-ps
+            Profesores/as Eméritos/as | otras-indemnizaciones-pdi-em
+            Profesores/as Permanentes Laborales | otras-indemnizaciones-pdi-pl
+            Profesores/as Visitantes | otras-indemnizaciones-pdi-pv
+            Profesores/as Distinguidos/as | otras-indemnizaciones-pdi-pd
+        PTGAS funcionario | otras-indemnizaciones-ptgas-func
+        PTGAS laboral | otras-indemnizaciones-ptgas-lab
+            PTGAS laboral fijo | otras-indemnizaciones-ptgas-lab-fijo
+            PTGAS laboral indefinido no fijo | otras-indemnizaciones-ptgas-lab-nofijo
+            PTGAS laboral temporal | otras-indemnizaciones-ptgas-lab-temp
+        Personal eventual | otras-indemnizaciones-ptgas-ev
+        Personal directivo | otras-indemnizaciones-ptgas-dir
+        Personal investigador en formación | otras-indemnizaciones-pif
+        Conferenciantes y profesores/as de titulaciones propias | otras-indemnizaciones-confytp
+        Personal investigador contratado | otras-indemnizaciones-pic
+        Personal con contrato de actividades científico-técnicas | otras-indemnizaciones-act
     Transporte de personal | transp-personal
 Coste de becarios | suprimir
 Coste de adquisición de bienes y servicios | bienes-servicios
