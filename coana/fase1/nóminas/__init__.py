@@ -18,11 +18,15 @@ from coana.fase1.clasificador_centros_coste import (
 from coana.fase1.nóminas.contexto import ContextoNóminas
 from coana.fase1.nóminas.regla_23 import (
     generar_asignaturas_sin_titulación,
+    generar_atrasos_y_apartados,
     generar_dedicación_docente,
     generar_dedicación_estudios,
     generar_dedicación_titulaciones,
     generar_estructura_estudios_titulaciones,
     generar_pod_resuelto,
+    generar_uc_cargos,
+    generar_uc_despidos,
+    generar_uc_indemnizaciones_asistencias,
 )
 
 # Mapeo de sectores codificados a nombres usados en el modelo.
@@ -47,6 +51,12 @@ class ResultadoNóminas:
     uc_pvi: pl.DataFrame = field(default_factory=pl.DataFrame)
     # UC generadas a partir de retribuciones PDI.
     uc_pdi: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # UC generadas a partir de despidos PDI/PVI (concepto 47).
+    uc_despidos: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # UC generadas a partir de indemnizaciones por asistencias (concepto 48).
+    uc_indemnizaciones_asistencias: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # UC generadas a partir de cargos PDI/PVI (conceptos 19, 64).
+    uc_cargos: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 def _mapear_sector(expedientes: pl.DataFrame) -> pl.DataFrame:
@@ -133,15 +143,29 @@ def _elemento_coste_ptgas(categoría: str, concepto_retributivo: str, per_id: in
     return f"ptgas-{xxx}-{yyy}"
 
 
-def _xxx_pvi(categoría: str, perceptor, provisión) -> str:
+def _xxx_pvi(
+    categoría,
+    perceptor,
+    provisión,
+    categoría_plaza=None,
+    sector_plaza=None,
+) -> str:
     """Calcula el XXX del elemento de coste PVI (piyotper-XXX-YYY).
 
     Reglas first-match-wins; la última absorbe el resto → `pid`.
     """
-    per = str(perceptor).strip() if perceptor is not None else ""
-    cat = str(categoría).strip() if categoría is not None else ""
-    prov = str(provisión).strip() if provisión is not None else ""
+    def _s(v):
+        return str(v).strip() if v is not None else ""
+    per = _s(perceptor)
+    cat = _s(categoría)
+    prov = _s(provisión)
+    cp = _s(categoría_plaza)
+    sp = _s(sector_plaza)
+    if prov == "P4":
+        return "act"
     if per == "35":
+        return "act"
+    if cp in ("41J", "41S") and sp == "PI":
         return "act"
     if cat == "PREDO":
         return "pif"
@@ -153,14 +177,16 @@ def _xxx_pvi(categoría: str, perceptor, provisión) -> str:
 
 
 def _elemento_coste_pvi(
-    categoría: str,
+    categoría,
     perceptor,
     provisión,
     concepto_retributivo: str,
+    categoría_plaza=None,
+    sector_plaza=None,
 ) -> str | None:
     """Calcula el elemento de coste piyotper-XXX-YYY. Devuelve None si error."""
     cr = str(concepto_retributivo).strip()
-    xxx = _xxx_pvi(categoría, perceptor, provisión)
+    xxx = _xxx_pvi(categoría, perceptor, provisión, categoría_plaza, sector_plaza)
     yyy = _PTGAS_CR_YYY.get(cr)
     if yyy is None:
         return None
@@ -370,7 +396,17 @@ def _generar_uc_pdi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
     )
 
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    retribuciones = registros.filter(~es_ss)
+    # Excluir conceptos que se tratan aparte como UC definidas:
+    # 47 = despidos, 48 = indemnizaciones por asistencia, y 19/64 sólo
+    # cuando el proyecto es específico (no general).
+    from coana.fase1.nóminas.regla_23 import _PROYECTOS_EXCLUIDOS_CARGOS
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_EXCLUIDOS_CARGOS))
+    es_uc_definida = (
+        cr.is_in(["47", "48"])
+        | (cr.is_in(["19", "64"]) & ~es_proy_gen)
+    )
+    retribuciones = registros.filter(~es_ss & ~es_uc_definida)
     if retribuciones.is_empty():
         return pl.DataFrame()
 
@@ -441,19 +477,29 @@ def _generar_uc_pvi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
         how="inner",
     )
 
-    # Retribuciones = todo menos SS
+    # Retribuciones = todo menos SS; se excluyen conceptos que son UC definidas.
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    retribuciones = registros.filter(~es_ss)
+    from coana.fase1.nóminas.regla_23 import _PROYECTOS_EXCLUIDOS_CARGOS
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_EXCLUIDOS_CARGOS))
+    es_uc_definida = (
+        cr.is_in(["47", "48"])
+        | (cr.is_in(["19", "64"]) & ~es_proy_gen)
+    )
+    retribuciones = registros.filter(~es_ss & ~es_uc_definida)
 
     if retribuciones.is_empty():
         return pl.DataFrame()
 
     ecs = [
         _elemento_coste_pvi(
-            row["categoría"], row["perceptor"], row["provisión"], row["concepto_retributivo"],
+            row["categoría"], row["perceptor"], row["provisión"],
+            row["concepto_retributivo"],
+            row.get("categoría_plaza"), row.get("sector_plaza"),
         )
         for row in retribuciones.select(
             "categoría", "perceptor", "provisión", "concepto_retributivo",
+            "categoría_plaza", "sector_plaza",
         ).iter_rows(named=True)
     ]
     retribuciones = retribuciones.with_columns(pl.Series("_ec", ecs))
@@ -855,8 +901,24 @@ def preprocesar_nóminas(
     generar_dedicación_estudios(pod_resuelto, dir_salida)
     generar_asignaturas_sin_titulación(expedientes, ruta_base, dir_salida)
     generar_estructura_estudios_titulaciones(expedientes, ruta_base, dir_salida)
+    generar_atrasos_y_apartados(nóminas, expedientes, dir_salida)
+    _clasif_kw = dict(
+        ctx_enriquecimiento=ctx_enriquecimiento,
+        árbol_actividades=árbol_actividades,
+        árbol_cc=árbol_cc,
+        distribución_costes=distribución_costes,
+        obtener_descripciones=obtener_descripciones,
+    )
+    uc_despidos = generar_uc_despidos(nóminas, expedientes, dir_salida, **_clasif_kw)
+    uc_indemn = generar_uc_indemnizaciones_asistencias(
+        nóminas, expedientes, dir_salida, **_clasif_kw,
+    )
+    uc_cargos = generar_uc_cargos(nóminas, expedientes, dir_salida, **_clasif_kw)
 
     return ResultadoNóminas(
+        uc_despidos=uc_despidos,
+        uc_indemnizaciones_asistencias=uc_indemn,
+        uc_cargos=uc_cargos,
         expedientes_por_sector=expedientes_por_sector,
         importe_por_sector=importe_por_sector,
         uc_ptgas=uc_ptgas,

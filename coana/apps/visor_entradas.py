@@ -604,6 +604,11 @@ _PERSONAL_SECCIONES = [
 _REGLA23_SECCIONES = [
     "Dedicación docente",
     "Estructura estudios",
+    "Bolsa de atrasos",
+    "Despidos",
+    "Indemnizaciones asistencias",
+    "Cargos",
+    "Expedientes apartados",
     "Asignaturas sin titulación",
     "Anomalías",
 ]
@@ -3495,9 +3500,197 @@ def _mostrar_regla23():
                 ina_f = _filtro_tabla(ina, "regla23_inact")
                 _st_df(ina_f, key="regla23_inact_df")
 
+    elif seccion == "Bolsa de atrasos":
+        path = dir_n / "regla_23_atrasos.parquet"
+        if not path.exists():
+            st.info("Sin bolsa de atrasos (o falta ejecutar la Fase 1).")
+            return
+        atrasos = pl.read_parquet(path)
+        if atrasos.is_empty():
+            st.info("Sin bolsa de atrasos.")
+            return
+        tot = float(atrasos["importe"].sum())
+        n_exp = atrasos["expediente"].n_unique()
+        n_per = atrasos["per_id"].n_unique()
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Importe total", _fmt_euro(tot))
+        c2.metric("Filas", f"{len(atrasos):,}")
+        c3.metric("Expedientes / Personas", f"{n_exp:,} / {n_per:,}")
+        st.caption(
+            "Atrasos PDI/PVI (concepto_retributivo 30 o 87). Apartados de la regla 23; "
+            "se repartirán más adelante con la distribución promedio del PDI+PVI."
+        )
+        atrasos_enr = _enriquecer_per_id(atrasos)
+        atrasos_f = _filtro_tabla(atrasos_enr, "regla23_atrasos")
+        ev = _st_df(
+            atrasos_f,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="regla23_atrasos_df",
+        )
+        filas_sel = ev.selection.rows if ev.selection else []
+        if filas_sel and filas_sel[0] < len(atrasos_f):
+            _ficha_registro(atrasos_f, filas_sel[0], key_suffix="_regla23_atrasos")
+
+    elif seccion in ("Despidos", "Indemnizaciones asistencias", "Cargos"):
+        _DEF_CFG = {
+            "Despidos": {
+                "parquet": "uc_despidos.parquet",
+                "conceptos": ["47"],
+                "slug": "despidos",
+                "caption": (
+                    "Indemnizaciones por finalización de contrato (concepto 47) "
+                    "del PDI/PVI. Los del proyecto 23G019 van a actividad "
+                    "'otras-ait-financiación-propia' y centro 'vi'; el resto "
+                    "pasa por el clasificador de centros y actividades."
+                ),
+            },
+            "Indemnizaciones asistencias": {
+                "parquet": "uc_indemnizaciones_asistencias.parquet",
+                "conceptos": ["48"],
+                "slug": "indemn_asist",
+                "caption": (
+                    "Indemnizaciones por asistencia a tribunales y similares "
+                    "(concepto 48) del PDI/PVI. Elemento de coste fijo "
+                    "'otras-indemnizaciones'; CC y actividad vía clasificadores."
+                ),
+            },
+            "Cargos": {
+                "parquet": "uc_cargos.parquet",
+                "conceptos": ["19", "64"],
+                "slug": "cargos",
+                "caption": (
+                    "Cargos académicos y retribuciones por mérito individual "
+                    "en proyectos UE (conceptos 19 y 64) del PDI/PVI. "
+                    "CC y actividad vía clasificadores."
+                ),
+            },
+        }
+        cfg = _DEF_CFG[seccion]
+        path = dir_n / cfg["parquet"]
+        if not path.exists():
+            st.info(f"Sin UC de {seccion.lower()} (o falta ejecutar la Fase 1).")
+            return
+        uc = pl.read_parquet(path)
+        if uc.is_empty():
+            st.info(f"No hay UC de {seccion.lower()}.")
+            return
+        tot = float(uc["importe"].sum())
+        n_exp = uc["expediente"].n_unique()
+        c1, c2, c3 = st.columns(3)
+        c1.metric("UC", f"{len(uc):,}")
+        c2.metric("Importe total", _fmt_euro(tot))
+        c3.metric("Expedientes", f"{n_exp:,}")
+        st.caption(cfg["caption"])
+
+        slug = cfg["slug"]
+        uc_enr = _enriquecer_per_id(uc)
+        uc_f = _filtro_tabla(uc_enr, f"regla23_{slug}")
+        ev = _st_df(
+            uc_f,
+            on_select="rerun",
+            selection_mode="single-row",
+            key=f"regla23_{slug}_df",
+        )
+        filas_sel = ev.selection.rows if ev.selection else []
+        if filas_sel and filas_sel[0] < len(uc_f):
+            fila = uc_f.row(filas_sel[0], named=True)
+            _ficha_registro(uc_f, filas_sel[0], key_suffix=f"_regla23_{slug}")
+
+            # Apuntes de nómina del expediente con el concepto correspondiente
+            nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+            if nom_path.exists():
+                nom = _load_excel(str(nom_path))
+                det = nom.filter(
+                    (pl.col("expediente") == fila["expediente"])
+                    & pl.col("concepto_retributivo").cast(pl.Utf8).is_in(cfg["conceptos"])
+                )
+                if not det.is_empty():
+                    exp_path = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+                    if exp_path.exists():
+                        exp_ref = _load_excel(str(exp_path)).select("expediente", "per_id")
+                        det = det.join(exp_ref, on="expediente", how="left")
+                        det = _enriquecer_per_id(det)
+                    st.divider()
+                    concepto_txt = ", ".join(cfg["conceptos"])
+                    st.subheader(
+                        f"Apuntes de nómina del expediente {fila['expediente']} "
+                        f"(concepto {concepto_txt} · {len(det)} filas · "
+                        f"{_fmt_euro(float(det['importe'].sum()))})"
+                    )
+                    det_f = _filtro_tabla(det, f"regla23_{slug}_nom")
+                    ev2 = _st_df(
+                        det_f,
+                        on_select="rerun",
+                        selection_mode="single-row",
+                        key=f"regla23_{slug}_nom_df",
+                    )
+                    filas2 = ev2.selection.rows if ev2.selection else []
+                    if filas2 and filas2[0] < len(det_f):
+                        _ficha_registro(
+                            det_f, filas2[0], key_suffix=f"_regla23_{slug}_nom",
+                        )
+
+    elif seccion == "Expedientes apartados":
+        path = dir_n / "regla_23_expedientes_apartados.parquet"
+        if not path.exists():
+            st.info("Sin expedientes apartados (o falta ejecutar la Fase 1).")
+            return
+        apart = pl.read_parquet(path)
+        if apart.is_empty():
+            st.info("No hay expedientes apartados.")
+            return
+
+        solo_at = apart.filter(pl.col("tipo") == "solo atrasos")
+        sin_ing = apart.filter(pl.col("tipo") == "sin ingresos")
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Apartados totales", f"{len(apart):,}")
+        c2.metric("Solo atrasos", f"{len(solo_at):,}")
+        c3.metric("Sin ingresos", f"{len(sin_ing):,}")
+        st.caption(
+            "Expedientes PDI/PVI que, tras apartar los atrasos, no tienen ingresos "
+            "en el año. Se distinguen los que sólo han recibido atrasos de los que "
+            "no han recibido nada."
+        )
+
+        tab_solo, tab_sin = st.tabs([
+            f"Solo atrasos ({len(solo_at):,} · {_fmt_euro(float(solo_at['importe_atrasos'].sum()) if not solo_at.is_empty() else 0.0)})",
+            f"Sin ingresos ({len(sin_ing):,})",
+        ])
+        with tab_solo:
+            if solo_at.is_empty():
+                st.info("No hay expedientes con solo atrasos.")
+            else:
+                s_enr = _enriquecer_per_id(solo_at)
+                s_f = _filtro_tabla(s_enr, "regla23_apart_solo")
+                ev = _st_df(
+                    s_f,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key="regla23_apart_solo_df",
+                )
+                filas_sel = ev.selection.rows if ev.selection else []
+                if filas_sel and filas_sel[0] < len(s_f):
+                    _ficha_registro(s_f, filas_sel[0], key_suffix="_regla23_apart_solo")
+        with tab_sin:
+            if sin_ing.is_empty():
+                st.info("No hay expedientes sin ningún ingreso.")
+            else:
+                s_enr = _enriquecer_per_id(sin_ing)
+                s_f = _filtro_tabla(s_enr, "regla23_apart_sin")
+                ev = _st_df(
+                    s_f,
+                    on_select="rerun",
+                    selection_mode="single-row",
+                    key="regla23_apart_sin_df",
+                )
+                filas_sel = ev.selection.rows if ev.selection else []
+                if filas_sel and filas_sel[0] < len(s_f):
+                    _ficha_registro(s_f, filas_sel[0], key_suffix="_regla23_apart_sin")
+
     elif seccion == "Anomalías":
         anom_res_path = dir_n / "regla_23_anomalías_resolución.parquet"
-        ofi_path = dir_n / "regla_23_múltiples_oficiales.parquet"
+        ofi_path = dir_n / "regla_23_múltiples_con_grado.parquet"
 
         anom_res = pl.read_parquet(anom_res_path) if anom_res_path.exists() else pl.DataFrame()
         ofi = pl.read_parquet(ofi_path) if ofi_path.exists() else pl.DataFrame()
@@ -3508,7 +3701,7 @@ def _mostrar_regla23():
 
         tab_res, tab_ofi = st.tabs([
             f"Pod sin titulación efectiva ({n_res:,} · {c_res:,.2f} cr)",
-            f"Múltiples con oficial ({n_ofi:,} asignaturas)",
+            f"Múltiples con grado ({n_ofi:,} asignaturas)",
         ])
 
         with tab_res:
@@ -3548,7 +3741,6 @@ def _mostrar_regla23():
                             _st_df(pod_f, key="regla23_anom_res_pod")
 
                     # Titulaciones conocidas para esa asignatura
-                    titul_path = DIR_FASE1 / "auxiliares" / "nóminas" / "regla_23_múltiples_oficiales.parquet"
                     ag = _load_excel(str(DIR_ENTRADA / "docencia" / "asignaturas grados.xlsx"))
                     am = _load_excel(str(DIR_ENTRADA / "docencia" / "asignaturas másteres.xlsx"))
                     gr_entradas = ag.filter(pl.col("asignatura") == asig_sel)
@@ -3566,20 +3758,23 @@ def _mostrar_regla23():
 
         with tab_ofi:
             if ofi.is_empty():
-                st.info("Ninguna asignatura con múltiples titulaciones incluye máster oficial.")
+                st.info(
+                    "Ninguna asignatura con múltiples titulaciones incluye grado u "
+                    "otra titulación no-máster."
+                )
             else:
                 st.caption(
-                    "Asignaturas que aparecen en varias titulaciones y al menos una "
-                    "es un máster oficial. Según la regla, todas deberían ser no oficiales."
+                    "Asignaturas que aparecen en varias titulaciones y al menos "
+                    "una no es un máster. Según la regla, todas deberían ser másteres."
                 )
                 # Resumen por asignatura
                 resumen = (
                     ofi.group_by("asignatura")
                     .agg(
                         pl.len().alias("n_titulaciones"),
-                        (pl.col("oficial") == "S").sum().alias("n_oficiales"),
+                        (pl.col("tipo") != "máster").sum().alias("n_no_máster"),
                     )
-                    .sort("n_oficiales", "n_titulaciones", descending=[True, True])
+                    .sort("n_no_máster", "n_titulaciones", descending=[True, True])
                 )
                 resumen_f = _filtro_tabla(resumen, "regla23_ofi_res")
                 ev = _st_df(

@@ -484,6 +484,16 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
             centro_plaza: [
                 Solo es útil en el caso de las personas en conserjerías, porque están en un servicio determinado (servicio #val("368")), pero su coste se imputa al del servicio en el que están físicamente. Ver #ruta("servicios.xlsx").
             ],
+            categoría_plaza: [Es parte de la clave para #ruta("categorías plazas.xlsx")],
+            sector_plaza: [Es la otra parte de la clave para #ruta("categorías plazas.xlsx")],
+        ),
+    ),
+    "categorías plazas.xlsx": (
+        descripción: [Fichero con las categorías de plazas de recursos humanos],
+        campos: (
+            categoría: [Código de categoría..],
+            sector: [Código de sector..],
+            nombre: [Nombre de la categoría],
         ),
     ),
     "provisiones.xlsx": (
@@ -523,6 +533,7 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
         descripción: [Dice qué persona ocupa qué cargo de qué fecha a qué fecha.],
         campos: (
             per_id: [Identificador de la persona. Ver #ruta("personas.xlsx").],
+            expediente: [Identificador del expediente. Ver #ruta("expedientes recursos humanos.xlsx").],
             cargo: [Identificador del cargo. Ver #ruta("cargos.xlsx").],
             servicio: [Departamento, Facultad... Ver #ruta("servicios.xlsx").],
             titulación: [Titulación en la que desempeña el cargo (en el caso de los cargos docentes). Puede estar grado, máster o doctorado. Ver #ruta("grados.xlsx"), #ruta("másteres.xlsx"), #ruta("doctorados.xlsx").],
@@ -656,7 +667,7 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
         campos: (
             per_id: [Identificador (entero) de persona. Ver #ruta("data", "entrada", "nóminas", "personas.xlsx").],
             curso_académico: [Año (actual o anterior).],
-            asignatura: [Código de asignatura de máster no oficial. Ver #ruta("másteres.xlsx").],,
+            asignatura: [Código de asignatura de máster no oficial. Ver #ruta("másteres.xlsx").],
             máster: [Código del máster no oficial. Ver #ruta("másteres.xlsx").],
         ),
     ),
@@ -3217,48 +3228,56 @@ Esta tabla se va a usar para determinar parte del elemento de coste de las unida
     Para determinar `XXX` y `YYY` hay que aplicar una serie de reglas.
 
     - Para determinar el valor de `XXX`
-        - En el caso del PTGAS, miramos el campo #campo("categoría") del registro. Estas son las reglas:
-            - Si el valor es #val("FC") y el #campo("per_id") es #val("65214") (AMV), `XXX` es #val("dir").
-            - Si no, si el valor es #val("FC") o #val("FI"), `XXX` es #val("func").
-            - Si no, si el valor es #val("E"), `XXX` es #val("ev").
-            - Si no, si el valor es #val("LE"), #val("LF") o #val("LT"), `XXX` es #val("lab").
-            - Si no, marca un error, porque no debería de pasar.
-        - En el caso del PVI o PDI, los campos relevantes son #campo("categoría"), #campo("perceptor") y #campo("provisión"). Estas son las reglas (las celdas en blanco significan que no importa el valor de ese campo):
-            #table(
-                columns: 4,
-                table.header(
-                    table.hline(),
-                    [#campo("categoría")], [#campo("perceptor")], [#campo("provisión")], [Valor de `XXX`],
-                    table.hline(),
-                ),
-                table.cell(colspan: 4, align: center)[_PVI — se aplica la primera regla que encaja_],
-                [], val("35"), [], val("act"),
-                val("PREDO"), [], [], val("pif"),
-                [], [], val("PD"), val("pif"),
-                [], [], val("P2"), val("idi"),
-                [], [], [], val("pid"),
-                table.hline(),
-                table.cell(colspan: 4, align: center)[_PDI — por #campo("categoría") exacta_],
-                val("CU"), [], [], val("cu"),
-                val("TU"), [], [], val("tu"),
-                val("TUI"), [], [], val("tu"),
-                val("CEU"), [], [], val("ceu"),
-                val("TEU"), [], [], val("teu"),
-                val("AJ"), [], [], val("aj"),
-                val("AJD"), [], [], val("aj"),
-                val("AJDII"), [], [], val("aj"),
-                val("PAA"), [], [], val("as"),
-                val("PAL"), [], [], val("as"),
-                val("PS"), [], [], val("ps"),
-                val("PEME"), [], [], val("em"),
-                val("PPL"), [], [], val("pl"),
-                val("PPLV"), [], [], val("pl"),
-                val("PVI"), [], [], val("pv"),
-                val("PD"), [], [], val("pd"),
-                val("PCD"), [], [], val("pcd"),
-                val("PC"), [], [], val("pc"),
-                table.hline(),
-            )
+            - En el caso del PTGAS, miramos el campo #campo("categoría") del registro. Estas son las reglas:
+                - Si el valor es #val("FC") y el #campo("per_id") es #val("65214") (AMV), `XXX` es #val("dir").
+                - Si no, si el valor es #val("FC") o #val("FI"), `XXX` es #val("func").
+                - Si no, si el valor es #val("E"), `XXX` es #val("ev").
+                - Si no, si el valor es #val("LE"), #val("LF") o #val("LT"), `XXX` es #val("lab").
+                - Si no, marca un error, porque no debería de pasar.
+            - En el caso del PVI o PDI, los campos relevantes son #campo("categoría"), #campo("perceptor") y #campo("provisión"). Estas son las reglas (las celdas en blanco significan que no importa el valor de ese campo):
+                #table(
+        columns: 6,
+        table.header(
+            table.hline(),
+            [#campo("categoría")],
+            [#campo("perceptor")],
+            [#campo("provisión")],
+            [#campo("categoría_plaza")],
+            [#campo("sector_plaza")],
+            [Valor de `XXX`],
+            table.hline(),
+        ),
+        table.cell(colspan: 6, align: center)[_PVI — se aplica la primera regla que encaja_],
+        [], [], val("P4"), [], [], val("act"),
+        [], val("35"), [], [], [], val("act"),
+        [], [], [], val("41J"), val("PI"), val("act"),
+        [], [], [], val("41S"), val("PI"), val("act"),
+        val("PREDO"), [], [], [], [], val("pif"),
+        [], [], val("PD"), [], [], val("pif"),
+        [], [], val("P2"), [], [], val("idi"),
+        [], [], [], [], [], val("pid"),
+        table.hline(),
+        table.cell(colspan: 6, align: center)[_PDI — por #campo("categoría") exacta_],
+        val("CU"), [], [], [], [], val("cu"),
+        val("TU"), [], [], [], [], val("tu"),
+        val("TUI"), [], [], [], [], val("tu"),
+        val("CEU"), [], [], [], [], val("ceu"),
+        val("TEU"), [], [], [], [], val("teu"),
+        val("AJ"), [], [], [], [], val("aj"),
+        val("AJD"), [], [], [], [], val("aj"),
+        val("AJDII"), [], [], [], [], val("aj"),
+        val("PAA"), [], [], [], [], val("as"),
+        val("PAL"), [], [], [], [], val("as"),
+        val("PS"), [], [], [], [], val("ps"),
+        val("PEME"), [], [], [], [], val("em"),
+        val("PPL"), [], [], [], [], val("pl"),
+        val("PPLV"), [], [], [], [], val("pl"),
+        val("PVI"), [], [], [], [], val("pv"),
+        val("PD"), [], [], [], [], val("pd"),
+        val("PCD"), [], [], [], [], val("pcd"),
+        val("PC"), [], [], [], [], val("pc"),
+        table.hline(),
+    )
 
     - Para determinar el valor de `YYY` hay que mirar el campo #campo("concepto_retributivo") del registro y usar la tabla que hemos definido antes para determinar la etiqueta del elemento de coste a partir del concepto retributivo. Por ejemplo, si el concepto retributivo es #val("01"), el valor de `YYY` es #val("sueldo"). Si el concepto retributivo es #val("03"), el valor de `YYY` es #val("trienios"). Y así sucesivamente.
 
@@ -3280,6 +3299,29 @@ Esta tabla se va a usar para determinar parte del elemento de coste de las unida
 El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»).
 
 Vamos a generar unidades de costes con sus tres coordenadas: elemento de coste, centro de coste y actividad. Primero habrá unas unidades (de poco importe normalmente) que irán a unidades completamente definidas y luego nos quedara una masa económica normalmente grande que irá a unas reglas de reparto complejas: lo que denominamos "regla 23".
+
+==== Tratamiento de atrasos
+
+Hay un problema con los atrasos (#campo("concepto_retributivo") igual a #val("30") o #val("87")). Puede ser una masa económica grande y su reparto no dependen, para cada expediente, de la actividad que haya desarrollado el profesor en ese año, sino de la actividad que haya desarrollado en años anteriores. Lo que haremos es agrupar todos esos pagos de atrasos en una bolsa común y apartarlos de la regla 23. Más adelante repartiremos todo lo que hay en esa bolsa con una distribución similar a la que se aplica en promedio a todo el PDI + PVI. De momento, por tanto, gestiona esa bolsa y en la #app muestra el total que hay en esa bolsa común de atrasos y que podamos ver el detalle.
+
+Después de esto, si algún expediente no ha tenido ingresos en el año, apártalo y, con la #app permiteme saber cuántos y cuáles has apartado. Además, destaca de algún modo expedientes que solo han tenido retribución por atrasos.
+
+==== Tratamiento de despidos
+
+Cuando el #campo("concepto_retributivo") es #val("47"), estamos antes despidos que pueden financiarse con cargo a un proyecto específico o con cargo a fondos generales.
+
+Si el #campo("proyecto") es #val("23G019"), la actividad es #val("otras-ait-financiación-propia") y el centro de coste es #val("vi"). En otro caso, el centro de coste y la actividad se decide de acuerdo a los módulos que hemos usado en presupuesto y nóminas para decidir estos valores.
+
+==== Tratamiento de indemnizaciones por asistencias (tribunales y otros)
+
+Cuando el #campo("concepto_retributivo") es #val("48"), estamos antes indemnizaciones por asistencias a tribunales y simialres. Estas indemnizaciones se van a la elemento de #val("otras-indemnizaciones"). #nota[Podemos refinar esto en función de la figura.]
+
+==== Tratamiento de los cargos que se pueden asociar a un proyecto específico
+
+Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics (Docents)) es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), y los proyectos seas distintos de #val("23G019"), #val("00000"), #val("1G019"), #val("02G041"), #val("1G046"), #val("11G006"), #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003") estamos ante el ejercicio de cargos que se pueden asociar a un proyecto específico.
+
+El centro de coste y la actividad de estos cargos se va a determinar con los módulos que hemos usado en presupuesto y nóminas para decidir estos valores. #nota[Podemos refinar esto en función de la figura.]
+
 
 ==== Elementos de coste
 
@@ -3304,8 +3346,7 @@ El siguiente apartado se dedica a ir construyendo esos diccionarios.
 
 Filtro previo. Al cargar #ruta("entrada", "docencia", "pod.xlsx"), las asignatura con 0 créditos impartido y 0 créditos computables se filtran y no se tienen en cuentan.
 
-A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia. Si la asignatura tiene más de una titulación asociada, para averiguar la titulación efectiva, dejamos de buscar en #ruta("entrada", "docencia", "pod.xlsx") y consideramos #ruta("entrada", "docencia", "pod_másteres_no_oficiales.xlsx"). Todas las titulaciones vinculadas a esa asignatura "múltiple" deben ser másteres no oficiales; en caso contrario, marca un error.
-
+A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia. Si la asignatura tiene más de una titulación asociada, para averiguar la titulación efectiva, dejamos de buscar en #ruta("entrada", "docencia", "pod.xlsx") y consideramos #ruta("entrada", "docencia", "pod másteres.xlsx"). Todas las titulaciones vinculadas a esa asignatura "múltiple" deben ser másteres; en caso contrario, marca un error.
 
 De cada asignatura nos interesa cuántos créditos imparte el profesor (columna `créditos_impartidos`). Anotemos esa información en un diccionario de la forma {asignatura: créditos impartidos}. Asegúrate de que la suma de créditos de ese diccionario coincide con el total de créditos impartidos por ese profesor según #ruta("entrada", "docencia", "pod.xlsx"), para detectar posibles errores en la asignación de créditos a asignaturas.
 

@@ -33,9 +33,7 @@ class ContextoDocencia:
             d / "microcredenciales.xlsx"
         )
         self.pod = self._cargar_excel(d / "pod.xlsx")
-        self.pod_másteres_no_oficiales = self._cargar_excel(
-            d / "pod_másteres_no_oficiales.xlsx"
-        )
+        self.pod_másteres = self._cargar_excel(d / "pod másteres.xlsx")
 
     @staticmethod
     def _cargar_excel(ruta: Path) -> pl.DataFrame | None:

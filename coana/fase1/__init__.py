@@ -186,6 +186,12 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2024) -> None:
         todas_uc.append(resultado_nom.uc_pvi)
     if not resultado_nom.uc_pdi.is_empty():
         todas_uc.append(resultado_nom.uc_pdi)
+    if not resultado_nom.uc_despidos.is_empty():
+        todas_uc.append(resultado_nom.uc_despidos)
+    if not resultado_nom.uc_indemnizaciones_asistencias.is_empty():
+        todas_uc.append(resultado_nom.uc_indemnizaciones_asistencias)
+    if not resultado_nom.uc_cargos.is_empty():
+        todas_uc.append(resultado_nom.uc_cargos)
 
     # -- Fichero combinado --
     if todas_uc:
