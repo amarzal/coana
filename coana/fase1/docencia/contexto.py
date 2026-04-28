@@ -34,6 +34,9 @@ class ContextoDocencia:
         )
         self.pod = self._cargar_excel(d / "pod.xlsx")
         self.pod_másteres = self._cargar_excel(d / "pod másteres.xlsx")
+        self.horas_docencia_propia = self._cargar_excel(
+            d / "estimación horas docencia propia.xlsx"
+        )
 
     @staticmethod
     def _cargar_excel(ruta: Path) -> pl.DataFrame | None:

@@ -603,6 +603,7 @@ _PERSONAL_SECCIONES = [
 ]
 _REGLA23_SECCIONES = [
     "Dedicación docente",
+    "Docencia no oficial",
     "Estructura estudios",
     "Bolsa de atrasos",
     "Despidos",
@@ -3436,6 +3437,93 @@ def _mostrar_regla23():
                 else:
                     det_est_f = _filtro_tabla(det_est, "regla23_ded_est_det")
                     _st_df(det_est_f, key="regla23_ded_est_det_df")
+
+    elif seccion == "Docencia no oficial":
+        path = dir_n / "regla_23_horas_no_oficiales.parquet"
+        if not path.exists():
+            st.info("Sin datos de docencia no oficial (o falta ejecutar la Fase 1).")
+            return
+        no_ofi = pl.read_parquet(path)
+        if no_ofi.is_empty():
+            st.info("Sin filas que cumplan los tipos de proyecto no oficiales.")
+            return
+
+        n_proy = no_ofi["proyecto"].n_unique()
+        horas = float(no_ofi["unidad_efectiva"].sum())
+        importe = float(no_ofi["total"].sum())
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Filas", f"{len(no_ofi):,}")
+        c2.metric("Proyectos", f"{n_proy:,}")
+        c3.metric("Horas estimadas", f"{horas:,.2f}")
+        c4.metric("Importe total", _fmt_euro(importe))
+        st.caption(
+            "Estimación de horas de docencia no oficial (formación permanente, "
+            "cursos UJI, etc.) desde estimación horas docencia propia.xlsx, "
+            "filtrando por tipo_proyecto en {07G, EPM, EPDE, EPDEX, EPC, EPMI, "
+            "CUID, CUEX, OAD}. Si importe > 130, unidad_efectiva = "
+            "max(unidad, total/130); si no, unidad_efectiva = unidad."
+        )
+
+        # Resumen por persona
+        resumen = (
+            no_ofi.rename({"perid": "per_id"})
+            .group_by("per_id")
+            .agg(
+                pl.col("unidad_efectiva").sum().round(2).alias("horas"),
+                pl.col("total").sum().round(2).alias("importe"),
+                pl.col("proyecto").n_unique().alias("n_proyectos"),
+                pl.len().alias("n_filas"),
+            )
+            .sort("horas", descending=True)
+        )
+        resumen = _enriquecer_per_id(resumen)
+        resumen_f = _filtro_tabla(resumen, "regla23_no_ofi_res")
+        ev = _st_df(
+            resumen_f,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="regla23_no_ofi_res_df",
+        )
+
+        filas_sel = ev.selection.rows if ev.selection else []
+        if filas_sel and filas_sel[0] < len(resumen_f):
+            fila = resumen_f.row(filas_sel[0], named=True)
+            per_id_sel = fila["per_id"]
+            persona = fila.get("persona", "")
+            _lbl = f"{per_id_sel} ({persona})" if persona else str(per_id_sel)
+            st.divider()
+            st.subheader(f"Participación de {_lbl} en docencia no oficial (horas por proyecto)")
+            det = (
+                no_ofi.filter(pl.col("perid") == per_id_sel)
+                .select(
+                    "proyecto", "tipo_proyecto", "fecha", "motivo", "nombre",
+                    "unidad", "importe", "total", "unidad_efectiva", "gre_id",
+                )
+                .sort("fecha")
+            )
+            det_f = _filtro_tabla(det, "regla23_no_ofi_det")
+            ev2 = _st_df(
+                det_f,
+                totales=False,
+                on_select="rerun",
+                selection_mode="single-row",
+                key="regla23_no_ofi_det_df",
+            )
+            if not det_f.is_empty():
+                tot_unidad = float(det_f["unidad"].sum())
+                tot_efect = float(det_f["unidad_efectiva"].sum())
+                tot_total = float(det_f["total"].sum())
+                # Promedio ponderado de importe por horas (€/h)
+                prom_imp = tot_total / tot_unidad if tot_unidad else 0.0
+                st.caption(
+                    f"**total**: {_fmt_euro(tot_total)}  ·  "
+                    f"**importe medio (€/h)**: {_fmt_euro(prom_imp)}  ·  "
+                    f"**unidad**: {tot_unidad:,.2f} h  ·  "
+                    f"**unidad_efectiva**: {tot_efect:,.2f} h"
+                )
+            filas2 = ev2.selection.rows if ev2.selection else []
+            if filas2 and filas2[0] < len(det_f):
+                _ficha_registro(det_f, filas2[0], key_suffix="_regla23_no_ofi_det")
 
     elif seccion == "Estructura estudios":
         path = dir_n / "regla_23_estructura_estudios.parquet"

@@ -23,6 +23,7 @@ from coana.fase1.nóminas.regla_23 import (
     generar_dedicación_estudios,
     generar_dedicación_titulaciones,
     generar_estructura_estudios_titulaciones,
+    generar_horas_no_oficiales,
     generar_pod_resuelto,
     generar_uc_cargos,
     generar_uc_despidos,
@@ -901,6 +902,10 @@ def preprocesar_nóminas(
     generar_dedicación_estudios(pod_resuelto, dir_salida)
     generar_asignaturas_sin_titulación(expedientes, ruta_base, dir_salida)
     generar_estructura_estudios_titulaciones(expedientes, ruta_base, dir_salida)
+    generar_horas_no_oficiales(
+        expedientes, ruta_base, dir_salida,
+        ctx_enriquecimiento=ctx_enriquecimiento,
+    )
     generar_atrasos_y_apartados(nóminas, expedientes, dir_salida)
     _clasif_kw = dict(
         ctx_enriquecimiento=ctx_enriquecimiento,

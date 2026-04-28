@@ -279,6 +279,7 @@ Actividades directivas, administrativas y generales | dags
                 Gastos financieros | dag-sgc-gastos-financieros
                 Adquisiciones bibliográficas | dag-sgc-adquisiciones-bibliográficas
                 Indemnizaciones por razón de servicio | dag-sgc-indemnizaciones-razón-servicio
+                Indemnizaciones por asistencias | dag-sgc-indemnizaciones-asistencias
         Otros servicios de soporte general | dag-otros-servicios-oss
             Comunicación y publicaciones | dag-otros-servicios-comunicación-publicaciones
             Promoción de la lengua y asesoramiento lingüístico | dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico
@@ -330,7 +331,6 @@ Actividades directivas, administrativas y generales | dags
             Unidad Predepartamental de Enfermería | dag-upi
             Unidad Predepartamental de Medicina | dag-upm
         Dirección y administración de institutos de investigación y centros de investigación | dag-institutos-centros-investigación
-Dirección, administración y soporte del instituto/centro | dag-institutos
             Instituto Universitario de Derecho del Transporte | dag-iudt
             Instituto Universitario de Estudios Feministas y de Género Purificación Escribano | dag-iuef
             Instituto Universitario de Matemáticas y Aplicaciones de Castellón | dag-imac

@@ -712,6 +712,21 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
             nombre: [Nombre del estudio],
         ),
     ),
+    "estimación horas docencia propia.xlsx": (
+        descripción: [Fichero con las horas y el importe retribuido de formación permanente en el modulo gre],
+        campos: (
+            gre_ejercicio: [Ejercicio de la retribución],
+            fecha: [Fecha de la retribución],
+            per_id: [Identificador de la persona que ha recibido la retribución],
+            motivo: [Justificación del curso, suele ser el nombre del curso],
+            unidad: [Número de horas impartidas],
+            importe: [Precio del coste hora],
+            total: [Valor total de la retribución, debe coincidir con importe*total],
+            proyecto: [Codigo del proyecto ver #ruta("proyectos.xlsx") ],
+            nombre: [Tipo de curso],
+            gre_id: [Identificador de la retribución],
+        ),
+    ),
     "microcredenciales.xlsx": (
         descripción: [Fichero con las microcredenciales],
         campos: (
@@ -3342,19 +3357,45 @@ El siguiente apartado se dedica a ir construyendo esos diccionarios.
 
 ==== Construcción del diccionario de registro de actividades reales a las que dedica tiempo el PDI o PVI
 
+Filtro previo. Al cargar #ruta("entrada", "docencia", "pod.xlsx"), las asignatura con 0 créditos impartido y 0 créditos computables se filtran y no se tienen en cuentan.
+
 ==== Dedicación docente en créditos a las distintas titulaciones en las que tiene docencia
 
-Filtro previo. Al cargar #ruta("entrada", "docencia", "pod.xlsx"), las asignatura con 0 créditos impartido y 0 créditos computables se filtran y no se tienen en cuentan.
+===== Información de dedicación a titulaciones segun POD
 
 A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia. Si la asignatura tiene más de una titulación asociada, para averiguar la titulación efectiva, dejamos de buscar en #ruta("entrada", "docencia", "pod.xlsx") y consideramos #ruta("entrada", "docencia", "pod másteres.xlsx"). Todas las titulaciones vinculadas a esa asignatura "múltiple" deben ser másteres; en caso contrario, marca un error.
 
-De cada asignatura nos interesa cuántos créditos imparte el profesor (columna `créditos_impartidos`). Anotemos esa información en un diccionario de la forma {asignatura: créditos impartidos}. Asegúrate de que la suma de créditos de ese diccionario coincide con el total de créditos impartidos por ese profesor según #ruta("entrada", "docencia", "pod.xlsx"), para detectar posibles errores en la asignación de créditos a asignaturas.
+De cada asignatura nos interesa cuántos créditos imparte el profesor (columna `créditos_impartidos`). Anotemos esa información en un diccionario de la forma `{asignatura: créditos impartidos}`. Asegúrate de que la suma de créditos de ese diccionario coincide con el total de créditos impartidos por ese profesor según #ruta("entrada", "docencia", "pod.xlsx"), para detectar posibles errores en la asignación de créditos a asignaturas.
 
-Ahora vamos con otro diccionario que dice cuantos créditos imparte en cada titulación. Ojo que la clave será una tupla (código de titulación, nombre de titulación).
+Ahora vamos con otro diccionario `créditos_impartidos_por_titulación` que dice cuantos créditos imparte en cada titulación. Ojo que la clave será una tupla (código de titulación, nombre de titulación). Este diccionario es el bueno teniendo en cuenta que la unidad de actividad docente es la titulación, no la asignatura que es un mero vehículo para llegar a la titulación.
 
 En la #app ha de haber un grupo de páginas que se llame Regla 23 y es ahí donde vamos a visualizar estos diccionarios. Una de ellas contendrá la información docente y este diccionario es parte de lo docente.
 
-Las titulaciones y estudios que tengan 0 créditos activos en el año que estamos considerando, se muestran una hoja aparte, pero su código y nombre no lían las páginas útiles con información que sirve para la analítica.
+===== Información de decicación a titulaciones no oficiales según retribuciones
+
+Vamos a crear otro diccionario similar al anterior: indexado por titulación y con valor de créditos. Su cálculo provendrá #ruta("estimación horas docencia propia.xlsx").
+
+De esa tabla filtramos las filas de cosas con financiación genérica. Es decir, de la columna #campo("proyecto") averiguamos el tipo de proyecto y nos quedamos solo con los de tipo
+#val("07G"),
+#val("EPM"),
+#val("EPDE"),
+#val("EPDEX"),
+#val("EPC"),
+#val("EPMI"),
+#val("CUID"),
+#val("CUEX") u
+#val("OAD").
+
+Ahora, para cada fila hemos de ver la verosimilitud del valor del campo #campo("importe"). Si ese valro es mayor que #val("130"), estimamos el número de horas (#campo("unidad")) en #campo("total") dividido por #val("130") y nos quedamos con el máximo de #campo("unidad") y esa estimación.
+
+Toda esta información va a un diccionario nuevo que se llama `horas_no_oficiales` que tiene como clave un proyecto y como valor unas horas.
+
+En la #app se ha de mostrar también esta información, para tenerla controlada y ver si es verosímil o no. En la página de Regla 23 habrá una sección dedicada a docencia no oficial, con el detalle de cada proyecto.
+
+#nota[Cuidado que podemos duplicar dedicación al tener en los dos diccionarios las mismas horas (en un caso créitos, en el otro horas) para la misma titulación/proyecto.]
+
+
+// Las titulaciones y estudios que tengan 0 créditos activos en el año que estamos considerando, se muestran una hoja aparte, pero su código y nombre no lían las páginas útiles con información que sirve para la analítica.
 
 // Si la asignatura está en la tabla #ruta("asignaturas grados") (columna  #campo("asignatura")) podemos averiguar su nombre ( #campo("nombre")) y el grado al que pertenece ( #campo("grado")). Para saber la titulación hay que ir a la tabla #ruta("grados") y ver si ese código tiene un valor en la columna  #campo("grado"). Si es así, la columna  #campo("estudio") nos da otro número. ¡Es número conduce, por fin, a la titulación con la columna  #campo("estudio") de la tabla  #campo("estudio"): es el que dice su columna  #campo("nombre").
 
