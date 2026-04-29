@@ -1,4 +1,7 @@
 #import "preámbulo.typ": *
+#import "img/fase1.typ": (
+    etapa-amortizaciones, etapa-cargos, etapa-nominas, etapa-presupuesto, etapa-ss, etapa-suministros, fase1-diagrama,
+)
 #show: formato
 
 #set document(title: [Especificación #coana])
@@ -892,7 +895,10 @@ En esta fase se generan unidades de coste a partir de datos extraídos de la bas
 
 Esta figura ilustra el proceso que parte de los datos de entrada (carpeta #ruta("data", "entrada"), que tiene carpetas dentro, una por cada grupo de datos hasta llegar a los de salida en la fase 1.
 
-#align(center, image("img/fase1.drawio.pdf"))
+#figure(
+  align(center, fase1-diagrama()),
+  caption: [Proceso de Fase 1: ficheros de entrada (izquierda), transformación y salidas (derecha).],
+)
 
 La #app es la encargada de ejecutar el proceso que va desde los datos de entrada hasta los datos de salida, aplicando las reglas que se definen en esta especificación y mostrando los resultados intermedios y finales.
 
@@ -2385,6 +2391,11 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
 
 == Generación de UC a partir de presupuesto
 
+#figure(
+  align(center, etapa-presupuesto()),
+  caption: [Etapa de presupuesto: ficheros de entrada y salidas que produce.],
+)
+
 === Reglas para generar unidades de coste a partir de apuntes presupuestarios
 
 Lo primero es filtrar cieros registros del presupuesto de gasto, para quedarnos solo con los que nos interesan para generar unidades de coste. Para eso se definen una serie de reglas de filtrado, que se aplican a cada registro del presupuesto. Si un registro no pasa el filtro, no se genera unidad de coste a partir de él.
@@ -2852,6 +2863,12 @@ El árbol de elementos de coste modificado por las reglas se ha de mostrar en la
 
 
 ==== Reglas para suministros especiales (energía, agua, gas)
+
+#figure(
+  align(center, etapa-suministros()),
+  caption: [Etapa de suministros (energía, agua, gas): ficheros de entrada y salidas.],
+)
+
 En los ficheros #ruta("energía.xlsx"), #ruta("agua.xlsx") y #ruta("gas.xlsx"), que están en el directorio `data/entrada/consumos` se recogen los gastos de energía eléctrica, agua y gas, respectivamente, por zonas del campus.
 
 Explicamos el método detallado para #ruta("energía.xlsx"), pero hay que hacer lo mismo con los otros dos ficheros y el procedimiento es el mismo.
@@ -2887,6 +2904,11 @@ En la #app debes informar de cuántas unidades de coste se han generado a partir
 
 
 == Generación de unidades de coste a partir de información de amortizaciones
+
+#figure(
+  align(center, etapa-amortizaciones()),
+  caption: [Etapa de amortizaciones: ficheros de entrada y salidas que produce.],
+)
 
 La #app tendrá un desplegable «Amortizaciones» con nuevas entradas para mostrar los diferentes elementos de esta etapa.
 
@@ -3136,6 +3158,11 @@ En la #app informa de cuántos casos han quedado sin poder cumplimentar.
 
 == Generación de unidades de coste calculadas a partir de actividades con cargos
 
+#figure(
+  align(center, etapa-cargos()),
+  caption: [Etapa de cargos académicos: ficheros de entrada y salidas que produce.],
+)
+
 #nota[Pendiente: construir tabla con relación de titulaciones y otras actividades. De momento solo tenemos departamentos.]
 
 Nos interesa, para cualquier persona que haya aparecido en la nómina del año y tenga expediente de PDI o PVI, asociar su #campo("per_id") con la categoría de PDI o PVI que tenía en la última nómina en la que cobró algun #campo("concepto retributivo") de valor #val("19") o #val("64").
@@ -3160,6 +3187,11 @@ En la #app, muestra, para cada departamento las personas que han ocupado algún 
 //     - centro de coste: el que corresponda al departamento, según la segunda columna de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS
 
 == Generación de unidades de coste a partir de información de nóminas
+
+#figure(
+  align(center, etapa-nominas()),
+  caption: [Etapa de nóminas: ficheros de entrada y salidas que produce.],
+)
 
 === Preprocesamiento nóminas
 
@@ -3436,6 +3468,11 @@ En la #app se ha de mostrar también esta información, para tenerla controlada 
 
 
 == Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social
+
+#figure(
+  align(center, etapa-ss()),
+  caption: [Etapa de Seguridad Social: ficheros de entrada y salidas que produce.],
+)
 
 Ahora interesa considerar a cada persona tomando en cuenta todos los expedientes asociados.
 
