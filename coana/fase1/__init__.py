@@ -17,6 +17,10 @@ from pathlib import Path
 import polars as pl
 
 from coana.fase1.amortizaciones import generar_uc_amortizaciones
+from coana.fase1.cargos import (
+    generar_cargos_departamentos,
+    generar_categoría_última_pdi_pvi,
+)
 from coana.fase1.inventario import ContextoInventario, procesar_inventario
 from coana.fase1.nóminas import ContextoNóminas, preprocesar_nóminas
 from coana.fase1.presupuesto import ContextoPresupuesto, TraductorPresupuesto
@@ -30,7 +34,7 @@ def _fmt_n(n: int) -> str:
     return f"{n:,}".replace(",", ".")
 
 
-def ejecutar(ruta_base: Path = Path("data"), año: int = 2024) -> None:
+def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
     """Ejecuta la fase 1 completa."""
     logging.basicConfig(
         level=logging.INFO,
@@ -192,6 +196,11 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2024) -> None:
         todas_uc.append(resultado_nom.uc_indemnizaciones_asistencias)
     if not resultado_nom.uc_cargos.is_empty():
         todas_uc.append(resultado_nom.uc_cargos)
+
+    # -- Cargos académicos en departamentos --
+    print("Procesando cargos académicos…")
+    generar_cargos_departamentos(ruta_base, dir_stats, año=año)
+    generar_categoría_última_pdi_pvi(ruta_base, dir_stats)
 
     # -- Fichero combinado --
     if todas_uc:

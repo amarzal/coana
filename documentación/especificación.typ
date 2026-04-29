@@ -1902,7 +1902,7 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
             val("D6"), etqact("dag-oipep"),
             val("O3"), etqact("dag-opp"),
             val("D8"), etqact("dag-uo"),
-            val("I4"), etqact("dag-ocit"),
+            val("I4"), etqact("dag-sgit"),
             val("SD"), etqact("dag-sala-disección"),
             val("ED"), etqact("dag-escuela-doctorado"),
         ))
@@ -2179,7 +2179,7 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             [3425], [#etqcen("oiati")], [#etqact("dag-otros-servicios-ti")],
             [2883], [#etqcen("oipep")], [#etqact("dag-oipep")],
             [1723], [#etqcen("ocds")], [#etqact("cooperación")],
-            [242], [#etqcen("ocit")], [#etqact("dag-ocit")],
+            [242], [#etqcen("sgit")], [#etqact("dag-sgit")],
             [3847], [#etqcen("opp")], [#etqact("dag-opp")],
             [4567], [#etqcen("oppsm")], [#etqact("dag-otros-servicios-prevención-gestión-medioambiental")],
             [2882], [#etqcen("ori")], [#etqact("dag-otros-servicios-relaciones-internacionales")],
@@ -2291,7 +2291,7 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             val("%/GI"), etqcen("oiati"),
             val("%/H1"), etqcen("fchs"),
             val("%/I2"), etqcen("uiic"),
-            val("%/I4"), etqcen("ocit"),
+            val("%/I4"), etqcen("sgit"),
             val("%/IH"), etqcen("oe"),
             val("%/J1"), etqcen("fcje"),
             val("%/L2"), etqcen("ori"),
@@ -3134,6 +3134,30 @@ La unidad de coste se forma con:
 En la #app informa de cuántos casos han quedado sin poder cumplimentar.
 
 
+== Generación de unidades de coste calculadas a partir de actividades con cargos
+
+#nota[Pendiente: construir tabla con relación de titulaciones y otras actividades. De momento solo tenemos departamentos.]
+
+Nos interesa, para cualquier persona que haya aparecido en la nómina del año y tenga expediente de PDI o PVI, asociar su #campo("per_id") con la categoría de PDI o PVI que tenía en la última nómina en la que cobró algun #campo("concepto retributivo") de valor #val("19") o #val("64").
+
+Quisiera que la #app mostrara la relación de esas personas (pon su nombre) y la categoría última junto con la información de ese último cobro por concepto 19 o 64 (fecha, importe, concepto retributivo, proyecto, centro, aplicación, programa). Esto es para comprobar que la información que tenemos es correcta y que el proceso de asociación de personas con categorías de PDI o PVI es correcto.
+
+Hay una previa y es dejar en la carga de #ruta("personas cargos.xlsx") solo las filas en las que haya al menos un día de ejercicio de la actividad en el año analizado, para evitar ruido. Para eso, hay que eliminar las filas en las que no haya ningún día de ejercicio en el año analizado, lo que se puede hacer con la información de las columnas de #campo("fecha_inicio") y #campo("fecha_fin") de cada actividad.
+
+Otra fase de filtrado previa hace que solo se carguen las filas #ruta("cargos.xlsx") cuya #campo("cuantía") sea mayor que cero.
+
+=== Departamentos
+
+Vamos a crear unidades de coste calculadas para los cargos que van asociados a los departamentos de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS. Para cada departamento, conocido el código de centro de coste por ser segunda columna de esa tabla, has de buscar su número de servicio. Para eso, busca en la tabla #ruta("inventario", "servicios"). Con ese número, mira en #ruta("personas cargos.xlsx") quién ha ocupado algún cargo de ese servicio en al menos un día. Averigua qué categoría tiene esa persona el último día que cobró por el concepto 19 o el 64 (se ha precalculado).
+
+En la #app, muestra, para cada departamento las personas que han ocupado algún cargo y los períodos en los que lo han hecho.
+
+// Ahora, para cada Departamento, vamos a crear, en principio, dos unidades de coste:
+
+// - Una para la dirección del departanento (código de cargo #val("")), que tiene:
+//     - elemento de coste: #etqele("pdi-XXX-cargos"), donde XXX es la categoría de la persona que ocupa el cargo. Si hay dos o más personas ocupándolo
+//     - actividad: #etqact("dag-YYY"), donde YYY es el código del departamento, que es la segunda columna de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS
+//     - centro de coste: el que corresponda al departamento, según la segunda columna de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS
 
 == Generación de unidades de coste a partir de información de nóminas
 
@@ -3309,6 +3333,7 @@ Esta tabla se va a usar para determinar parte del elemento de coste de las unida
 ]
 
 
+
 === Tratamiento del PVI y del PDI
 
 El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»).
@@ -3333,7 +3358,7 @@ Cuando el #campo("concepto_retributivo") es #val("48"), estamos antes indemnizac
 
 ==== Tratamiento de los cargos que se pueden asociar a un proyecto específico
 
-Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics (Docents)) es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), y los proyectos seas distintos de #val("23G019"), #val("00000"), #val("1G019"), #val("02G041"), #val("1G046"), #val("11G006"), #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003") estamos ante el ejercicio de cargos que se pueden asociar a un proyecto específico.
+Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics (Docents)) o es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), y los proyectos seas distintos de #val("23G019"), #val("00000"), #val("1G019"), #val("02G041"), #val("1G046"), #val("11G006"), #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003") estamos ante el ejercicio de «cargos» que se pueden asociar a un proyecto específico. Son coste del proyecto, sin más.
 
 El centro de coste y la actividad de estos cargos se va a determinar con los módulos que hemos usado en presupuesto y nóminas para decidir estos valores. #nota[Podemos refinar esto en función de la figura.]
 

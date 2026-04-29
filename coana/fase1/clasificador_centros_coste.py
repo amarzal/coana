@@ -70,7 +70,7 @@ _CC_SUBCENTRO: dict[str, str] = {
     "SA": "fcs",
     "CC": "cent",
     "LB": "labcom",
-    "I4": "ocit",
+    "I4": "sgit",
     "SD": "sala-disección",
     "ED": "ed",
 }
@@ -210,7 +210,7 @@ _SERVICIO_CC: dict[str, tuple[str, str]] = {
     "3425": ("oiati", "dag-otros-servicios-ti"),
     "2883": ("oipep", "dag-oipep"),
     "1723": ("ocds", "cooperación"),
-    "242": ("ocit", "dag-ocit"),
+    "242": ("sgit", "dag-sgit"),
     "3847": ("opp", "dag-opp"),
     "4567": ("oppsm", "dag-otros-servicios-prevención-gestión-medioambiental"),
     "2882": ("ori", "dag-otros-servicios-relaciones-internacionales"),

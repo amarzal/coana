@@ -511,6 +511,8 @@ if "personal_seccion" not in st.session_state:
     st.session_state.personal_seccion = "Resumen"
 if "regla23_seccion" not in st.session_state:
     st.session_state.regla23_seccion = "Dedicación docente"
+if "cargos_acad_seccion" not in st.session_state:
+    st.session_state.cargos_acad_seccion = "Categoría PDI/PVI"
 if "resultados_seccion" not in st.session_state:
     st.session_state.resultados_seccion = "Resumen"
 
@@ -544,6 +546,11 @@ def _ir_a_personal(seccion: str) -> None:
 def _ir_a_regla23(seccion: str) -> None:
     st.session_state.vista = "regla23"
     st.session_state.regla23_seccion = seccion
+
+
+def _ir_a_cargos_acad(seccion: str) -> None:
+    st.session_state.vista = "cargos_acad"
+    st.session_state.cargos_acad_seccion = seccion
 
 
 def _ir_a_resultados(seccion: str) -> None:
@@ -613,6 +620,7 @@ _REGLA23_SECCIONES = [
     "Asignaturas sin titulación",
     "Anomalías",
 ]
+_CARGOS_ACAD_SECCIONES = ["Categoría PDI/PVI", "Departamentos"]
 _SUP_SECCIONES = ["Resumen", "Totales", "Presencia centros"]
 _RESULTADOS_SECCIONES = [
     "Resumen",
@@ -628,6 +636,7 @@ _NAV_SECTIONS: list[tuple[str, str, list[str], callable]] = [
     ("Amortizaciones",   "amortizaciones", _AMORT_SECCIONES,      _ir_a_amort),
     ("Personal",         "personal",       _PERSONAL_SECCIONES,   _ir_a_personal),
     ("Regla 23",         "regla23",        _REGLA23_SECCIONES,    _ir_a_regla23),
+    ("Cargos académicos","cargos_acad",    _CARGOS_ACAD_SECCIONES, _ir_a_cargos_acad),
     ("Superficies",      "superficies",    _SUP_SECCIONES,        _ir_a_sup),
     ("Resultados Fase 1","resultados",     _RESULTADOS_SECCIONES, _ir_a_resultados),
 ]
@@ -740,6 +749,7 @@ if st.session_state.get("_ejecutar_fase1"):
             import coana.fase1.inventario as _m_inv
             import coana.fase1.suministros as _m_sum
             import coana.fase1.amortizaciones as _m_amort
+            import coana.fase1.cargos as _m_cargos
             import coana.fase1.nóminas.contexto as _m_nom_ctx
             import coana.fase1.nóminas.regla_23 as _m_r23
             import coana.fase1.nóminas as _m_nom
@@ -749,7 +759,8 @@ if st.session_state.get("_ejecutar_fase1"):
             for _m in [_m_cls_cc, _m_cls_act,
                        _m_ctx, _m_trad, _m_pres,
                        _m_inv_ctx, _m_proc, _m_inv,
-                       _m_sum, _m_amort, _m_nom_ctx, _m_r23, _m_nom, _m_fase1]:
+                       _m_sum, _m_amort, _m_cargos,
+                       _m_nom_ctx, _m_r23, _m_nom, _m_fase1]:
                 importlib.reload(_m)
             ejecutar = _m_fase1.ejecutar
             with contextlib.redirect_stdout(_live):
@@ -3343,6 +3354,111 @@ def _mostrar_persona():
                             _st_df(det_nom_f, key="persona_uc_det_nom_df")
 
 
+def _mostrar_cargos_acad():
+    seccion = st.session_state.cargos_acad_seccion
+    _título(f"Cargos académicos — {seccion}")
+
+    if seccion == "Categoría PDI/PVI":
+        path = DIR_FASE1 / "auxiliares" / "categoría_última_pdi_pvi.parquet"
+        if not path.exists():
+            st.info("Sin datos (o falta ejecutar la Fase 1).")
+            return
+        df = pl.read_parquet(path)
+        if df.is_empty():
+            st.info("No hay personas con concepto 19 o 64 entre el PDI/PVI.")
+            return
+        st.caption(
+            "Para cada persona PDI/PVI con cobros por concepto 19 o 64, "
+            "categoría que tenía en la última nómina con ese concepto, "
+            "junto con la información del cobro."
+        )
+        df = _enriquecer_per_id(df)
+        df_f = _filtro_tabla(df, "cargos_cat_pdi")
+        ev = _st_df(
+            df_f,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="cargos_cat_pdi_df",
+        )
+        filas_sel = ev.selection.rows if ev.selection else []
+        if filas_sel and filas_sel[0] < len(df_f):
+            _ficha_registro(df_f, filas_sel[0], key_suffix="_cargos_cat_pdi")
+        return
+
+    if seccion == "Departamentos":
+        path = DIR_FASE1 / "auxiliares" / "cargos_departamentos.parquet"
+        if not path.exists():
+            st.info("Sin datos de cargos por departamento (o falta ejecutar la Fase 1).")
+            return
+        cargos = pl.read_parquet(path)
+        if cargos.is_empty():
+            st.info("Sin cargos en departamentos para el año.")
+            return
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Departamentos", f"{cargos['centro_cc'].n_unique():,}")
+        c2.metric("Personas", f"{cargos['per_id'].n_unique():,}")
+        c3.metric("Relaciones cargo-persona", f"{len(cargos):,}")
+        st.caption(
+            "Para cada departamento (TABLA-TRADUCCIÓN-DEPARTAMENTOS), las "
+            "personas que han ocupado al menos un día algún cargo del "
+            "servicio del departamento durante el año analizado."
+        )
+
+        # Resumen por departamento
+        resumen = (
+            cargos.group_by("centro_cc")
+            .agg(
+                pl.col("per_id").n_unique().alias("n_personas"),
+                pl.len().alias("n_relaciones"),
+            )
+            .sort("centro_cc")
+        )
+        resumen_f = _filtro_tabla(resumen, "cargos_dept_res")
+        ev = _st_df(
+            resumen_f,
+            on_select="rerun",
+            selection_mode="single-row",
+            key="cargos_dept_res_df",
+        )
+        filas_sel = ev.selection.rows if ev.selection else []
+        if filas_sel and filas_sel[0] < len(resumen_f):
+            cc_sel = resumen_f.row(filas_sel[0], named=True)["centro_cc"]
+            st.divider()
+            st.subheader(f"Personas con cargo en el departamento «{cc_sel}»")
+
+            det = cargos.filter(pl.col("centro_cc") == cc_sel).select(
+                "per_id", "cargo", "servicio",
+                "fecha_inicio", "fecha_fin",
+                "fecha_inicio_cobra", "fecha_fin_cobra",
+            )
+            det = _enriquecer_per_id(det)
+            # Enriquecer con nombre del cargo
+            cargos_path = DIR_ENTRADA / "nóminas" / "cargos.xlsx"
+            if cargos_path.exists():
+                cargos_ref = _load_excel(str(cargos_path)).select(
+                    pl.col("cargo").cast(pl.Utf8),
+                    pl.col("nombre").alias("nombre_cargo"),
+                )
+                det = det.with_columns(pl.col("cargo").cast(pl.Utf8))
+                det = det.join(cargos_ref, on="cargo", how="left")
+            # Enriquecer con la categoría última PDI/PVI por per_id
+            cat_path = DIR_FASE1 / "auxiliares" / "categoría_última_pdi_pvi.parquet"
+            if cat_path.exists():
+                cat_ref = pl.read_parquet(cat_path).select("per_id", "categoría")
+                det = det.join(cat_ref, on="per_id", how="left")
+            det_f = _filtro_tabla(det, "cargos_dept_det")
+            ev2 = _st_df(
+                det_f,
+                on_select="rerun",
+                selection_mode="single-row",
+                key="cargos_dept_det_df",
+            )
+            filas2 = ev2.selection.rows if ev2.selection else []
+            if filas2 and filas2[0] < len(det_f):
+                _ficha_registro(det_f, filas2[0], key_suffix="_cargos_dept_det")
+
+
 def _mostrar_regla23():
     seccion = st.session_state.regla23_seccion
     _título(f"Regla 23 — {seccion}")
@@ -4324,12 +4440,25 @@ def _mostrar_personal():
 # ============================================================
 
 
+_FUENTES_UC: list[tuple[str, Path]] = [
+    ("presupuesto", Path("uc presupuesto.parquet")),
+    ("amortizaciones", Path("uc amortizaciones.parquet")),
+    ("suministros", Path("uc suministros.parquet")),
+    ("nómina PTGAS", Path("auxiliares/nóminas/uc_ptgas.parquet")),
+    ("nómina PVI", Path("auxiliares/nóminas/uc_pvi.parquet")),
+    ("nómina PDI", Path("auxiliares/nóminas/uc_pdi.parquet")),
+    ("nómina despidos", Path("auxiliares/nóminas/uc_despidos.parquet")),
+    ("nómina indemnizaciones", Path("auxiliares/nóminas/uc_indemnizaciones_asistencias.parquet")),
+    ("nómina cargos", Path("auxiliares/nóminas/uc_cargos.parquet")),
+]
+
+
 def _cargar_todas_uc() -> pl.DataFrame:
     """Carga y concatena todas las UC disponibles con columnas comunes."""
     cols = ["id", "elemento_de_coste", "centro_de_coste", "actividad", "importe", "origen"]
     frames: list[pl.DataFrame] = []
-    for nombre in ["uc presupuesto", "uc amortizaciones", "uc suministros"]:
-        path = DIR_FASE1 / f"{nombre}.parquet"
+    for _, rel in _FUENTES_UC:
+        path = DIR_FASE1 / rel
         if path.exists():
             df = pl.read_parquet(path)
             df = df.select([c for c in cols if c in df.columns])
@@ -4361,17 +4490,10 @@ def _mostrar_anomalias_uc():
         else:
             arboles[nombre_tree] = set()
 
-    # Cargar UC por fuente
-    _FUENTES = [
-        ("presupuesto", "uc presupuesto"),
-        ("amortizaciones", "uc amortizaciones"),
-        ("suministros", "uc suministros"),
-    ]
-
     hay_anomalias = False
 
-    for nombre_fuente, nombre_fichero in _FUENTES:
-        path = DIR_FASE1 / f"{nombre_fichero}.parquet"
+    for nombre_fuente, rel in _FUENTES_UC:
+        path = DIR_FASE1 / rel
         if not path.exists():
             continue
         df = pl.read_parquet(path)
@@ -4684,6 +4806,8 @@ elif vista == "personal":
     _mostrar_personal()
 elif vista == "regla23":
     _mostrar_regla23()
+elif vista == "cargos_acad":
+    _mostrar_cargos_acad()
 elif vista == "resultados":
     _mostrar_resultados()
 else:

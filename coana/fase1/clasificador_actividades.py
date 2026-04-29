@@ -102,7 +102,7 @@ _SUBCENTRO_00G: dict[str, str] = {
     "D6": "dag-oipep",
     "O3": "dag-opp",
     "D8": "dag-uo",
-    "I4": "dag-ocit",
+    "I4": "dag-sgit",
     "SD": "dag-sala-disección",
     "ED": "dag-escuela-doctorado",
 }
