@@ -896,8 +896,8 @@ En esta fase se generan unidades de coste a partir de datos extraídos de la bas
 Esta figura ilustra el proceso que parte de los datos de entrada (carpeta #ruta("data", "entrada"), que tiene carpetas dentro, una por cada grupo de datos hasta llegar a los de salida en la fase 1.
 
 #figure(
-  align(center, fase1-diagrama()),
-  caption: [Proceso de Fase 1: ficheros de entrada (izquierda), transformación y salidas (derecha).],
+    align(center, fase1-diagrama()),
+    caption: [Proceso de Fase 1: ficheros de entrada (izquierda), transformación y salidas (derecha).],
 )
 
 La #app es la encargada de ejecutar el proceso que va desde los datos de entrada hasta los datos de salida, aplicando las reglas que se definen en esta especificación y mostrando los resultados intermedios y finales.
@@ -2392,8 +2392,8 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
 == Generación de UC a partir de presupuesto
 
 #figure(
-  align(center, etapa-presupuesto()),
-  caption: [Etapa de presupuesto: ficheros de entrada y salidas que produce.],
+    align(center, etapa-presupuesto()),
+    caption: [Etapa de presupuesto: ficheros de entrada y salidas que produce.],
 )
 
 === Reglas para generar unidades de coste a partir de apuntes presupuestarios
@@ -2434,8 +2434,6 @@ Las reglas de filtrado que recogen estas ideas son las siguientes:
     - #nombre-regla[Supresión de consumos de energía, agua y gas]
         Si la #campo("aplicación") es #val("2231"), #val("2232") o #val("2233"), estamos ante un suministro de energía eléctrica, agua o gas, respectivamente. Esas filas las eliminamos porque tenemos un procedimiento distinto para generar unidades de coste a partir de los datos que nos facilita la OTOP, que conoce el coste desglosado por zonas, edificios o complejos de la universidad.
 ]
-
-#align(center, image("img/filtro presupuesto.drawio.pdf"))
 
 En la #app, hay que informar al usuario de cuántas filas se han filtrado por cada uno de estos motivos y qué importe se ha eliminado de cada capítulo, concepto o aplicación. También se ha de poder acceder a cada una de las filas filtradas, que han de estar enriquecidas con información de la regla que la ha filtrado.
 
@@ -2865,8 +2863,8 @@ El árbol de elementos de coste modificado por las reglas se ha de mostrar en la
 ==== Reglas para suministros especiales (energía, agua, gas)
 
 #figure(
-  align(center, etapa-suministros()),
-  caption: [Etapa de suministros (energía, agua, gas): ficheros de entrada y salidas.],
+    align(center, etapa-suministros()),
+    caption: [Etapa de suministros (energía, agua, gas): ficheros de entrada y salidas.],
 )
 
 En los ficheros #ruta("energía.xlsx"), #ruta("agua.xlsx") y #ruta("gas.xlsx"), que están en el directorio `data/entrada/consumos` se recogen los gastos de energía eléctrica, agua y gas, respectivamente, por zonas del campus.
@@ -2906,8 +2904,8 @@ En la #app debes informar de cuántas unidades de coste se han generado a partir
 == Generación de unidades de coste a partir de información de amortizaciones
 
 #figure(
-  align(center, etapa-amortizaciones()),
-  caption: [Etapa de amortizaciones: ficheros de entrada y salidas que produce.],
+    align(center, etapa-amortizaciones()),
+    caption: [Etapa de amortizaciones: ficheros de entrada y salidas que produce.],
 )
 
 La #app tendrá un desplegable «Amortizaciones» con nuevas entradas para mostrar los diferentes elementos de esta etapa.
@@ -3159,8 +3157,8 @@ En la #app informa de cuántos casos han quedado sin poder cumplimentar.
 == Generación de unidades de coste calculadas a partir de actividades con cargos
 
 #figure(
-  align(center, etapa-cargos()),
-  caption: [Etapa de cargos académicos: ficheros de entrada y salidas que produce.],
+    align(center, etapa-cargos()),
+    caption: [Etapa de cargos académicos: ficheros de entrada y salidas que produce.],
 )
 
 #nota[Pendiente: construir tabla con relación de titulaciones y otras actividades. De momento solo tenemos departamentos.]
@@ -3189,8 +3187,8 @@ En la #app, muestra, para cada departamento las personas que han ocupado algún 
 == Generación de unidades de coste a partir de información de nóminas
 
 #figure(
-  align(center, etapa-nominas()),
-  caption: [Etapa de nóminas: ficheros de entrada y salidas que produce.],
+    align(center, etapa-nominas()),
+    caption: [Etapa de nóminas: ficheros de entrada y salidas que produce.],
 )
 
 === Preprocesamiento nóminas
@@ -3295,62 +3293,73 @@ Esta tabla se va a usar para determinar parte del elemento de coste de las unida
         - el sector PVI se corresponde con `piyotper`
     - `XXX` depende de la categoría u otros campos,
     - e `YYY` depende del tipo de retribución.
+]
 
-    Para determinar `XXX` y `YYY` hay que aplicar una serie de reglas.
+Para determinar el valor de `XXX`:
 
-    - Para determinar el valor de `XXX`
-            - En el caso del PTGAS, miramos el campo #campo("categoría") del registro. Estas son las reglas:
-                - Si el valor es #val("FC") y el #campo("per_id") es #val("65214") (AMV), `XXX` es #val("dir").
-                - Si no, si el valor es #val("FC") o #val("FI"), `XXX` es #val("func").
-                - Si no, si el valor es #val("E"), `XXX` es #val("ev").
-                - Si no, si el valor es #val("LE"), #val("LF") o #val("LT"), `XXX` es #val("lab").
-                - Si no, marca un error, porque no debería de pasar.
-            - En el caso del PVI o PDI, los campos relevantes son #campo("categoría"), #campo("perceptor") y #campo("provisión"). Estas son las reglas (las celdas en blanco significan que no importa el valor de ese campo):
-                #table(
-        columns: 6,
-        table.header(
+#reglas[
+    - En el caso del PTGAS, miramos el campo #campo("categoría") del registro. Estas son las reglas:
+
+        - Si el valor es #val("FC") y el #campo("per_id") es #val("65214") (AMV), `XXX` es #val("dir").
+
+        - Si no, si el valor es #val("FC") o #val("FI"), `XXX` es #val("func").
+
+        - Si no, si el valor es #val("E"), `XXX` es #val("ev").
+
+        - Si no, si el valor es #val("LE"), #val("LF") o #val("LT"), `XXX` es #val("lab").
+
+        - Si no, marca un error, porque no debería de pasar.
+
+    - En el caso del PVI o PDI, los campos relevantes son #campo("categoría"), #campo("perceptor") y #campo("provisión"). Estas son las reglas (las celdas en blanco significan que no importa el valor de ese campo):
+
+        #table(
+            columns: 6,
+            table.header(
+                table.hline(),
+                [#campo("categoría")],
+                [#campo("perceptor")],
+                [#campo("provisión")],
+                [#campo("categoría_plaza")],
+                [#campo("sector_plaza")],
+                [Valor de `XXX`],
+                table.hline(),
+            ),
+            table.cell(colspan: 6, align: center)[_PVI — se aplica la primera regla que encaja_],
+            [], [], val("P4"), [], [], val("act"),
+            [], val("35"), [], [], [], val("act"),
+            [], [], [], val("41J"), val("PI"), val("act"),
+            [], [], [], val("41S"), val("PI"), val("act"),
+            val("PREDO"), [], [], [], [], val("pif"),
+            [], [], val("PD"), [], [], val("pif"),
+            [], [], val("P2"), [], [], val("idi"),
+            [], [], [], [], [], val("pid"),
             table.hline(),
-            [#campo("categoría")],
-            [#campo("perceptor")],
-            [#campo("provisión")],
-            [#campo("categoría_plaza")],
-            [#campo("sector_plaza")],
-            [Valor de `XXX`],
+            table.cell(colspan: 6, align: center)[_PDI — por #campo("categoría") exacta_],
+            val("CU"), [], [], [], [], val("cu"),
+            val("TU"), [], [], [], [], val("tu"),
+            val("TUI"), [], [], [], [], val("tu"),
+            val("CEU"), [], [], [], [], val("ceu"),
+            val("TEU"), [], [], [], [], val("teu"),
+            val("AJ"), [], [], [], [], val("aj"),
+            val("AJD"), [], [], [], [], val("aj"),
+            val("AJDII"), [], [], [], [], val("aj"),
+            val("PAA"), [], [], [], [], val("as"),
+            val("PAL"), [], [], [], [], val("as"),
+            val("PS"), [], [], [], [], val("ps"),
+            val("PEME"), [], [], [], [], val("em"),
+            val("PPL"), [], [], [], [], val("pl"),
+            val("PPLV"), [], [], [], [], val("pl"),
+            val("PVI"), [], [], [], [], val("pv"),
+            val("PD"), [], [], [], [], val("pd"),
+            val("PCD"), [], [], [], [], val("pcd"),
+            val("PC"), [], [], [], [], val("pc"),
             table.hline(),
-        ),
-        table.cell(colspan: 6, align: center)[_PVI — se aplica la primera regla que encaja_],
-        [], [], val("P4"), [], [], val("act"),
-        [], val("35"), [], [], [], val("act"),
-        [], [], [], val("41J"), val("PI"), val("act"),
-        [], [], [], val("41S"), val("PI"), val("act"),
-        val("PREDO"), [], [], [], [], val("pif"),
-        [], [], val("PD"), [], [], val("pif"),
-        [], [], val("P2"), [], [], val("idi"),
-        [], [], [], [], [], val("pid"),
-        table.hline(),
-        table.cell(colspan: 6, align: center)[_PDI — por #campo("categoría") exacta_],
-        val("CU"), [], [], [], [], val("cu"),
-        val("TU"), [], [], [], [], val("tu"),
-        val("TUI"), [], [], [], [], val("tu"),
-        val("CEU"), [], [], [], [], val("ceu"),
-        val("TEU"), [], [], [], [], val("teu"),
-        val("AJ"), [], [], [], [], val("aj"),
-        val("AJD"), [], [], [], [], val("aj"),
-        val("AJDII"), [], [], [], [], val("aj"),
-        val("PAA"), [], [], [], [], val("as"),
-        val("PAL"), [], [], [], [], val("as"),
-        val("PS"), [], [], [], [], val("ps"),
-        val("PEME"), [], [], [], [], val("em"),
-        val("PPL"), [], [], [], [], val("pl"),
-        val("PPLV"), [], [], [], [], val("pl"),
-        val("PVI"), [], [], [], [], val("pv"),
-        val("PD"), [], [], [], [], val("pd"),
-        val("PCD"), [], [], [], [], val("pcd"),
-        val("PC"), [], [], [], [], val("pc"),
-        table.hline(),
-    )
+        )
+]
 
-    - Para determinar el valor de `YYY` hay que mirar el campo #campo("concepto_retributivo") del registro y usar la tabla que hemos definido antes para determinar la etiqueta del elemento de coste a partir del concepto retributivo. Por ejemplo, si el concepto retributivo es #val("01"), el valor de `YYY` es #val("sueldo"). Si el concepto retributivo es #val("03"), el valor de `YYY` es #val("trienios"). Y así sucesivamente.
+Para determinar el valor de `YYY`:
+#reglas[
+    - Hay que mirar el campo #campo("concepto_retributivo") del registro y usar la tabla que hemos definido antes para determinar la etiqueta del elemento de coste a partir del concepto retributivo. Por ejemplo, si el concepto retributivo es #val("01"), el valor de `YYY` es #val("sueldo"). Si el concepto retributivo es #val("03"), el valor de `YYY` es #val("trienios"). Y así sucesivamente.
 
     Cuando generas un etiqueta `ZZZ-XXX-YYY` has de comprobar que existe en el árbol de elementos de coste. Si no existe, has de dar un error.
 
@@ -3470,8 +3479,8 @@ En la #app se ha de mostrar también esta información, para tenerla controlada 
 == Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social
 
 #figure(
-  align(center, etapa-ss()),
-  caption: [Etapa de Seguridad Social: ficheros de entrada y salidas que produce.],
+    align(center, etapa-ss()),
+    caption: [Etapa de Seguridad Social: ficheros de entrada y salidas que produce.],
 )
 
 Ahora interesa considerar a cada persona tomando en cuenta todos los expedientes asociados.
