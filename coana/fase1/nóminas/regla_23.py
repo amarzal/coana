@@ -645,10 +645,11 @@ _CONCEPTO_INDEMN_ASIST = "48"
 # Cargos asociables a proyecto específico: 19 (cargos académicos docentes),
 # 64 (retribución mérito individual proyectos UE).
 _CONCEPTOS_CARGOS = ("19", "64")
-# Proyectos generales que NO se consideran "proyecto específico" para cargos.
-# Filas con estos proyectos + concepto 19/64 NO son UC de cargos (siguen la
-# vía de retribuciones normales).
-_PROYECTOS_EXCLUIDOS_CARGOS = (
+# TABLA-PROYECTOS-GENERALES (ver spec): proyectos que NO se consideran
+# "proyecto específico" a efectos de la regla de cargos académicos. Las filas
+# con estos proyectos y concepto retributivo 19 o 64 NO generan UC de cargos
+# y siguen la vía de retribuciones normales.
+_PROYECTOS_GENERALES = (
     "23G019", "00000", "1G019", "02G041", "1G046", "11G006",
     "07G011", "1I235", "22G010", "11G003",
 )
@@ -943,7 +944,7 @@ def generar_uc_cargos(
     )
     if not rows.is_empty():
         rows = rows.filter(
-            ~pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_EXCLUIDOS_CARGOS))
+            ~pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_GENERALES))
         )
     if rows.is_empty():
         p = dir_salida / "uc_cargos.parquet"

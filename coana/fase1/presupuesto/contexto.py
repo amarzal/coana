@@ -46,6 +46,9 @@ class ContextoPresupuesto:
         self.aplicaciones = self._cargar_excel(
             presupuesto / "aplicaciones de gasto.xlsx"
         )
+        self.aplicaciones_a_elementos_de_coste = self._cargar_excel(
+            presupuesto / "aplicaciones a elementos de coste.xlsx"
+        )
         self.capítulos = self._cargar_excel(
             presupuesto / "capítulos de gasto.xlsx"
         )

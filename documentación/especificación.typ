@@ -27,6 +27,28 @@ Este es un _work in progress_, así que es posible que los documentos cambien so
 
 = Arquitectura
 
+== Convenios tipográficos
+
+Para que el documento sea consistente, distinguimos visualmente cinco tipos de elementos. Cada uno se introduce con una función Typst dedicada (definida en el preámbulo) y debe usarse de forma sistemática. La tabla resume la convención:
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, center, left),
+    table.header(
+        table.hline(),
+        [*Función*], [*Aspecto*], [*Para qué*],
+        table.hline(),
+    ),
+    [#raw("#val(\"...\")")], [#val("ejemplo")], [Valor literal de un dato (códigos, identificadores en datos, valores enumerados de un campo).],
+    [#raw("#campo(\"...\")")], [#campo("ejemplo")], [Nombre de campo o columna en una tabla o fichero.],
+    [#raw("#ruta(\"...\")")], [#ruta("ejemplo.xlsx")], [Nombre o ruta de un fichero o directorio.],
+    [#raw("#etqele/#etqcen/#etqact(\"...\")")], [#etqele("ejemplo")], [Identificador de un nodo de los árboles (elementos de coste, centros de coste o actividades, respectivamente).],
+    [#raw("#nombre-regla[...]")], [#nombre-regla[ejemplo]], [Nombre de una regla.],
+    table.hline(),
+)
+
+Para los demás casos: las comillas españolas «...» se reservan para nombres de menús de la #app, secciones referenciadas, términos que se introducen por primera vez o citas literales dentro de prose; el formato monoespaciado #raw("`...`") se usa para fragmentos de código, extensiones de fichero y plantillas/placeholders. No se deben usar comillas tipográficas inglesas (`"..."`) en el cuerpo del documento; si aparecen, son argumentos a las funciones anteriores y nunca deben verse renderizadas en el PDF.
+
 == Datos de entrada
 
 La carpeta #ruta("datos", "entrada") contiene los datos que se van a procesar para generar las unidades de coste. Se organizan en siete grupos, cada uno con su propia carpeta:
@@ -362,7 +384,7 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
             importe: [Importe en euros],
             descripción: [Texto descriptivo del apunte presupuestario],
             fecha: [Fecha del apunte],
-            per_id_endosatario: [Identificador de la persona endosataria. Interesa a efectos de identtificar el perceptor de una nómina cuando la tratamos desde el presupuesto, y no desde directamente desde nóminas.],
+            per_id_endosatario: [Identificador de la persona endosataria. Interesa a efectos de identtificar el perceptor de una nómina cuando la tratamos desde el presupuesto, y no desde directamente desde nóminas. #nota[No se usa y se puede suprimir.]],
         ),
     ),
     "centros.xlsx": (
@@ -436,6 +458,14 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
             nombre: [El nombre de la aplicación de gasto],
         ),
     ),
+    "aplicaciones a elementos de coste.xlsx": (
+        descripción: [Tabla de traducción de aplicación presupuestaria al identificador de un elemento de coste del árbol. Es la regla por defecto del paso de asignación de elemento de coste: si la aplicación tiene una entrada en este fichero (y el #campo("elemento_de_coste") no está vacío ni vale #val("xxx")), el apunte recibe ese elemento de coste; si no, queda como pendiente y son las reglas condicionales con nombre las que pueden cubrirlo. La columna #campo("nombre") es informativa (copiada de #ruta("aplicaciones de gasto.xlsx")) para facilitar la edición. El valor #val("xxx") marca aplicaciones todavía sin clasificar (quedan reservadas para que se rellenen explícitamente).],
+        campos: (
+            aplicación: [Cuatro dígitos. Identifica la aplicación presupuestaria.],
+            nombre: [Nombre de la aplicación, copiado de #ruta("aplicaciones de gasto.xlsx") como ayuda al editor. No se usa en el código.],
+            elemento_de_coste: [Identificador (slug) de un nodo del árbol de elementos de coste. Si está vacío o vale #val("xxx"), la aplicación se considera sin asignación por defecto.],
+        ),
+    ),
     "capítulos de gasto.xlsx": (
         descripción: [Un fichero con los capítulos de gasto],
         campos: (
@@ -469,12 +499,14 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
         descripción: [Fichero con las nóminas y seguridad social de recursos humanos],
         campos: (
             id: [Código de dos números (enteros) separados por barra (ejemplo #val("10192422/1"))],
+            tipo_coste: [Código del tipo de coste asociado al apunte de nómina (Ver #ruta("tipos coste plantilla.xlsx")).],
             expediente: [Entero (ejemplo #val("5913")). Ver #ruta("expedientes recursos humanos.xlsx").],
             categoría: [Código de categoría. Ver #ruta("categorías recursos humanos.xlsx").],
             perceptor: [Código de perceptor. Ver #ruta("perceptores.xlsx").],
             provisión: [Código del sistema de provisión. Ver #ruta("provisiones.xlsx").],
             fecha: [Fecha retribución/pago.],
             importe: [Importe.],
+            atrasos: [Marca o importe de atrasos asociado a este apunte. Sirve como pista complementaria al filtro por #campo("concepto_retributivo") = #val("30") o #val("87") cuando se separa la bolsa de atrasos del PDI/PVI.],
             concepto_retributivo: [Código del concepto retributivo. Ver #ruta("conceptos retributivos.xlsx").],
             proyecto: [Código de proyecto presupuestario. Ver #ruta("data", "entrada", "presupuesto", "proyectos.xlsx").],
             subproyecto: [Código de subproyecto presupuestario. Ver #ruta("data", "entrada", "presupuesto", "subproyectos.xlsx")],
@@ -551,6 +583,13 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
         campos: (
             tipo_cargo: [Identificador (entero)],
             nombre: [Descripción del tipo de cargo],
+        ),
+    ),
+    "tipos coste plantilla.xlsx": (
+        descripción: [Catálogo de tipos de coste de plantilla. Sirve como referencia descriptiva para la columna #campo("tipo_coste") de #ruta("nóminas y seguridad social.xlsx"); no interviene en las reglas de la fase 1, pero permite informes y depuración por tipo.],
+        campos: (
+            tipo_coste: [Identificador del tipo de coste.],
+            nombre: [Nombre o descripción del tipo de coste.],
         ),
     ),
     "perceptores.xlsx": (
@@ -665,13 +704,13 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
             subgrupo: [Subgrupo de impartición de la asignatura],
         ),
     ),
-    "pod_másteres_no_oficiales.xlsx": (
-        descripción: [Fichero con los datos de docencia de cada profesor],
+    "pod másteres.xlsx": (
+        descripción: [Resolución de la titulación efectiva cuando una asignatura del POD pertenece a varias titulaciones simultáneamente. Para cada terna #campo("per_id"), #campo("asignatura") concreta, fija el #campo("máster") en el que el profesor imparte realmente esa asignatura. Por la regla del catálogo, todas las titulaciones implicadas deben ser másteres; si aparece un grado, se marca como anomalía.],
         campos: (
             per_id: [Identificador (entero) de persona. Ver #ruta("data", "entrada", "nóminas", "personas.xlsx").],
             curso_académico: [Año (actual o anterior).],
-            asignatura: [Código de asignatura de máster no oficial. Ver #ruta("másteres.xlsx").],
-            máster: [Código del máster no oficial. Ver #ruta("másteres.xlsx").],
+            asignatura: [Código de asignatura. Ver #ruta("asignaturas másteres.xlsx").],
+            máster: [Código del máster en el que se imparte la asignatura para este profesor. Ver #ruta("másteres.xlsx").],
         ),
     ),
     "asignaturas grados.xlsx": (
@@ -720,36 +759,103 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
         campos: (
             gre_ejercicio: [Ejercicio de la retribución],
             fecha: [Fecha de la retribución],
-            per_id: [Identificador de la persona que ha recibido la retribución],
+            perid: [Identificador de la persona que ha recibido la retribución #nota[Debería ser `per_id`, pero en la hoja está mal escrito.]],
             motivo: [Justificación del curso, suele ser el nombre del curso],
             unidad: [Número de horas impartidas],
             importe: [Precio del coste hora],
-            total: [Valor total de la retribución, debe coincidir con importe*total],
+            total: [Valor total de la retribución, debe coincidir con importe $times$ unidad],
             proyecto: [Codigo del proyecto ver #ruta("proyectos.xlsx") ],
             nombre: [Tipo de curso],
             gre_id: [Identificador de la retribución],
         ),
     ),
-    "microcredenciales.xlsx": (
-        descripción: [Fichero con las microcredenciales],
+    "doctorados.xlsx": (
+        descripción: [Catálogo de programas de doctorado. La fase 1 lo lista pero todavía no consume sus columnas en ninguna regla. #nota[Estos datos deberían ir, a futuro, al apartado de investigación.]],
         campos: (
-            PER_ID: [Identificador de persona],
-            APUNTADOS: [Número de apuntados a la microcredencial],
-            CURSO_ID: [Identificador de la microcredencial],
-            NOMBRE_CURSO: [Nombre de la microcredencial],
-            ANYO: [Año de impartición de la microcredencial],
-            URL: [URL de la microcredencial],
-            CREDITOS_ECTS: [Créditos ECTS de la microcredencial],
-            EDIC: [Número de edición de la microcredencial],
-            PROFES: [Nombre del profesor o profesores que imparten la microcredencial],
+            doctorado: [Identificador (entero) del programa de doctorado.],
+            nombre: [Nombre del programa.],
+            interuniversitario: [#val("S") o #val("N").],
+            estudio: [Código del estudio (entero, > 90000) si aplica. Ver #ruta("estudios.xlsx").],
+        ),
+    ),
+    "microcredenciales.xlsx": (
+        descripción: [Catálogo de microcredenciales. La fase 1 utiliza, vía la regla #nombre-regla[Microcredenciales (EPMI)], la actividad #etqact("microcredenciales") + #campo("proyecto") y, en algunos proyectos generales (p. ej. #val("24G112")), una actividad agregada #etqact("microcredenciales"). Las columnas adicionales (apuntados, edición, profesores…) son informativas y no participan en reglas.],
+        campos: (
+            PER_ID: [Identificador de persona del profesor que imparte.],
+            APUNTADOS: [Número de apuntados a la microcredencial.],
+            CURSO_ID: [Identificador de la microcredencial.],
+            NOMBRE_CURSO: [Nombre de la microcredencial.],
+            ANYO: [Año de impartición.],
+            URL: [URL informativa.],
+            CREDITOS_ECTS: [Créditos ECTS.],
+            EDIC: [Número de edición.],
+            PROFES: [Nombre del profesor o profesores que la imparten.],
         ),
     ),
 )
 
 #tabula_ficheros_y_campos(ficheros_campos_docencia)
 
-#nota[Los datos de doctorado deberían ir a investigación.]
 
+=== Investigación
+
+Las tablas se almacenan en el directorio #ruta("datos", "entrada", "investigación") y son las siguientes:
+
+#nota[De momento se cargan en la #app pero la fase 1 todavía no consume su contenido en reglas. Se documentan para reflejar el estado actual del repositorio y servir de base a futuras etapas.]
+
+#let ficheros_campos_investigación = (
+    "grupos investigación.xlsx": (
+        descripción: [Catálogo de grupos de investigación de la universidad.],
+        campos: (
+            grupo: [Identificador (entero) del grupo de investigación.],
+            nombre: [Nombre del grupo.],
+            fecha_alta: [Fecha de constitución del grupo.],
+            activo: [#val("S") o #val("N").],
+        ),
+    ),
+    "investigadores en grupos.xlsx": (
+        descripción: [Pertenencias de investigadores titulares a grupos. Una persona puede aparecer en varios grupos y/o líneas a lo largo del tiempo, con sus respectivas fechas de alta y baja.],
+        campos: (
+            per_id: [Identificador (entero) de persona. Ver #ruta("data", "entrada", "nóminas", "personas.xlsx").],
+            id_grupo: [Identificador del grupo. Ver #ruta("grupos investigación.xlsx").],
+            línea: [Identificador de la línea de investigación dentro del grupo.],
+            fecha_alta: [Fecha de incorporación al grupo/línea.],
+            fecha_baja: [Fecha de baja (vacía si sigue activo).],
+            participación: [Tanto por ciento de participación de la persona en esa línea.],
+            principal: [#val("S") o #val("N"), si es el grupo principal de la persona.],
+            coordinador: [#val("S") o #val("N"), si coordina la línea.],
+            interlocutor: [#val("S") o #val("N"), si actúa como interlocutor.],
+        ),
+    ),
+    "colaboradores en grupos.xlsx": (
+        descripción: [Igual que #ruta("investigadores en grupos.xlsx") pero para personas en régimen de colaboración (no titulares del grupo).],
+        campos: (
+            per_id: [Identificador (entero) de persona.],
+            id_grupo: [Identificador del grupo.],
+            línea: [Identificador de la línea.],
+            fecha_alta: [Fecha de alta.],
+            fecha_baja: [Fecha de baja (vacía si sigue activo).],
+            participación: [Tanto por ciento de participación.],
+        ),
+    ),
+    "tesis.xlsx": (
+        descripción: [Información de tesis doctorales con sus directores, fechas y estado. Se contempla como insumo futuro para la regla 23 (dedicación a investigación del PDI/PVI).],
+        campos: (
+            per_id_alumno: [Identificador del doctorando.],
+            fecha_inicio_tiempo: [Fecha de inicio del cómputo de tiempo de tesis.],
+            fecha_inicio_tesis: [Fecha de inicio formal de la tesis.],
+            fecha_fin_tiempo: [Fecha de fin del cómputo de tiempo (vacía si en curso).],
+            fecha_lectura_tesis: [Fecha de lectura (vacía si no leída todavía).],
+            per_id_director: [Identificador del director principal.],
+            per_id_tutor: [Identificador del tutor (cuando aplica).],
+            per_id_codirector: [Identificador del codirector (opcional).],
+            per_id_codirector2: [Identificador de un segundo codirector (opcional).],
+            estado: [Estado de la tesis (en curso, leída, abandonada…).],
+        ),
+    ),
+)
+
+#tabula_ficheros_y_campos(ficheros_campos_investigación)
 
 
 == Unidades de coste
@@ -849,7 +955,7 @@ Para poder referirnos a las reglas, usaremos una notación como la de este ejemp
         - en otro caso, la actividad es #etq("act-otro-ejemplo", clave-color: "act").
 ]
 
-Con "Etiquetado de actividades ejemplo" nos referimos al conjunto de reglas. Como hemos dicho, esa regla en realidad se compone de tres reglas. Cada una de ellas sería "Etiquetado de actividades ejemplo (1)", "Etiquetado de actividades ejemplo (2)" y "Etiquetado de actividades ejemplo (3)". Es decir, equivale a
+Con #nombre-regla[Etiquetado de actividades ejemplo] nos referimos al conjunto de reglas. Como hemos dicho, esa regla en realidad se compone de tres reglas. Cada una de ellas sería #nombre-regla[Etiquetado de actividades ejemplo (1)], #nombre-regla[Etiquetado de actividades ejemplo (2)] y #nombre-regla[Etiquetado de actividades ejemplo (3)]. Es decir, equivale a
 
 #reglas[
     - #nombre-regla("Etiquetado de actividades ejemplo (1)")
@@ -871,7 +977,7 @@ Alternativamente, es posible que un subítem tenga un nombre específico:
             en otro caso, la actividad es #etq("act-otro-ejemplo", clave-color: "act").
 ]
 
-En ese caso, la tercera regla se llamaría "Etiquetado de actividades ejemplo. Resto". En cualquier caso, lo importante es que cada regla tenga un nombre que permita identificarla en la #app. De ese modo, cuando se muestre el número de veces que se ha aplicado cada regla, el analista podrá identificarla y, al seleccionar la regla, podrá ver los apuntes a los que se ha aplicado esa regla y las unidades de coste que se han generado a partir de esos apuntes.
+En ese caso, la tercera regla se llamaría #nombre-regla[Etiquetado de actividades ejemplo. Resto]. En cualquier caso, lo importante es que cada regla tenga un nombre que permita identificarla en la #app. De ese modo, cuando se muestre el número de veces que se ha aplicado cada regla, el analista podrá identificarla y, al seleccionar la regla, podrá ver los apuntes a los que se ha aplicado esa regla y las unidades de coste que se han generado a partir de esos apuntes.
 
 
 === Reglas que modifican el mismo árbol del que asignan etiquetas
@@ -889,6 +995,94 @@ He aquí un ejemplo de regla con suma:
 
 
 
+= La aplicación
+
+Todo el proceso (lectura de datos, ejecución de la fase 1, exploración de resultados y revisión de anomalías) se opera desde una única aplicación de escritorio en el navegador, basada en _Streamlit_, a la que en este documento llamamos #app. Lo que sigue describe su organización; las reglas concretas que aplica al ejecutar la fase 1 se detallan en los capítulos siguientes.
+
+== Estructura general
+
+La #app se organiza en un panel lateral con un árbol de navegación y un área principal donde se muestra la vista seleccionada. El árbol tiene seis grupos en su nivel raíz, con sub-secciones dentro:
+
+#align(center, table(
+    columns: 2,
+    align: (left, left),
+    table.header(table.hline(), [*Grupo*], [*Sub-secciones*], table.hline()),
+    [Presupuesto],
+    [Resumen, Unidades de coste, Sin clasificar, Apuntes filtrados, Suministros, Distribución mantenimientos OTOP, Reglas de actividad, Reglas de centro de coste, Reglas de elemento de coste, Árbol: Actividades, Árbol: Centros de coste, Árbol: Elementos de coste],
+    [Amortizaciones], [Resumen, Sin cuenta, Por cuenta, UC generadas, Sin centro],
+    [Personal],
+    [Resumen, Expedientes PDI, Expedientes PTGAS, Expedientes PVI, Expedientes otros, Multiexpediente, Persona, Anomalías PDI],
+    [Regla 23],
+    [Dedicación docente, Docencia no oficial, Estructura estudios, Bolsa de atrasos, Despidos, Indemnizaciones asistencias, Cargos, Expedientes apartados, Asignaturas sin titulación, Anomalías],
+    [Cargos académicos], [Categoría PDI/PVI, Departamentos],
+    [Superficies], [Resumen, Totales, Presencia centros],
+    [Resultados Fase 1], [Resumen, Todas las UC, Actividades, Centros de coste, Elementos de coste, Anomalías UC],
+    table.hline(),
+))
+
+A estos grupos se suma una entrada *Entradas*, generada dinámicamente, que permite inspeccionar cualquiera de los ficheros de #ruta("data/entrada/").
+
+Existe además un botón *Ejecutar Fase 1* en cabecera que dispara el proceso completo (recargando los módulos Python relevantes para que recoja cambios en el código sin reiniciar la #app) y limpia la caché de datos para que las vistas siguientes lean los nuevos parquets.
+
+== Patrón de las vistas
+
+Casi todas las vistas comparten el mismo patrón:
+
++ Una *tabla principal* con un widget de filtro arriba (búsqueda de texto, selector de columna y selector de ordenación). El filtro busca por _substring_, es insensible a tildes y a mayúsculas/minúsculas, y por defecto se aplica sobre todas las columnas; el desplegable de columna permite restringir la búsqueda a una columna concreta. Para evitar discrepancias entre lo que el usuario ve y la fila que se selecciona, la ordenación por cabecera está desactivada (limitación conocida de Streamlit 1.54 al combinar `dataframe` con selección de filas: al reordenar visualmente la tabla, los índices que devuelve la selección no siguen el nuevo orden) y la única forma de ordenar es el desplegable «Ordenar por».
++ Al pinchar una fila se muestra una *ficha de registro* con todos los campos de esa fila desplegados, incluyendo enriquecimientos (p. ej., el nombre de la persona si hay un #campo("per_id")).
++ Cuando aplica, debajo de la ficha aparecen *tablas de detalle* secundarias (apuntes de nómina del expediente, asignaturas con docencia del per_id…) que repiten el mismo patrón filtro → tabla → ficha.
++ Las cifras de importes se muestran siempre en notación europea (1.234,56 €) y, en cabeceras y resúmenes, se incluye el total de las columnas relevantes.
+
+Las tablas se construyen sobre los parquets generados por la fase 1. La #app no recalcula nada al renderizar, sólo lee y filtra.
+
+== Anomalías y depuración
+
+Una preocupación recurrente del proceso es detectar registros que no encajan con las reglas y exponerlos al analista para que los revise. La #app tiene varias vistas dedicadas a esto. Cada vista lee uno (o dos) parquets generados por la fase 1 en #ruta("data", "fase1", "auxiliares") (o el subdirectorio que corresponda) y se construye sobre el patrón habitual «filtro + tabla + ficha». La tabla siguiente recoge el inventario canónico de anomalías:
+
+#table(
+    columns: (1fr, 1.3fr, 1.6fr),
+    align: (left, left, left),
+    table.header(
+        table.hline(),
+        [*Vista*], [*Parquet de origen*], [*Qué contiene y por qué se separa*],
+        table.hline(),
+    ),
+    [Resultados → Anomalías UC],
+    [(ninguno; se calcula al vuelo cruzando los parquets de UC con los árboles finales en #ruta("data", "fase1"))],
+    [UC cuyo #campo("centro_de_coste"), #campo("actividad") o #campo("elemento_de_coste") no aparece como nodo en el árbol final correspondiente. Indica que una regla ha generado un identificador huérfano (typo, nodo eliminado en el árbol, o regla pendiente de añadir el nodo).],
+
+    [Personal → Anomalías PDI],
+    [#ruta("regla_23_asignaturas_sin_titulación.parquet")],
+    [Asignaturas con docencia impartida (créditos > 0) cuya titulación no aparece en ninguno de los catálogos de referencia (grados, másteres oficiales, estudios propios, doctorados, microcredenciales). Origen: el filtro previo a la #nombre-regla[Regla 23] sobre #ruta("pod.xlsx") y los catálogos de titulaciones.],
+
+    [Regla 23 → Anomalías (pestaña «Pod sin titulación efectiva»)],
+    [#ruta("regla_23_anomalías_resolución.parquet")],
+    [Filas de #ruta("pod.xlsx") cuya titulación no se puede resolver de forma efectiva tras aplicar las reglas de desambiguación (incluyendo el pod de másteres). Origen: paso de resolución de titulación efectiva en la #nombre-regla[Regla 23].],
+
+    [Regla 23 → Anomalías (pestaña «Múltiples con grado»)],
+    [#ruta("regla_23_múltiples_con_grado.parquet")],
+    [Asignaturas que aparecen asociadas a varias titulaciones y al menos una de ellas no es máster, contra la regla del catálogo de pod de másteres (que solo desambigua entre másteres). Origen: paso de resolución de titulación efectiva en la #nombre-regla[Regla 23].],
+
+    [Regla 23 → Bolsa de atrasos],
+    [#ruta("regla_23_atrasos.parquet")],
+    [Líneas de nómina PDI/PVI con #campo("concepto_retributivo") = #val("30") o #val("87") (atrasos), o con #campo("atrasos") marcado, que se separan del flujo principal de retribuciones. No son una anomalía estricta, sino registros que se tratan en una vía paralela porque corresponden a ejercicios anteriores.],
+
+    [Regla 23 → Expedientes apartados],
+    [#ruta("regla_23_expedientes_apartados.parquet")],
+    [Expedientes PDI/PVI que, tras separar la bolsa de atrasos, quedan sin ingresos reales en el ejercicio (o solo con atrasos). Se apartan para que no contaminen los cálculos de dedicación e importe del año analizado.],
+
+    table.hline(),
+)
+
+Por convención, cualquier vista de anomalía indica el número de registros afectados y el importe (o créditos) en juego, y permite navegar al detalle de cada caso para depurarlo. Si el parquet correspondiente no existe (porque la fase 1 no detectó ninguna anomalía de ese tipo), la vista muestra un mensaje de éxito en lugar de tabla vacía.
+
+== Resumen final y descargas
+
+La sección *Resultados Fase 1 → Resumen* recoge contadores agregados (UC totales por origen, importes por sector, número de nodos añadidos a cada árbol…). La sub-sección *Todas las UC* permite ver y descargar el conjunto completo de unidades de coste (presupuesto, amortizaciones, suministros y todas las variantes de nómina) tras la fase 1.
+
+Los árboles finales (con los nodos creados dinámicamente por las reglas) se exponen en *Presupuesto → Árbol: …* y se persisten en #ruta("data/fase1/") en formato `.tree` para que la fase 2 los consuma.
+
+
 = Fase 1: Obtención de unidades de coste
 
 En esta fase se generan unidades de coste a partir de datos extraídos de la base de datos corporativa (y, en ocasiones, de otras fuentes, como la lectura de contadores de OTOP o cálculos de distribución de costes por edificios).
@@ -896,7 +1090,7 @@ En esta fase se generan unidades de coste a partir de datos extraídos de la bas
 Esta figura ilustra el proceso que parte de los datos de entrada (carpeta #ruta("data", "entrada"), que tiene carpetas dentro, una por cada grupo de datos hasta llegar a los de salida en la fase 1.
 
 #figure(
-    align(center, fase1-diagrama()),
+    align(center, fase1-diagrama(height: 24cm)),
     caption: [Proceso de Fase 1: ficheros de entrada (izquierda), transformación y salidas (derecha).],
 )
 
@@ -2058,9 +2252,17 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
 
 #reglas[
     - #nombre-regla[Gastos de servicios centrales en mantenimientos, limpieza y seguridad distribuidos por % OTOP]
-        Los gastos del #campo("centro") #val("SC001"),
+        Los apuntes con #campo("centro") = #val("SC001") y #campo("aplicación") en #val("2251") (limpieza), #val("2252") (seguridad), #val("2222") (conservación de construcciones), #val("2223") (conservación de instalaciones) o #val("2225") (conservación de mobiliario) son gastos centrales que la OTOP ya nos da repartidos por zonas, edificios o complejos del campus. No los podemos asignar a un centro de coste único: tienen que diluirse entre los centros que tienen presencia física donde se incurre el gasto.
 
-        - y #campo("aplicación") #val("2251"), #val("2252"), #val("2222"), #val("2223") o #val("2225") generan una unidad de coste para cada centro de coste según la tabla de #val("porcentaje de coste de suministros por centro de coste") y les corresponde el importe que corrresponde según el porcentaje.
+        El reparto se calcula previamente en la etapa de inventario (subapartado «Establecimiento de un porcentaje de distribución de ciertos costes a cada centro de coste») y se materializa en una tabla con esquema (#campo("centro_de_coste"), #campo("porcentaje")) que cubre todos los centros con presencia distinta de cero, sumando 1 (el 100%). Para reproducirla hace falta:
+
+        + Las matrices de presencia de centros de coste en zonas, edificios y complejos, calculadas a partir de #ruta("data", "entrada", "superficies", "ubicaciones.xlsx"), #ruta("data", "entrada", "superficies", "ubicaciones a servicios.xlsx") y #ruta("data", "entrada", "inventario", "servicios.xlsx") según el subapartado «Asignación de metros a cada servicio y porcentaje de presencia de cada centro en cada zona, edificio y complejo». La #emph[presencia] de un centro en una zona se define ahí: m² ocupados por el centro / m² totales de la zona, con redistribución intra-zona de los espacios sin servicio asignado y redistribución global de las zonas que no tienen ningún servicio.
+
+        + El fichero #ruta("data", "entrada", "superficies", "distribución OTOP.xlsx") con filas (#campo("prefijo"), #campo("porcentaje"), #campo("comentario")) que distribuye cada euro de gasto entre prefijos. Cada prefijo identifica un complejo (1 carácter), edificación (2 caracteres) o zona ($\geq$ 3 caracteres). Para cada fila, su porcentaje se reparte entre los centros con presencia en ese nivel proporcionalmente a esa presencia; los porcentajes así obtenidos se acumulan por centro.
+
+        Con esa tabla, cada apunte que cumple la condición #val("SC001") + aplicación se expande en tantas unidades de coste como centros distintos tenga la tabla, con #campo("importe") = importe del apunte $times$ porcentaje del centro (el porcentaje viene normalizado a tanto por uno). La actividad y el elemento de coste de cada UC expandida son los que la regla de actividad y la regla de elemento de coste hayan asignado al apunte original; lo único que cambia entre las UC hermanas es el #campo("centro_de_coste") y la fracción del importe. En el #campo("origen_porción") de cada UC se guarda el porcentaje aplicado, lo que permite recomponer el apunte original sumando las porciones.
+
+        En la #app, el visor del traductor de presupuesto muestra el número de apuntes #val("SC001") detectados, el número de UC en que se han expandido, el importe original y un agregado por centro de coste y elemento de coste para verificación.
 
     - #nombre-regla[Cátedras y aulas de empresa]
         Si #campo("centro") es #val("INVES"), el #campo("proyecto") determina que el centro de coste sea #etqcen("cátedras-investigación") + #campo("proyecto") en estos casos:
@@ -2072,7 +2274,7 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             table.header(table.hline(), campo("proyecto"), [Descripción], table.hline()),
 
             val("1I235"), [CÀTEDRES],
-            val("12I327"), [AJUNTAMENT DE VILA-REAL - CÀTEDRA D'INNOVACIÓ CERÀMICA "CIUTAT DE VILA-REAL"],
+            val("12I327"), [AJUNTAMENT DE VILA-REAL - CÀTEDRA D'INNOVACIÓ CERÀMICA «CIUTAT DE VILA-REAL»],
             val("13I037"), [AULA CERÁMICA - CONVENIO COLABORACIÓN ASCER],
             val("15I116"), [CATEDRA DE MEDIACIÓ POLICIAL - AJUNTAMENT DE VILA-REAL],
             val("15I129"), [CATEDRA FACSA DE INNOVACIÓN EN EL CICLO INTEGRAL DEL AGUA],
@@ -2085,7 +2287,7 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             val("21I242"), [#strong[NO ENCONTRADO]],
             val("21I616"), [CATEDRA DE ACTIVIDAD FISICA Y ONCOLOGIA-FUNDACIÓN JOSÉ SORIANO RAMOS],
             val("21I633"), [CÁTEDRA UBE DE PLÁSTICOS SOSTENIBLES],
-            val("22I070"), [CATEDRA RTVE "CULTURA AUDIOVISUAL Y ALFABETIZACIÓN MEDIÁTICA"],
+            val("22I070"), [CATEDRA RTVE «CULTURA AUDIOVISUAL Y ALFABETIZACIÓN MEDIÁTICA»],
             val("22I242"), [AULA PORCELANOSA DE TALENTO Y EXCELENCIA],
             val("22I248"), [CÁTEDRA BIENVENIDO OLIVER-UJI DE DERECHO REGISTRAL],
             val("22I618"), [AULA D'ARQUEOLOGIA MEDITERRÀNIA-CONVENIO COL·LABORACIÓ AJUNTAMENT BORRIANA],
@@ -2137,8 +2339,8 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             [640], [#etqcen("cent")], [#etqact("dag-cent")],
             [263], [#etqcen("consejo-social")], [#etqact("dag-consejo-social")],
             [2984], [#etqcen("consejo-estudiantes")], [#etqact("dag-consejo-estudiantes")],
-            [1862], [#etqcen("cátedras-investigación-1I201")], [#etqact("otras-ait-financiación-propia-1I201")],
-            [1662], [#etqcen("cátedras-investigación-1I235")], [#etqact("")],
+            [1862], [#etqcen("increa")], [#etqact("dag-innovación-emprendeduría")],
+            [1662], [#etqcen("cátedras-investigación-1I235")], [#etqact("cát-unesco-esclavitudes-afrodescendencia")],
             [4267], [#etqcen("delegado")], [#etqact("dag-delegado")],
             [101], [#etqcen("daem")], [#etqact("dag-daem")],
             [93], [#etqcen("deco")], [#etqact("dag-deco")],
@@ -2265,7 +2467,7 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
         )
 
     - #nombre-regla[Lo que es de INVES debe ir al centro_origen]
-        Si el #campo("centro") es #val("INVES"), el centro de coste es el mismo que el centro de origen.
+        Si el #campo("centro") es #val("INVES"), el centro de coste es el que resulta de aplicar la TABLA-TRADUCCIÓN-DEPARTAMENTOS al #campo("centro_origen") del proyecto (es decir, se traduce el código del centro presupuestario al identificador del centro de coste correspondiente, p. ej. #val("DADEM") → #etqcen("daem"), #val("DFICO") → #etqcen("dfc")).
         #nota[Esto, en un futuro tendrá el grupo de investigación.]
 
     - #nombre-regla[Por centro y subcentro]
@@ -2454,7 +2656,7 @@ El árbol de elementos de coste modificado por las reglas se ha de mostrar en la
 
 #reglas[
     - #nombre-regla[Clasificación por aplicación presupuestaria]
-        La #campo("aplicación") presupuestaria determina el elemento de coste, según la siguiente tabla. (Hay alguna duda con #etqele("arrendamientos-instalaciones") y #etqele("arrendamientos-utillaje"), porque los dos están en #val("2213"). Ídem con conservación.)
+        La #campo("aplicación") presupuestaria determina el elemento de coste, según la tabla que se reproduce a continuación. La fuente de verdad de esta tabla es el fichero #ruta("data", "entrada", "presupuesto", "aplicaciones a elementos de coste.xlsx"): si se quiere reasignar una aplicación o añadir una nueva entrada, se edita ese fichero. Aplicaciones cuyo #campo("elemento_de_coste") esté vacío o valga #val("xxx") se consideran sin asignación por defecto y, en su caso, son las reglas condicionales con nombre las que les dan elemento de coste. (Hay alguna duda con #etqele("arrendamientos-instalaciones") y #etqele("arrendamientos-utillaje"), porque los dos están en #val("2213"). Ídem con conservación.)
 
         #align(center, table(
             columns: 3,
@@ -2897,7 +3099,9 @@ Nótese que se crearán tantas unidades de coste como centros tengan presencia e
 
 Lo mismo hay que hacer con cada línea de #ruta("energía.xlsx"), con cada línea de #ruta("agua.xlsx") (su elemento de costes es #etqele("agua")) y con cada línea de #ruta("gas.xlsx") (su elemento de coste es #etqele("gas")), teniendo en cuenta que el prefijo puede concordar con una zona, un edificio o un complejo, pero no con más de uno, porque si concordara con más de uno, habría que escoger el prefijo más largo.
 
-En la #app debes informar de cuántas unidades de coste se han generado a partir de cada línea de cada uno de los ficheros (energía, agua, gas), y qué importe supone cada una de esas unidades de coste. Además, al final del proceso, se ha de informar del importe total que se ha asignado a cada centro de coste por cada uno de los suministros (energía, agua y gas), comprobando que la suma de las unidades generadas coincide con el importe total de cada uno de los suministros.
+Si un prefijo de la fila no encaja con ninguna zona, edificio ni complejo (por ejemplo, #val("EE0"), porque la zona ya no existe en superficies), esa línea se ignora: no genera ninguna unidad de coste y su importe queda fuera del reparto. La #app reporta la lista de prefijos sin match y el importe agregado correspondiente para que pueda revisarse y, en su caso, corregirse en el siguiente ejercicio (añadiendo la zona o ajustando el prefijo en el fichero de suministro).
+
+En la #app debes informar de cuántas unidades de coste se han generado a partir de cada línea de cada uno de los ficheros (energía, agua, gas), y qué importe supone cada una de esas unidades de coste. Además, al final del proceso, se ha de informar del importe total que se ha asignado a cada centro de coste por cada uno de los suministros (energía, agua y gas), comprobando que la suma de las unidades generadas (más los descartes por prefijo sin match) coincide con el importe total de cada uno de los suministros.
 
 
 
@@ -2916,10 +3120,10 @@ Lo primero que se hace es descartar línea del inventario aplicando estas reglas
 
 #reglas[
     - #nombre-regla[Supresión de elementos de baja]
-        Se descartan las líneas con #campo("estado") = #val("B") (baja).
+        El campo #campo("estado") puede tomar los valores #val("A") (activo), #val("B") (baja), #val("M") y #val("O"). Solo se descartan las líneas con #campo("estado") = #val("B"); cualquier otro valor (incluidos #val("M") y #val("O")) se mantiene.
 
     - #nombre-regla[Supresión por cuentas contables]
-        Solo han de pasar el filtro las cuentas contables que empiecen por uno de estos prefijos de 3 dígitos: #val("202"), #val("203"), #val("204"), #val("205"), #val("206"), #val("211"), #val("214"), #val("215"), #val("216"), #val("217"), #val("218").
+        Solo han de pasar el filtro las cuentas contables que empiecen por uno de estos prefijos de 3 dígitos: #val("202"), #val("203"), #val("204"), #val("205"), #val("206"), #val("211"), #val("214"), #val("215"), #val("216"), #val("217"), #val("218"). Cualquier otra cuenta (#val("231x"), #val("28xx"), #val("29xx"), etc.) queda fuera y se descarta. La lista en negativo se obtiene por complemento; en la #app puede consultarse el detalle de cuentas filtradas con su número de líneas e importe agregado, lo que permite revisar si alguna cuenta debería haber sido aceptada.
 
     - #nombre-regla[Supresión por falta de información del alta]
         Primero hay que eliminar la filas que no tienen #campo("fecha de alta").
@@ -3153,6 +3357,12 @@ La unidad de coste se forma con:
 
 En la #app informa de cuántos casos han quedado sin poder cumplimentar.
 
+==== Reparto cuando un bien tiene presencia en varios centros
+
+Un mismo bien de inventario puede aparecer asociado a varias ubicaciones (porque la base de datos refleja el reparto físico real: un equipo informático compartido, mobiliario en una sala mancomunada, etc.) y, por tanto, a varios centros de coste. En ese caso, en lugar de generar una única unidad de coste, se generan tantas unidades de coste como centros distintos haya, repartiendo el #campo("importe") amortizado a partes iguales entre ellas.
+
+Cada una de las unidades generadas comparte el mismo #campo("origen_id") (el identificador del bien en el inventario) y lleva un #campo("origen_porción") = #val("1/n"), donde #val("n") es el número de centros distintos asociados al bien. Esto permite reconstruir, si hace falta, el coste total del bien sumando las porciones; y deja claro en el visor por qué un mismo identificador de inventario aparece varias veces en las unidades de coste de amortizaciones. La #app informa del número de bienes con presencia en más de un centro.
+
 
 == Generación de unidades de coste calculadas a partir de actividades con cargos
 
@@ -3160,6 +3370,11 @@ En la #app informa de cuántos casos han quedado sin poder cumplimentar.
     align(center, etapa-cargos()),
     caption: [Etapa de cargos académicos: ficheros de entrada y salidas que produce.],
 )
+
+Esta etapa cubre las unidades de coste asociadas a personas que ocupan _cargos académicos_ (dirección de departamento, vicerrectorados, decanatos, etc.). En la #app, todo lo que aquí se describe vive bajo el menú raíz «Cargos académicos», con dos sub-secciones:
+
+- *Categoría PDI/PVI*: visualiza el cálculo previo (descrito a continuación, antes de la sub-sección «Departamentos») que asocia cada persona con su categoría última de PDI/PVI. Se materializa en #ruta("data", "fase1", "auxiliares", "categoría_última_pdi_pvi.parquet").
+- *Departamentos*: visualiza el resultado de la sub-sección #emph[Departamentos] de abajo, listando los cargos que tiene cada departamento y la categoría de cada persona. Se materializa en #ruta("data", "fase1", "auxiliares", "cargos_departamentos.parquet").
 
 #nota[Pendiente: construir tabla con relación de titulaciones y otras actividades. De momento solo tenemos departamentos.]
 
@@ -3361,13 +3576,17 @@ Para determinar el valor de `YYY`:
 #reglas[
     - Hay que mirar el campo #campo("concepto_retributivo") del registro y usar la tabla que hemos definido antes para determinar la etiqueta del elemento de coste a partir del concepto retributivo. Por ejemplo, si el concepto retributivo es #val("01"), el valor de `YYY` es #val("sueldo"). Si el concepto retributivo es #val("03"), el valor de `YYY` es #val("trienios"). Y así sucesivamente.
 
-    Cuando generas un etiqueta `ZZZ-XXX-YYY` has de comprobar que existe en el árbol de elementos de coste. Si no existe, has de dar un error.
+    Si el #campo("concepto_retributivo") del registro no aparece en la tabla, o si el #campo("categoría") del registro no permite resolver `XXX` con las reglas previas, el registro se descarta de la generación de UC y se reporta como aviso en la #app (con el número de registros e importe agregado), para que el analista pueda decidir si la tabla debe ampliarse. Es decir, la falta de entrada en la tabla no detiene el proceso, pero queda explícitamente registrada en lugar de propagarse silenciosamente.
+
+    Cuando generas un etiqueta `ZZZ-XXX-YYY` has de comprobar que existe en el árbol de elementos de coste. Si no existe (por ejemplo, porque combinaciones perfectamente válidas en aislado dan una etiqueta no contemplada en el árbol), has de dar un error que sí detenga el proceso, porque señala una incoherencia entre las reglas y el árbol de elementos de coste que requiere intervención antes de continuar.
 
     Para cada par elemento-servicio, tomamos sus registros de #campo("retribuciones ordinarias") y hacemos la suma, porque de cada par elemento-servicio, para ese expediente, vamos a crear una unidad de coste.
 
-    A continuación, tenemos que mapear cada servicio al centro de coste que le corresponde, y asignar el elemento de coste #etqele("retribuciones-ordinarias") y la actividad #etqact("dag-general-universidad").
+    A continuación, mapeamos cada servicio al centro de coste y a la actividad que le corresponden usando la tabla de la regla #nombre-regla[Por servicio existe servicio y el proyecto uno de la línea] (en la sección «Preparación de un módulo para clasificar centros de coste»). Esa tabla da, para cada #campo("servicio"), un par (#campo("centro_de_coste"), #campo("actividad")) que es la asignación más precisa que tenemos. Si para algún servicio la actividad de la tabla está vacía o no hay entrada en la tabla, se usa #etqact("dag-general-universidad") como atrapalotodo (es decir, el «sitio donde aparcar» el coste cuando no se ha conseguido mayor precisión).
 
-    El importe de la unidad de coste que hemos creado con ese elemento de coste, centro de coste y actividad es el importe total de las retribuciones ordinarias del servicio.
+    Caso especial: para el servicio #val("368") (personal de suport, conserjerías), la tabla anterior no es suficiente porque el coste se imputa físicamente al centro donde la persona presta el servicio, no al servicio nominal. En ese caso se usa el #campo("centro_plaza") del registro de nómina y una tabla análoga (TABLA-CENTROPLAZA→CC) que mapea cada #campo("centro_plaza") a su par (CC, actividad). Si ahí tampoco hay entrada, se aplica también #etqact("dag-general-universidad").
+
+    El importe de la unidad de coste creada es el importe total de las retribuciones ordinarias del par elemento-servicio (o elemento-centro_plaza para el servicio #val("368"))).
 
 
     - La actividad se ha de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
@@ -3379,7 +3598,7 @@ Para determinar el valor de `YYY`:
 
 El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»).
 
-Vamos a generar unidades de costes con sus tres coordenadas: elemento de coste, centro de coste y actividad. Primero habrá unas unidades (de poco importe normalmente) que irán a unidades completamente definidas y luego nos quedara una masa económica normalmente grande que irá a unas reglas de reparto complejas: lo que denominamos "regla 23".
+Vamos a generar unidades de costes con sus tres coordenadas: elemento de coste, centro de coste y actividad. Primero habrá unas unidades (de poco importe normalmente) que irán a unidades completamente definidas y luego nos quedara una masa económica normalmente grande que irá a unas reglas de reparto complejas: lo que denominamos #nombre-regla[Regla 23].
 
 ==== Tratamiento de atrasos
 
@@ -3395,11 +3614,32 @@ Si el #campo("proyecto") es #val("23G019"), la actividad es #val("otras-ait-fina
 
 ==== Tratamiento de indemnizaciones por asistencias (tribunales y otros)
 
-Cuando el #campo("concepto_retributivo") es #val("48"), estamos antes indemnizaciones por asistencias a tribunales y simialres. Estas indemnizaciones se van a la elemento de #val("otras-indemnizaciones"). #nota[Podemos refinar esto en función de la figura.]
+Cuando el #campo("concepto_retributivo") es #val("48"), estamos antes indemnizaciones por asistencias a tribunales y similares. Estas indemnizaciones se van a la elemento de #val("otras-indemnizaciones"). #nota[Podemos refinar esto en función de la figura.]
 
 ==== Tratamiento de los cargos que se pueden asociar a un proyecto específico
 
-Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics (Docents)) o es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), y los proyectos seas distintos de #val("23G019"), #val("00000"), #val("1G019"), #val("02G041"), #val("1G046"), #val("11G006"), #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003") estamos ante el ejercicio de «cargos» que se pueden asociar a un proyecto específico. Son coste del proyecto, sin más.
+Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics (Docents)) o es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), y el #campo("proyecto") no está en TABLA-PROYECTOS-GENERALES, estamos ante el ejercicio de «cargos» que se pueden asociar a un proyecto específico. Son coste del proyecto, sin más.
+
+La TABLA-PROYECTOS-GENERALES recoge los proyectos que, a efectos de esta regla, NO se consideran «proyecto específico» (son proyectos de carácter general donde el complemento por cargo no debe imputarse al proyecto, sino tratarse como retribución ordinaria):
+
+#align(center, table(
+    columns: 1,
+    align: left,
+    table.header(table.hline(), [#campo("proyecto")], table.hline()),
+    val("23G019"),
+    val("00000"),
+    val("1G019"),
+    val("02G041"),
+    val("1G046"),
+    val("11G006"),
+    val("07G011"),
+    val("1I235"),
+    val("22G010"),
+    val("11G003"),
+    table.hline(),
+))
+
+En el código, la constante análoga es `_PROYECTOS_GENERALES` en #ruta("coana/fase1/nóminas/regla_23.py").
 
 El centro de coste y la actividad de estos cargos se va a determinar con los módulos que hemos usado en presupuesto y nóminas para decidir estos valores. #nota[Podemos refinar esto en función de la figura.]
 
@@ -3415,7 +3655,7 @@ La generación de elementos de coste para PVI y PDI sigue la misma estructura `Z
 
 Lo primero es asociar a cada expediente una dedicación a diferentes palos. #nota[Vamos a empezar con los asociados (PAA y PAL) porque tienen un tratamiento singular para lo que no es docencia y su regla 23 es más sencilla.]
 
-Para cada expediente se va a construir una serie de diccionarios de actividades (no en el sentido de la analítica, sino en uno pragmático: por ejemplo, 5 créditos en la actividad titulación "tal"). Esos diccionarios servirán para hacer una serie de cálculos que se acaban traduciendo en horas. Y con esas horas vamos a tener porcentajes de distribución de su masa salarial indiferenciada a actividades y centro de la contabilidad analítica.
+Para cada expediente se va a construir una serie de diccionarios de actividades (no en el sentido de la analítica, sino en uno pragmático: por ejemplo, 5 créditos en la actividad titulación _tal_). Esos diccionarios servirán para hacer una serie de cálculos que se acaban traduciendo en horas. Y con esas horas vamos a tener porcentajes de distribución de su masa salarial indiferenciada a actividades y centro de la contabilidad analítica.
 
 Nos vamos a centrar en esos diccionarios que son heterogéneos en origen por sus unidades (créditos, proyectos final de grado dirigidos, tesis dirigidas, proyectos de investigación en los que se participa...). Es información instrumental para la dedicación en horas, pero es importante que esté bien calculada y la vamos a querer visulizar en la app frecuentemente.
 
@@ -3429,7 +3669,7 @@ Filtro previo. Al cargar #ruta("entrada", "docencia", "pod.xlsx"), las asignatur
 
 ===== Información de dedicación a titulaciones segun POD
 
-A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia. Si la asignatura tiene más de una titulación asociada, para averiguar la titulación efectiva, dejamos de buscar en #ruta("entrada", "docencia", "pod.xlsx") y consideramos #ruta("entrada", "docencia", "pod másteres.xlsx"). Todas las titulaciones vinculadas a esa asignatura "múltiple" deben ser másteres; en caso contrario, marca un error.
+A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia. Si la asignatura tiene más de una titulación asociada, para averiguar la titulación efectiva, dejamos de buscar en #ruta("entrada", "docencia", "pod.xlsx") y consideramos #ruta("entrada", "docencia", "pod másteres.xlsx"). Todas las titulaciones vinculadas a esa asignatura _múltiple_ deben ser másteres; en caso contrario, marca un error.
 
 De cada asignatura nos interesa cuántos créditos imparte el profesor (columna `créditos_impartidos`). Anotemos esa información en un diccionario de la forma `{asignatura: créditos impartidos}`. Asegúrate de que la suma de créditos de ese diccionario coincide con el total de créditos impartidos por ese profesor según #ruta("entrada", "docencia", "pod.xlsx"), para detectar posibles errores en la asignación de créditos a asignaturas.
 
@@ -3461,7 +3701,7 @@ En la #app se ha de mostrar también esta información, para tenerla controlada 
 #nota[Cuidado que podemos duplicar dedicación al tener en los dos diccionarios las mismas horas (en un caso créitos, en el otro horas) para la misma titulación/proyecto.]
 
 
-// Las titulaciones y estudios que tengan 0 créditos activos en el año que estamos considerando, se muestran una hoja aparte, pero su código y nombre no lían las páginas útiles con información que sirve para la analítica.
+// Las titulaciones y estudios sin créditos activos en el año analizado se muestran en una hoja aparte, de modo que su código y nombre no contaminen las páginas con la información que sí sirve para la analítica.
 
 // Si la asignatura está en la tabla #ruta("asignaturas grados") (columna  #campo("asignatura")) podemos averiguar su nombre ( #campo("nombre")) y el grado al que pertenece ( #campo("grado")). Para saber la titulación hay que ir a la tabla #ruta("grados") y ver si ese código tiene un valor en la columna  #campo("grado"). Si es así, la columna  #campo("estudio") nos da otro número. ¡Es número conduce, por fin, a la titulación con la columna  #campo("estudio") de la tabla  #campo("estudio"): es el que dice su columna  #campo("nombre").
 
@@ -3487,10 +3727,17 @@ Ahora interesa considerar a cada persona tomando en cuenta todos los expedientes
 
 Creamos una lista con todas las unidades de coste que se han asociado a algún expediente de la persona (vengan de nómina o de presupuesto). Clasificamos cada unidad de coste por su actividad y centro de coste. Con eso sabemos que retribuciones ha tenido cada par (actividad, centro de coste) y qué porcentaje suponen estas sobre el total percibido en el año. Para cada par (actividad, centro de coste) se crea una unidad de coste con su porcentaje de seguridad social. De este modo, se reparte la seguridad social entre las actividades y centros de coste a los que ha estado asociado cada persona a lo largo del año, teniendo en cuenta todos sus expedientes.
 
-Para estas unidades de coste pondremos como `id` de la unidad de coste un un código seriado de la forma `SS-XXX`, donde `XXX` es un número que se va incrementando a medida que se van creando unidades de coste de seguridad social. El elemento de coste depende del sector del expediente principal de la persona:
-- `ss-ptgas` para el sector PTGAS
-- `ss-pdi-func` para el sector PDI #nota[REVISAR porque se distingue funcionario y laboral, y aún hemos de ver el tema de la previsión.]
-- `ss-pvi-otpersonal` para el sector PVI
+==== Sector principal de la persona
+
+Para asignar el elemento de coste de la SS necesitamos un sector único por persona, aunque la persona tenga varios expedientes en sectores distintos. Lo elegimos con la siguiente prelación, descendente: #val("PTGAS") > #val("PVI") > #val("PDI") > #val("Otros"). Es decir, si la persona tiene al menos un expediente PTGAS, su sector principal es PTGAS aunque también tenga otros; si no tiene PTGAS pero sí PVI, su sector principal es PVI; y así sucesivamente. La justificación es que PTGAS, cuando coexiste con docencia o investigación, suele ser la dedicación dominante en cuanto a peso retributivo.
+
+==== Construcción de las UC de SS
+
+Para estas unidades de coste pondremos como #campo("id") un código seriado de la forma `SS-NNNNN`, donde `NNNNN` es un entero de 5 dígitos con ceros a la izquierda que se va incrementando a medida que se crean UC de seguridad social (`SS-00001`, `SS-00002`, …). El elemento de coste depende del sector principal de la persona (calculado con la prelación anterior):
+
+- #etqele("ss-ptgas") para el sector PTGAS
+- #etqele("ss-pdi-func") para el sector PDI #nota[REVISAR porque se distingue funcionario y laboral, y aún hemos de ver el tema de la previsión.]
+- #etqele("ss-pvi-otpersonal") para el sector PVI
 
 Quiero que la #app permita, en un menú llamado Persona, elegir una persona (de las que han tenido al menos un expediente vivo en el año) y me muestre toda esta información. En esa ficha, al mostrar el detalle de unidades de coste se verán todas las asociadas a esa persona: las retributivas y las de costes sociales. De cada una de esas unidades quiero ver toda la información asociada y al pinchar en una, su detalle máximo. Ojo, las unidades de coste que se visualizan son:
 - todas las que ya había por nóminas o presupuesto vinculadas a algún expediente de la persona (y pueden ser muchas)
@@ -3506,3 +3753,121 @@ En la #app, ha de haber un desplegable «Resultados» con las siguientes entrada
 - Elementos de coste: lo mismo, pero con elementos de coste.
 
 Al pinchar en una actividad, se verán las unidades de coste de cada tipo que se le han asignado en una tabla adicional.
+
+
+= Apéndice: artefactos generados por la fase 1
+
+Este apéndice cataloga todos los ficheros que la fase 1 escribe en #ruta("data", "fase1"). Para cada uno se indica una descripción de su contenido y los ficheros de entrada (de #ruta("data", "entrada")), reglas y otros artefactos previos de los que depende, de modo que pueda reconstruirse el grafo de dependencias sin leer el código.
+
+Convenciones del apéndice:
+- Las rutas son relativas a #ruta("data", "fase1") salvo cuando se citen explícitamente entradas de #ruta("data", "entrada").
+- Cuando un artefacto solo se genera si hay datos que lo justifiquen (por ejemplo, anomalías), se indica de forma explícita.
+- Las referencias a secciones (§) apuntan a la spec donde están las reglas que producen el artefacto.
+
+== Presupuesto
+
+/ #ruta("uc presupuesto.parquet"): unidades de coste generadas por el traductor de presupuesto, una por apunte clasificado (más expansiones de suministros distribuidos #val("SC001")). Producido a partir de #ruta("data", "entrada", "presupuesto", "apuntes presupuesto de gasto.xlsx") y los ficheros de catálogo asociados (centros, subcentros, proyectos, subproyectos, líneas de financiación, programas, aplicaciones, capítulos, artículos, conceptos, tipos de proyecto, tipos de línea), aplicando el filtro previo de §«Generación de UC a partir de presupuesto», las reglas de centro de coste, elemento de coste y actividad, y la traducción aplicación → elemento de coste de #ruta("data", "entrada", "presupuesto", "aplicaciones a elementos de coste.xlsx"). El reparto de los apuntes con #campo("centro") = #val("SC001") usa la matriz de #ruta("auxiliares", "amortizaciones", "inventario_enriquecido.parquet") (vía #emph[distribución de costes OTOP]).
+
+/ #ruta("presupuesto sin uc.parquet"): apuntes presupuestarios que sobreviven al filtro previo pero no encajan con ninguna regla de actividad. Producido a partir de los apuntes filtrados.
+
+/ #ruta("auxiliares", "filtrados_presupuesto.parquet"): apuntes descartados por el filtro previo, con la regla concreta que los descarta. Producido a partir de los apuntes y las reglas de §«Filtro previo».
+
+/ #ruta("auxiliares", "sin_clasificar_presupuesto.parquet"): apuntes que pasaron el filtro pero no obtuvieron actividad (subconjunto enriquecido de #ruta("presupuesto sin uc.parquet"), con #campo("tipo_proyecto") añadido).
+
+/ #ruta("auxiliares", "conteo_reglas_presupuesto.parquet"): conteo (n filas e importe) de cuántas veces se aplicó cada regla con nombre del traductor. Producido durante la traducción.
+
+/ #ruta("auxiliares", "conteo_cc_presupuesto.parquet"): conteo (n filas e importe) por regla de centro de coste.
+
+/ #ruta("auxiliares", "conteo_ec_presupuesto.parquet"): conteo (n filas e importe) por regla de elemento de coste.
+
+/ #ruta("auxiliares", "resumen.json"): contadores agregados de la fase 1 (nº de UC y de filtrados por etapa, nº de nodos antes/después en cada árbol). Se reescribe al final con todas las cifras consolidadas.
+
+== Inventario y amortizaciones
+
+/ #ruta("auxiliares", "amortizaciones", "inventario_enriquecido.parquet"): registros de inventario que pasan los filtros previos, enriquecidos con #campo("años_amortización"), #campo("días_en_año") e #campo("importe") amortizado en el año. Es la tabla maestra que alimenta tanto las UC de amortizaciones como el reparto de suministros distribuidos. Producido a partir de #ruta("data", "entrada", "inventario", "inventario.xlsx") y #ruta("data", "entrada", "inventario", "años amortización por cuenta.xlsx"), aplicando las reglas de §«Cálculo del importe de amortización en el año analizado y reglas de filtrado».
+
+/ #ruta("auxiliares", "amortizaciones", "filtrados_estado.parquet"): registros descartados por #campo("estado") = #val("B"). Origen: regla #nombre-regla[Supresión de elementos de baja].
+
+/ #ruta("auxiliares", "amortizaciones", "sin_cuenta.parquet"): registros descartados por no tener #campo("cuenta"). Origen: regla #nombre-regla[Supresión por falta de cuenta contable].
+
+/ #ruta("auxiliares", "amortizaciones", "filtrados_cuenta.parquet"): registros descartados por #campo("cuenta") con prefijo no aceptado. Origen: regla #nombre-regla[Supresión por cuentas contables].
+
+/ #ruta("auxiliares", "amortizaciones", "detalle_cuentas_filtradas.parquet"): resumen agregado (n y valor inicial) por #campo("cuenta") de los registros descartados por prefijo. Producido a partir del anterior.
+
+/ #ruta("auxiliares", "amortizaciones", "sin_fecha_alta.parquet"): registros sin #campo("fecha_alta"). Origen: regla #nombre-regla[Supresión por falta de información del alta].
+
+/ #ruta("auxiliares", "amortizaciones", "filtrados_fecha.parquet"): registros con #campo("importe") = 0 o #campo("días_en_año") = 0 tras el enriquecimiento. Origen: regla #nombre-regla[Supresión de elementos que no se amortizan en el año].
+
+/ #ruta("uc amortizaciones.parquet"): UC generadas a partir de los registros de inventario enriquecidos, asignando #campo("centro_de_coste") por #campo("id_ubicación") (con reparto a partes iguales si hay varios) o por reglas sobre #campo("descripción"). Producido a partir de #ruta("auxiliares", "amortizaciones", "inventario_enriquecido.parquet") y las reglas de §«Reglas para generar unidades de coste a partir de amortizaciones».
+
+/ #ruta("auxiliares", "amortizaciones", "sin_uc.parquet"): registros enriquecidos que no recibieron #campo("centro_de_coste") (ni por ubicación ni por descripción). Producido a partir del enriquecido.
+
+== Suministros (energía, agua, gas)
+
+/ #ruta("uc suministros.parquet"): UC generadas por el reparto de gasto de energía, agua y gas según presencia de cada centro de coste en el complejo, edificio o zona. Producido a partir de #ruta("data", "entrada", "consumos", "energía.xlsx"), #ruta("data", "entrada", "consumos", "agua.xlsx") y #ruta("data", "entrada", "consumos", "gas.xlsx"), y las matrices de presencia derivadas de #ruta("data", "entrada", "superficies", "ubicaciones.xlsx") y #ruta("data", "entrada", "superficies", "ubicaciones a servicios.xlsx") según §«Asignación de metros a cada servicio». Las filas con prefijo sin match se descartan y se reportan en la #app.
+
+== Nóminas: preprocesamiento
+
+/ #ruta("auxiliares", "nóminas", "PDI.parquet"), #ruta("auxiliares", "nóminas", "PVI.parquet"), #ruta("auxiliares", "nóminas", "PTGAS.parquet"), #ruta("auxiliares", "nóminas", "Otros.parquet"): expedientes clasificados por sector tras el preprocesamiento de #ruta("data", "entrada", "nómina", "nóminas y seguridad social.xlsx"), con sus líneas y métricas agregadas. Origen: §«Preprocesamiento nóminas».
+
+/ #ruta("auxiliares", "nóminas", "multiexpediente.parquet"): personas con expedientes en sectores distintos en el mismo año. Producido a partir de los cuatro parquets sectoriales.
+
+/ #ruta("auxiliares", "nóminas", "multiexpediente_actividad.parquet"): información de actividad sobreescrita para esas personas (asignada al expediente principal).
+
+== Nóminas: UC retributivas
+
+/ #ruta("auxiliares", "nóminas", "uc_ptgas.parquet"): UC retributivas ordinarias del sector PTGAS, una por par #campo("elemento_de_coste") + servicio. Producido a partir de #ruta("auxiliares", "nóminas", "PTGAS.parquet") y las reglas de §«Tratamiento del PTGAS».
+
+/ #ruta("auxiliares", "nóminas", "uc_pvi.parquet"): UC retributivas del sector PVI tras la #nombre-regla[Regla 23] de PVI. Producido a partir de #ruta("auxiliares", "nóminas", "PVI.parquet"), de los diccionarios de dedicación de la #nombre-regla[Regla 23] y de las reglas de §«Tratamiento del PVI y del PDI».
+
+/ #ruta("auxiliares", "nóminas", "uc_pdi.parquet"): UC retributivas del sector PDI tras la #nombre-regla[Regla 23] de PDI. Mismo origen que el anterior, con la rama PDI.
+
+/ #ruta("auxiliares", "nóminas", "uc_despidos.parquet"): UC de PDI/PVI por #campo("concepto_retributivo") de despido (categoría especial fuera de regla 23). Origen: §«Despidos».
+
+/ #ruta("auxiliares", "nóminas", "uc_indemnizaciones_asistencias.parquet"): UC de PDI/PVI por #campo("concepto_retributivo") de indemnización por asistencias a tribunales y similares. Origen: §«Indemnizaciones por asistencias».
+
+/ #ruta("auxiliares", "nóminas", "uc_cargos.parquet"): UC de PDI/PVI por #campo("concepto_retributivo") = #val("19") o #val("64") con proyecto identificado (cargos en proyectos específicos). Origen: §«Cargos académicos en proyectos».
+
+/ #ruta("auxiliares", "nóminas", "uc_presupuesto_en_nóminas.parquet"): UC PTGAS «extra» de personas multiexpediente cuyo expediente principal está en otro sector (se reasignan al sector mayoritario en multiexpediente).
+
+== Regla 23 (dedicación e información instrumental)
+
+/ #ruta("auxiliares", "nóminas", "regla_23_dedicación_docente.parquet"): por expediente, dedicación en créditos a las distintas asignaturas del #ruta("data", "entrada", "docencia", "pod.xlsx"). Origen: §«Construcción del diccionario de registro de actividades reales».
+
+/ #ruta("auxiliares", "nóminas", "regla_23_pod_resuelto.parquet"): pod con titulación efectiva resuelta (incluyendo desambiguación con #ruta("data", "entrada", "docencia", "pod másteres.xlsx")). Producido a partir de #ruta("data", "entrada", "docencia", "pod.xlsx") y los catálogos de titulaciones (grados, másteres, estudios propios, doctorados, microcredenciales).
+
+/ #ruta("auxiliares", "nóminas", "regla_23_dedicación_titulaciones.parquet"): por expediente y titulación, créditos impartidos. Producido a partir del pod resuelto.
+
+/ #ruta("auxiliares", "nóminas", "regla_23_dedicación_estudios.parquet"): por expediente y estudio, créditos impartidos (los estudios agrupan titulaciones equivalentes a través de varias ediciones). Producido a partir de la dedicación por titulaciones y del catálogo de estudios.
+
+/ #ruta("auxiliares", "nóminas", "regla_23_estructura_estudios.parquet"): catálogo de titulaciones del año con créditos impartidos (activas o no). Origen: §«Información de dedicación a titulaciones».
+
+/ #ruta("auxiliares", "nóminas", "regla_23_horas_no_oficiales.parquet"): horas dedicadas a estudios propios, microcredenciales, doctorado, etc. (todo lo que no se imputa a titulaciones oficiales). Origen: §«Horas no oficiales».
+
+/ #ruta("auxiliares", "nóminas", "regla_23_atrasos.parquet"): líneas de PDI/PVI con #campo("concepto_retributivo") = #val("30") o #val("87") (atrasos), apartadas del reparto de la regla 23 del año. Solo se genera si hay atrasos. Origen: §«Tratamiento de atrasos».
+
+/ #ruta("auxiliares", "nóminas", "regla_23_expedientes_apartados.parquet"): expedientes que tras separar atrasos quedan sin ingresos reales en el año. Solo se genera si hay expedientes apartados.
+
+/ #ruta("auxiliares", "nóminas", "regla_23_asignaturas_sin_titulación.parquet"): asignaturas con créditos impartidos cuya titulación no está en ningún catálogo. Solo se genera si hay anomalías. Origen: §«Anomalías y depuración».
+
+/ #ruta("auxiliares", "nóminas", "regla_23_anomalías_resolución.parquet"): filas de pod sin titulación efectiva resoluble. Solo se genera si hay anomalías.
+
+/ #ruta("auxiliares", "nóminas", "regla_23_múltiples_con_grado.parquet"): asignaturas con varias titulaciones donde alguna no es máster (incumple la regla del catálogo de pod de másteres). Solo se genera si hay anomalías.
+
+== Cargos académicos
+
+/ #ruta("auxiliares", "categoría_última_pdi_pvi.parquet"): por #campo("per_id"), categoría de PDI/PVI tras el último cobro por #campo("concepto_retributivo") = #val("19") o #val("64"). Producido a partir de #ruta("data", "entrada", "nómina", "nóminas y seguridad social.xlsx"). Origen: §«Generación de UC calculadas a partir de actividades con cargos».
+
+/ #ruta("auxiliares", "cargos_departamentos.parquet"): cargos académicos asociados a cada departamento (filtrados por #campo("cuantía") > 0 y al menos un día activo en el año). Producido a partir de #ruta("data", "entrada", "personas cargos.xlsx"), #ruta("data", "entrada", "cargos.xlsx"), de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS, de #ruta("data", "entrada", "inventario", "servicios.xlsx") y de #ruta("auxiliares", "categoría_última_pdi_pvi.parquet").
+
+== Seguridad social
+
+/ #ruta("auxiliares", "nóminas", "persona_uc.parquet"): consolidado por persona de todas las UC retributivas (de nómina y de presupuesto vinculadas a un expediente suyo) con #campo("actividad") y #campo("centro_de_coste"). Es el insumo del reparto de SS. Producido a partir de los parquets de UC de nóminas y de #ruta("uc presupuesto.parquet") cuando cita un expediente.
+
+/ #ruta("auxiliares", "nóminas", "persona_ss.parquet"): UC de seguridad social, una por persona y par (#campo("actividad"), #campo("centro_de_coste")). Producido a partir del anterior, repartiendo proporcionalmente los costes de SS. Origen: §«Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social».
+
+== Resultados consolidados
+
+/ #ruta("unidades de coste.xlsx"): fichero único Excel con todas las UC de la fase 1 (presupuesto, suministros, amortizaciones, nóminas en todas sus variantes, cargos, SS). Es la salida principal que consume la fase 2.
+
+/ #ruta("actividades.tree"), #ruta("centros de coste.tree"), #ruta("elementos de coste.tree"): árboles finales tras aplicar las reglas que añaden nodos dinámicos (cátedras por proyecto, departamentos en categorías PDI/PVI, etc.). Se persisten para que la fase 2 los consuma con la misma estructura que la fase 1.

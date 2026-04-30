@@ -304,10 +304,10 @@ def _generar_uc_ptgas(
             filas = []
             for row in agrup.iter_rows(named=True):
                 srv_key = str(row["servicio"])
-                mapping = _SERVICIO_CC.get(srv_key)
-                if mapping is None or row["_centro_de_coste"] is None:
+                if row["_centro_de_coste"] is None:
                     continue
-                _, act = mapping
+                mapping = _SERVICIO_CC.get(srv_key)
+                act = mapping[1] if mapping and mapping[1] else "dag-general-universidad"
                 filas.append({
                     "id": _next_id(),
                     "expediente": row["expediente"],
@@ -330,10 +330,10 @@ def _generar_uc_ptgas(
             filas_368 = []
             for row in agrup_368.iter_rows(named=True):
                 cp_key = str(row["centro_plaza"])
-                mapping = _CENTRO_PLAZA_CC.get(cp_key)
-                if mapping is None or row["_centro_de_coste"] is None:
+                if row["_centro_de_coste"] is None:
                     continue
-                _, act = mapping
+                mapping = _CENTRO_PLAZA_CC.get(cp_key)
+                act = mapping[1] if mapping and mapping[1] else "dag-general-universidad"
                 filas_368.append({
                     "id": _next_id(),
                     "expediente": row["expediente"],
@@ -400,9 +400,9 @@ def _generar_uc_pdi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
     # Excluir conceptos que se tratan aparte como UC definidas:
     # 47 = despidos, 48 = indemnizaciones por asistencia, y 19/64 sólo
     # cuando el proyecto es específico (no general).
-    from coana.fase1.nóminas.regla_23 import _PROYECTOS_EXCLUIDOS_CARGOS
+    from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
     cr = pl.col("concepto_retributivo").cast(pl.Utf8)
-    es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_EXCLUIDOS_CARGOS))
+    es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_GENERALES))
     es_uc_definida = (
         cr.is_in(["47", "48"])
         | (cr.is_in(["19", "64"]) & ~es_proy_gen)
@@ -480,9 +480,9 @@ def _generar_uc_pvi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
 
     # Retribuciones = todo menos SS; se excluyen conceptos que son UC definidas.
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    from coana.fase1.nóminas.regla_23 import _PROYECTOS_EXCLUIDOS_CARGOS
+    from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
     cr = pl.col("concepto_retributivo").cast(pl.Utf8)
-    es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_EXCLUIDOS_CARGOS))
+    es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_GENERALES))
     es_uc_definida = (
         cr.is_in(["47", "48"])
         | (cr.is_in(["19", "64"]) & ~es_proy_gen)

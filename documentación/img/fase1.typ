@@ -72,6 +72,20 @@
     })
 }
 
+// Escala un contenido para que ocupe `width` y/o `height`. Si sólo se pasa
+// uno, se mantiene la proporción.
+#let _redimensionar(content, width: auto, height: auto) = {
+    if width == auto and height == auto { return content }
+    layout(_ => {
+        let m = measure(content)
+        let sx = if width != auto { width / m.width } else { none }
+        let sy = if height != auto { height / m.height } else { none }
+        if sx == none { sx = sy }
+        if sy == none { sy = sx }
+        scale(x: sx * 100%, y: sy * 100%, reflow: true, content)
+    })
+}
+
 // Compone el flujo entradas → proceso → salida como un grid de 3 columnas.
 #let _flujo(
     entradas,
@@ -79,16 +93,19 @@
     titulo-caja: "Fase 1",
     titulo-entradas: "Entradas",
     titulo-salida: "Salida (data/fase1/)",
-) = grid(
-    columns: 3,
-    column-gutter: 0.4em,
-    align: (top + left, horizon + center, top + left),
-    // Cabecera + árbol entradas
-    [#text(size: 11pt, weight: "bold", fill: gray)[#titulo-entradas] #v(0.3em) #_arbol(entradas)],
-    // Caja proceso
-    _proceso(titulo-caja),
-    // Cabecera + árbol salida
-    [#text(size: 11pt, weight: "bold", fill: gray)[#titulo-salida] #v(0.3em) #_arbol(salida)],
+    width: auto,
+    height: auto,
+) = _redimensionar(
+    grid(
+        columns: 3,
+        column-gutter: 0.4em,
+        align: (top + left, horizon + center, top + left),
+        [#text(size: 11pt, weight: "bold", fill: gray)[#titulo-entradas] #v(0.3em) #_arbol(entradas)],
+        _proceso(titulo-caja),
+        [#text(size: 11pt, weight: "bold", fill: gray)[#titulo-salida] #v(0.3em) #_arbol(salida)],
+    ),
+    width: width,
+    height: height,
 )
 
 // ---------------------------------------------------------------------------
@@ -397,42 +414,45 @@
 // Funciones públicas
 // ---------------------------------------------------------------------------
 
-#let fase1-diagrama() = _flujo(_entradas-fase1, _salida-fase1)
+#let fase1-diagrama(width: auto, height: auto) = _flujo(
+    _entradas-fase1, _salida-fase1,
+    width: width, height: height,
+)
 
-#let etapa-presupuesto() = _flujo(
-    _entradas-presupuesto,
-    _salida-presupuesto,
+#let etapa-presupuesto(width: auto, height: auto) = _flujo(
+    _entradas-presupuesto, _salida-presupuesto,
     titulo-caja: "Presupuesto",
+    width: width, height: height,
 )
 
-#let etapa-amortizaciones() = _flujo(
-    _entradas-amortizaciones,
-    _salida-amortizaciones,
+#let etapa-amortizaciones(width: auto, height: auto) = _flujo(
+    _entradas-amortizaciones, _salida-amortizaciones,
     titulo-caja: "Amortizaciones",
+    width: width, height: height,
 )
 
-#let etapa-suministros() = _flujo(
-    _entradas-suministros,
-    _salida-suministros,
+#let etapa-suministros(width: auto, height: auto) = _flujo(
+    _entradas-suministros, _salida-suministros,
     titulo-caja: "Suministros",
+    width: width, height: height,
 )
 
-#let etapa-nominas() = _flujo(
-    _entradas-nominas,
-    _salida-nominas,
+#let etapa-nominas(width: auto, height: auto) = _flujo(
+    _entradas-nominas, _salida-nominas,
     titulo-caja: "Nóminas",
+    width: width, height: height,
 )
 
-#let etapa-cargos() = _flujo(
-    _entradas-cargos,
-    _salida-cargos,
+#let etapa-cargos(width: auto, height: auto) = _flujo(
+    _entradas-cargos, _salida-cargos,
     titulo-caja: "Cargos académicos",
+    width: width, height: height,
 )
 
-#let etapa-ss() = _flujo(
-    _entradas-ss,
-    _salida-ss,
+#let etapa-ss(width: auto, height: auto) = _flujo(
+    _entradas-ss, _salida-ss,
     titulo-caja: "Seguridad social",
+    width: width, height: height,
 )
 
 // ---------------------------------------------------------------------------
