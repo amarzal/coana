@@ -3,7 +3,20 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MainNav } from "@/components/MainNav";
 import { EjecutarFase1 } from "@/components/EjecutarFase1";
 import { Home } from "@/routes/Home";
-import { PresupuestoUc } from "@/routes/PresupuestoUc";
+import {
+    PresupuestoResumen,
+    PresupuestoUc,
+    PresupuestoSinClasificar,
+    PresupuestoFiltrados,
+    PresupuestoSuministros,
+    PresupuestoDistribucionOTOP,
+    PresupuestoReglasActividad,
+    PresupuestoReglasCC,
+    PresupuestoReglasEC,
+    PresupuestoArbolActividades,
+    PresupuestoArbolCentros,
+    PresupuestoArbolElementos,
+} from "@/routes/presupuesto";
 import { CargosCategoria } from "@/routes/cargos/CategoriaPdiPvi";
 import { CargosDepartamentos } from "@/routes/cargos/Departamentos";
 import { SuperficiesResumen } from "@/routes/superficies/Resumen";
@@ -84,7 +97,18 @@ export function App() {
                     <Route element={<Layout />}>
                         <Route index element={<Home />} />
                         <Route path="entradas" element={<Entradas />} />
+                        <Route path="presupuesto/resumen" element={<PresupuestoResumen />} />
                         <Route path="presupuesto/uc" element={<PresupuestoUc />} />
+                        <Route path="presupuesto/sin-clasificar" element={<PresupuestoSinClasificar />} />
+                        <Route path="presupuesto/filtrados" element={<PresupuestoFiltrados />} />
+                        <Route path="presupuesto/suministros" element={<PresupuestoSuministros />} />
+                        <Route path="presupuesto/otop" element={<PresupuestoDistribucionOTOP />} />
+                        <Route path="presupuesto/reglas/actividad" element={<PresupuestoReglasActividad />} />
+                        <Route path="presupuesto/reglas/cc" element={<PresupuestoReglasCC />} />
+                        <Route path="presupuesto/reglas/ec" element={<PresupuestoReglasEC />} />
+                        <Route path="presupuesto/arbol/actividades" element={<PresupuestoArbolActividades />} />
+                        <Route path="presupuesto/arbol/cc" element={<PresupuestoArbolCentros />} />
+                        <Route path="presupuesto/arbol/ec" element={<PresupuestoArbolElementos />} />
                         <Route path="cargos/categoria" element={<CargosCategoria />} />
                         <Route path="cargos/departamentos" element={<CargosDepartamentos />} />
                         <Route path="superficies/resumen" element={<SuperficiesResumen />} />

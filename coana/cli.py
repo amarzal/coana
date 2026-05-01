@@ -17,10 +17,21 @@ app = typer.Typer(
 
 @app.callback(invoke_without_command=True)
 def callback(ctx: typer.Context):
-    """CoAna – Contabilidad Analítica Universitaria."""
+    """CoAna – Contabilidad Analítica Universitaria.
+
+    Sin sub-comando, lanza el visor web (gemelo en FastAPI + React).
+    Equivale a ``uv run visor`` con los flags por defecto.
+    """
     if ctx.invoked_subcommand is None:
-        app_path = Path(__file__).parent / "apps" / "visor_entradas.py"
-        subprocess.run([sys.executable, "-m", "streamlit", "run", str(app_path)], check=True)
+        from coana.web.launcher import run as run_visor
+        sys.exit(run_visor())
+
+
+@app.command()
+def visor_legacy():
+    """Lanza el visor original en Streamlit (mientras dure la transición)."""
+    app_path = Path(__file__).parent / "apps" / "visor_entradas.py"
+    subprocess.run([sys.executable, "-m", "streamlit", "run", str(app_path)], check=True)
 
 
 @app.command()

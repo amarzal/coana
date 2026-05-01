@@ -41,6 +41,25 @@ export function EjecutarFase1() {
         };
     }, []);
 
+    // Al montar, comprueba si hay un job en curso y reengancha.
+    useEffect(() => {
+        let cancelado = false;
+        fetch("/api/sistema/fase1/current")
+            .then((r) => (r.ok ? (r.json() as Promise<JobInfo | null>) : null))
+            .then((info) => {
+                if (cancelado || !info) return;
+                if (info.status === "running") {
+                    setJobId(info.id);
+                    setStatus("running");
+                    setShown(true);
+                    abrirStream(info.id);
+                }
+            })
+            .catch(() => {});
+        return () => { cancelado = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     function abrirStream(id: string) {
         eventSrc.current?.close();
         const src = new EventSource(`/api/sistema/fase1/${id}/stream`);

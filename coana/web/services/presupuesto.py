@@ -29,6 +29,11 @@ from coana.web.services.query import QueryParams, apply_query
 PATH_UC = DIR_FASE1 / "uc presupuesto.parquet"
 PATH_SIN_UC = DIR_FASE1 / "presupuesto sin uc.parquet"
 PATH_FILTRADOS = DIR_AUX / "filtrados_presupuesto.parquet"
+PATH_SIN_CLASIFICAR = DIR_AUX / "sin_clasificar_presupuesto.parquet"
+PATH_UC_SUMIN = DIR_FASE1 / "uc suministros.parquet"
+PATH_REGLAS_ACT = DIR_AUX / "conteo_reglas_presupuesto.parquet"
+PATH_REGLAS_CC = DIR_AUX / "conteo_cc_presupuesto.parquet"
+PATH_REGLAS_EC = DIR_AUX / "conteo_ec_presupuesto.parquet"
 
 
 # Columnas que se muestran en la tabla principal y su formato.
@@ -160,3 +165,136 @@ def obtener_uc(uc_id: str) -> RecordResponse | None:
         sections.append(RecordSection(label="Enriquecimientos del árbol", fields=enriquecidos))
 
     return RecordResponse(main=main, sections=sections)
+
+
+# ----------------------------------------------------------------------
+# Sub-vistas adicionales del bloque
+# ----------------------------------------------------------------------
+
+# Apuntes (sin UC, filtrados, sin clasificar) — todos siguen el esquema
+# del fichero de apuntes con algunas variantes.
+_COLS_APUNTES_BASE: list[ColumnSpec] = [
+    ColumnSpec(name="asiento", label="Asiento", format="text"),
+    ColumnSpec(name="registro", label="Registro", format="int"),
+    ColumnSpec(name="aplicación", label="Aplicación", format="text"),
+    ColumnSpec(name="programa", label="Programa", format="text"),
+    ColumnSpec(name="centro", label="Centro", format="text"),
+    ColumnSpec(name="subcentro", label="Subcentro", format="text"),
+    ColumnSpec(name="proyecto", label="Proyecto", format="text"),
+    ColumnSpec(name="subproyecto", label="Subproy.", format="text"),
+    ColumnSpec(name="línea", label="Línea", format="text"),
+    ColumnSpec(name="fecha", label="Fecha", format="date"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="descripción", label="Descripción", format="text"),
+]
+_COLS_FILTRADOS = _COLS_APUNTES_BASE + [
+    ColumnSpec(name="motivo", label="Motivo", format="text"),
+]
+_COLS_SIN_CLASIFICAR = _COLS_APUNTES_BASE + [
+    ColumnSpec(name="tipo_proyecto", label="Tipo proyecto", format="text"),
+]
+_SEARCH_APUNTES = ["aplicación", "programa", "centro", "subcentro",
+                    "proyecto", "subproyecto", "línea", "descripción"]
+
+
+def _serialize(rows: list[dict]) -> list[dict]:
+    return [
+        {k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in r.items()}
+        for r in rows
+    ]
+
+
+def _listar(
+    path: Path, cols: list[ColumnSpec], params,
+    search: list[str] | None = None,
+):
+    df = _safe_read_parquet(path)
+    if df is None:
+        return ListResponse(columns=cols, rows=[], total=0)
+    nombres = [c.name for c in cols if c.name in df.columns]
+    df = df.select(nombres)
+    df, total = apply_query(df, params, search_columns=search)
+    return ListResponse(columns=cols, rows=_serialize(df.to_dicts()), total=total)
+
+
+def listar_sin_uc(params) -> ListResponse:
+    return _listar(PATH_SIN_UC, _COLS_APUNTES_BASE, params, _SEARCH_APUNTES)
+
+
+def listar_filtrados(params) -> ListResponse:
+    return _listar(
+        PATH_FILTRADOS, _COLS_FILTRADOS, params,
+        _SEARCH_APUNTES + ["motivo"],
+    )
+
+
+def listar_sin_clasificar(params) -> ListResponse:
+    return _listar(
+        PATH_SIN_CLASIFICAR, _COLS_SIN_CLASIFICAR, params,
+        _SEARCH_APUNTES + ["tipo_proyecto"],
+    )
+
+
+# Resumen de filtrados por motivo
+_COLS_FILTRADOS_POR_MOTIVO: list[ColumnSpec] = [
+    ColumnSpec(name="motivo", label="Motivo", format="text"),
+    ColumnSpec(name="n", label="N apuntes", format="int"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+]
+
+
+def listar_filtrados_por_motivo(params) -> ListResponse:
+    df = _safe_read_parquet(PATH_FILTRADOS)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_FILTRADOS_POR_MOTIVO, rows=[], total=0)
+    agg = (
+        df.group_by("motivo")
+        .agg(pl.len().alias("n"), pl.col("importe").sum().alias("importe"))
+        .sort("importe", descending=True)
+    )
+    agg, total = apply_query(agg, params, search_columns=["motivo"])
+    return ListResponse(
+        columns=_COLS_FILTRADOS_POR_MOTIVO,
+        rows=agg.to_dicts(), total=total,
+    )
+
+
+# Suministros: UC con esquema canónico
+_COLS_UC_SUMIN: list[ColumnSpec] = [
+    ColumnSpec(name="id", label="ID UC", format="text"),
+    ColumnSpec(name="elemento_de_coste", label="Elemento", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="origen", label="Origen", format="text"),
+    ColumnSpec(name="origen_id", label="Origen ID", format="text"),
+    ColumnSpec(name="origen_porción", label="Porción", format="float"),
+]
+
+
+def listar_uc_suministros(params) -> ListResponse:
+    return _listar(
+        PATH_UC_SUMIN, _COLS_UC_SUMIN, params,
+        ["id", "elemento_de_coste", "centro_de_coste", "actividad",
+         "origen", "origen_id"],
+    )
+
+
+# Reglas (3 vistas con la misma estructura)
+_COLS_REGLAS: list[ColumnSpec] = [
+    ColumnSpec(name="regla", label="Regla", format="text"),
+    ColumnSpec(name="n", label="N apuntes", format="int"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+]
+
+
+def listar_reglas_actividad(params) -> ListResponse:
+    return _listar(PATH_REGLAS_ACT, _COLS_REGLAS, params, ["regla"])
+
+
+def listar_reglas_cc(params) -> ListResponse:
+    return _listar(PATH_REGLAS_CC, _COLS_REGLAS, params, ["regla"])
+
+
+def listar_reglas_ec(params) -> ListResponse:
+    return _listar(PATH_REGLAS_EC, _COLS_REGLAS, params, ["regla"])

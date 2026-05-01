@@ -165,6 +165,142 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/presupuesto/sin-uc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sin Uc */
+        get: operations["sin_uc_api_presupuesto_sin_uc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/sin-clasificar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sin Clasificar */
+        get: operations["sin_clasificar_api_presupuesto_sin_clasificar_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/filtrados": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Filtrados */
+        get: operations["filtrados_api_presupuesto_filtrados_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/filtrados-por-motivo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Filtrados Por Motivo */
+        get: operations["filtrados_por_motivo_api_presupuesto_filtrados_por_motivo_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/uc-suministros": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uc Suministros */
+        get: operations["uc_suministros_api_presupuesto_uc_suministros_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/reglas/actividad": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reglas Actividad */
+        get: operations["reglas_actividad_api_presupuesto_reglas_actividad_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/reglas/cc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reglas Cc */
+        get: operations["reglas_cc_api_presupuesto_reglas_cc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/reglas/ec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Reglas Ec */
+        get: operations["reglas_ec_api_presupuesto_reglas_ec_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cargos/_resumen": {
         parameters: {
             query?: never;
@@ -1109,6 +1245,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/resultados/arbol/{nombre}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Arbol Final
+         * @description Árbol final tras la fase 1: actividades, centros-de-coste, elementos-de-coste.
+         */
+        get: operations["arbol_final_api_resultados_arbol__nombre__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1522,6 +1678,326 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sin_uc_api_presupuesto_sin_uc_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sin_clasificar_api_presupuesto_sin_clasificar_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    filtrados_api_presupuesto_filtrados_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    filtrados_por_motivo_api_presupuesto_filtrados_por_motivo_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    uc_suministros_api_presupuesto_uc_suministros_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reglas_actividad_api_presupuesto_reglas_actividad_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reglas_cc_api_presupuesto_reglas_cc_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reglas_ec_api_presupuesto_reglas_ec_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
                 };
             };
             /** @description Validation Error */
@@ -3500,6 +3976,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    arbol_final_api_resultados_arbol__nombre__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                nombre: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodoTree"];
                 };
             };
             /** @description Validation Error */

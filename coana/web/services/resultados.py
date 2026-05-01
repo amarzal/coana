@@ -161,6 +161,31 @@ def _arbol(path_str: str, mtime_ns: int) -> Árbol | None:
     return Árbol.from_file(p)
 
 
+# Mapping para endpoints `/arbol/{nombre}` → fichero en data/fase1/.
+_ARBOL_NOMBRES = {
+    "actividades": "actividades",
+    "centros-de-coste": "centros de coste",
+    "elementos-de-coste": "elementos de coste",
+}
+
+
+def cargar_arbol_final(slug: str):
+    """Devuelve un árbol .tree final como NodoTree serializable.
+
+    Importa la función de serialización del bloque entradas para reusar
+    el contrato JSON.
+    """
+    fichero = _ARBOL_NOMBRES.get(slug)
+    if fichero is None:
+        return None
+    p = DIR_FASE1 / f"{fichero}.tree"
+    arbol = _arbol(str(p), _mtime_ns(p))
+    if arbol is None:
+        return None
+    from coana.web.services.entradas import NodoTree, _serializar_nodo
+    return _serializar_nodo(arbol.raíz)
+
+
 def _arbol_cached(name: str) -> Árbol | None:
     p = DIR_FASE1 / f"{name}.tree"
     return _arbol(str(p), _mtime_ns(p))

@@ -16,7 +16,20 @@ const GROUPS: Group[] = [
     },
     {
         label: "Presupuesto",
-        items: [{ label: "Unidades de coste", to: "/presupuesto/uc" }],
+        items: [
+            { label: "Resumen", to: "/presupuesto/resumen" },
+            { label: "Unidades de coste", to: "/presupuesto/uc" },
+            { label: "Sin clasificar", to: "/presupuesto/sin-clasificar" },
+            { label: "Apuntes filtrados", to: "/presupuesto/filtrados" },
+            { label: "Suministros", to: "/presupuesto/suministros" },
+            { label: "Distribución mantenimientos OTOP", to: "/presupuesto/otop" },
+            { label: "Reglas de actividad", to: "/presupuesto/reglas/actividad" },
+            { label: "Reglas de centro de coste", to: "/presupuesto/reglas/cc" },
+            { label: "Reglas de elemento de coste", to: "/presupuesto/reglas/ec" },
+            { label: "Árbol: actividades", to: "/presupuesto/arbol/actividades" },
+            { label: "Árbol: centros de coste", to: "/presupuesto/arbol/cc" },
+            { label: "Árbol: elementos de coste", to: "/presupuesto/arbol/ec" },
+        ],
     },
     {
         label: "Amortizaciones",
