@@ -637,6 +637,397 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/regla23/_resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumen */
+        get: operations["resumen_api_regla23__resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/dedicacion/asignaturas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dedicacion Asignaturas */
+        get: operations["dedicacion_asignaturas_api_regla23_dedicacion_asignaturas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/dedicacion/titulaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dedicacion Titulaciones */
+        get: operations["dedicacion_titulaciones_api_regla23_dedicacion_titulaciones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/dedicacion/estudios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Dedicacion Estudios */
+        get: operations["dedicacion_estudios_api_regla23_dedicacion_estudios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/horas-no-oficiales": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Horas */
+        get: operations["horas_api_regla23_horas_no_oficiales_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/estructura-estudios": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Estructura */
+        get: operations["estructura_api_regla23_estructura_estudios_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/atrasos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Atrasos */
+        get: operations["atrasos_api_regla23_atrasos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/apartados": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Apartados */
+        get: operations["apartados_api_regla23_apartados_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/despidos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Despidos */
+        get: operations["despidos_api_regla23_despidos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/despidos/{uc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Despido */
+        get: operations["obtener_despido_api_regla23_despidos__uc_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/indemnizaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Indemnizaciones */
+        get: operations["indemnizaciones_api_regla23_indemnizaciones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/indemnizaciones/{uc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Indem */
+        get: operations["obtener_indem_api_regla23_indemnizaciones__uc_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/cargos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Cargos */
+        get: operations["cargos_api_regla23_cargos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/cargos/{uc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Cargo */
+        get: operations["obtener_cargo_api_regla23_cargos__uc_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/sin-titulacion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sin Titulacion */
+        get: operations["sin_titulacion_api_regla23_sin_titulacion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/anomalias/resolucion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Anom Resolucion */
+        get: operations["anom_resolucion_api_regla23_anomalias_resolucion_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/regla23/anomalias/multiples-grado": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Anom Multiples */
+        get: operations["anom_multiples_api_regla23_anomalias_multiples_grado_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resultados/_resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumen */
+        get: operations["resumen_api_resultados__resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resultados/uc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Todas Uc */
+        get: operations["todas_uc_api_resultados_uc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resultados/actividades": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Actividades */
+        get: operations["actividades_api_resultados_actividades_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resultados/centros-de-coste": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Centros */
+        get: operations["centros_api_resultados_centros_de_coste_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resultados/elementos-de-coste": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Elementos */
+        get: operations["elementos_api_resultados_elementos_de_coste_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/resultados/anomalias": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Anomalias */
+        get: operations["anomalias_api_resultados_anomalias_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2029,6 +2420,859 @@ export interface operations {
         };
     };
     anomalias_pdi_api_personal_anomalias_pdi_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_api_regla23__resumen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KpiPanel"];
+                };
+            };
+        };
+    };
+    dedicacion_asignaturas_api_regla23_dedicacion_asignaturas_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dedicacion_titulaciones_api_regla23_dedicacion_titulaciones_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    dedicacion_estudios_api_regla23_dedicacion_estudios_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    horas_api_regla23_horas_no_oficiales_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    estructura_api_regla23_estructura_estudios_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    atrasos_api_regla23_atrasos_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    apartados_api_regla23_apartados_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    despidos_api_regla23_despidos_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_despido_api_regla23_despidos__uc_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    indemnizaciones_api_regla23_indemnizaciones_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_indem_api_regla23_indemnizaciones__uc_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    cargos_api_regla23_cargos_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_cargo_api_regla23_cargos__uc_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sin_titulacion_api_regla23_sin_titulacion_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anom_resolucion_api_regla23_anomalias_resolucion_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anom_multiples_api_regla23_anomalias_multiples_grado_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_api_resultados__resumen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KpiPanel"];
+                };
+            };
+        };
+    };
+    todas_uc_api_resultados_uc_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    actividades_api_resultados_actividades_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    centros_api_resultados_centros_de_coste_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    elementos_api_resultados_elementos_de_coste_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anomalias_api_resultados_anomalias_get: {
         parameters: {
             query?: {
                 /** @description Substring a buscar (insensible a tildes y mayúsculas) */

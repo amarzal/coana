@@ -30,6 +30,26 @@ import {
     PersonalPersona,
     PersonalAnomaliasPdi,
 } from "@/routes/personal";
+import {
+    Regla23DedicacionDocente,
+    Regla23DocenciaNoOficial,
+    Regla23EstructuraEstudios,
+    Regla23BolsaAtrasos,
+    Regla23ExpedientesApartados,
+    Regla23Despidos,
+    Regla23IndemnizacionesAsistencias,
+    Regla23Cargos,
+    Regla23AsignaturasSinTitulacion,
+    Regla23Anomalias,
+} from "@/routes/regla23";
+import {
+    ResultadosResumen,
+    ResultadosTodasUc,
+    ResultadosActividades,
+    ResultadosCentros,
+    ResultadosElementos,
+    ResultadosAnomalias,
+} from "@/routes/resultados";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -85,6 +105,22 @@ export function App() {
                         <Route path="personal/multiexpediente" element={<PersonalMultiexpediente />} />
                         <Route path="personal/persona" element={<PersonalPersona />} />
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
+                        <Route path="regla23/dedicacion" element={<Regla23DedicacionDocente />} />
+                        <Route path="regla23/no-oficial" element={<Regla23DocenciaNoOficial />} />
+                        <Route path="regla23/estructura" element={<Regla23EstructuraEstudios />} />
+                        <Route path="regla23/atrasos" element={<Regla23BolsaAtrasos />} />
+                        <Route path="regla23/despidos" element={<Regla23Despidos />} />
+                        <Route path="regla23/indemnizaciones" element={<Regla23IndemnizacionesAsistencias />} />
+                        <Route path="regla23/cargos" element={<Regla23Cargos />} />
+                        <Route path="regla23/apartados" element={<Regla23ExpedientesApartados />} />
+                        <Route path="regla23/sin-titulacion" element={<Regla23AsignaturasSinTitulacion />} />
+                        <Route path="regla23/anomalias" element={<Regla23Anomalias />} />
+                        <Route path="resultados/resumen" element={<ResultadosResumen />} />
+                        <Route path="resultados/uc" element={<ResultadosTodasUc />} />
+                        <Route path="resultados/actividades" element={<ResultadosActividades />} />
+                        <Route path="resultados/centros" element={<ResultadosCentros />} />
+                        <Route path="resultados/elementos" element={<ResultadosElementos />} />
+                        <Route path="resultados/anomalias" element={<ResultadosAnomalias />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

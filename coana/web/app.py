@@ -16,6 +16,8 @@ from coana.web.routers import (
     entradas,
     personal,
     presupuesto,
+    regla23,
+    resultados,
     sistema,
     superficies,
 )
@@ -46,6 +48,8 @@ app.include_router(superficies.router, prefix="/api/superficies", tags=["superfi
 app.include_router(entradas.router, prefix="/api/entradas", tags=["entradas"])
 app.include_router(amortizaciones.router, prefix="/api/amortizaciones", tags=["amortizaciones"])
 app.include_router(personal.router, prefix="/api/personal", tags=["personal"])
+app.include_router(regla23.router, prefix="/api/regla23", tags=["regla 23"])
+app.include_router(resultados.router, prefix="/api/resultados", tags=["resultados"])
 
 
 # Frontend estático: sirve coana/web/dist/ si existe (build de Vite).

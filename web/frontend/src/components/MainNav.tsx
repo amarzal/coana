@@ -46,6 +46,21 @@ const GROUPS: Group[] = [
         ],
     },
     {
+        label: "Regla 23",
+        items: [
+            { label: "Dedicación docente", to: "/regla23/dedicacion" },
+            { label: "Docencia no oficial", to: "/regla23/no-oficial" },
+            { label: "Estructura estudios", to: "/regla23/estructura" },
+            { label: "Bolsa de atrasos", to: "/regla23/atrasos" },
+            { label: "Despidos", to: "/regla23/despidos" },
+            { label: "Indemnizaciones asistencias", to: "/regla23/indemnizaciones" },
+            { label: "Cargos", to: "/regla23/cargos" },
+            { label: "Expedientes apartados", to: "/regla23/apartados" },
+            { label: "Asignaturas sin titulación", to: "/regla23/sin-titulacion" },
+            { label: "Anomalías", to: "/regla23/anomalias" },
+        ],
+    },
+    {
         label: "Cargos académicos",
         items: [
             { label: "Categoría PDI/PVI", to: "/cargos/categoria" },
@@ -58,6 +73,17 @@ const GROUPS: Group[] = [
             { label: "Resumen", to: "/superficies/resumen" },
             { label: "Totales", to: "/superficies/totales" },
             { label: "Presencia centros", to: "/superficies/presencia" },
+        ],
+    },
+    {
+        label: "Resultados Fase 1",
+        items: [
+            { label: "Resumen", to: "/resultados/resumen" },
+            { label: "Todas las UC", to: "/resultados/uc" },
+            { label: "Actividades", to: "/resultados/actividades" },
+            { label: "Centros de coste", to: "/resultados/centros" },
+            { label: "Elementos de coste", to: "/resultados/elementos" },
+            { label: "Anomalías UC", to: "/resultados/anomalias" },
         ],
     },
 ];
