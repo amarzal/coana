@@ -9,10 +9,6 @@ type Group = { label: string; items: Item[] };
 // Va creciendo a medida que se construyen los bloques.
 const GROUPS: Group[] = [
     {
-        label: "Inicio",
-        items: [{ label: "Estado del backend", to: "/" }],
-    },
-    {
         label: "Presupuesto",
         items: [
             { label: "Resumen", to: "/presupuesto/resumen" },
@@ -289,12 +285,10 @@ export function MainNav() {
 
     return (
         <nav className="flex flex-col gap-1 text-sm">
-            {/* «Inicio» primero */}
-            {GROUPS.filter((g) => g.label === "Inicio").map(renderGrupo)}
             {/* «Entradas» como menú dinámico (3 niveles: Entradas → subdir → fichero) */}
             <EntradasMenu />
-            {/* El resto de bloques estáticos */}
-            {GROUPS.filter((g) => g.label !== "Inicio").map(renderGrupo)}
+            {/* Resto de bloques estáticos */}
+            {GROUPS.map(renderGrupo)}
         </nav>
     );
 }

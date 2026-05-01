@@ -2,7 +2,7 @@ import { BrowserRouter, Outlet, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MainNav } from "@/components/MainNav";
 import { EjecutarFase1 } from "@/components/EjecutarFase1";
-import { Home } from "@/routes/Home";
+import { StatusFooter } from "@/components/StatusFooter";
 import {
     PresupuestoResumen,
     PresupuestoUc,
@@ -73,16 +73,25 @@ const queryClient = new QueryClient({
     },
 });
 
+function HomePlaceholder() {
+    return (
+        <div className="text-sm text-slate-500">
+            Selecciona una sección del menú lateral.
+        </div>
+    );
+}
+
 function Layout() {
     return (
         <div className="grid h-screen grid-cols-[16rem_1fr] overflow-hidden bg-slate-50 text-slate-900">
             <aside className="flex flex-col gap-4 overflow-y-auto border-r border-slate-200 bg-white p-4">
                 <div className="px-2">
                     <div className="text-sm font-semibold">CoAna</div>
-                    <div className="text-xs text-slate-500">gemelo web</div>
+                    <div className="text-xs text-slate-500">UJI 2025</div>
                 </div>
                 <EjecutarFase1 />
                 <MainNav />
+                <StatusFooter />
             </aside>
             <main className="overflow-auto p-6">
                 <Outlet />
@@ -97,7 +106,7 @@ export function App() {
             <BrowserRouter>
                 <Routes>
                     <Route element={<Layout />}>
-                        <Route index element={<Home />} />
+                        <Route index element={<HomePlaceholder />} />
                         <Route path="entradas/*" element={<Entradas />} />
                         <Route path="presupuesto/resumen" element={<PresupuestoResumen />} />
                         <Route path="presupuesto/uc" element={<PresupuestoUc />} />
