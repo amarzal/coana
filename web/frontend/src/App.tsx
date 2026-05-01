@@ -3,6 +3,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MainNav } from "@/components/MainNav";
 import { Home } from "@/routes/Home";
 import { PresupuestoUc } from "@/routes/PresupuestoUc";
+import { CargosCategoria } from "@/routes/cargos/CategoriaPdiPvi";
+import { CargosDepartamentos } from "@/routes/cargos/Departamentos";
+import { SuperficiesResumen } from "@/routes/superficies/Resumen";
+import { SuperficiesTotales } from "@/routes/superficies/Totales";
+import { SuperficiesPresencia } from "@/routes/superficies/PresenciaCentros";
+import { Entradas } from "@/routes/Entradas";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -34,7 +40,13 @@ export function App() {
                 <Routes>
                     <Route element={<Layout />}>
                         <Route index element={<Home />} />
+                        <Route path="entradas" element={<Entradas />} />
                         <Route path="presupuesto/uc" element={<PresupuestoUc />} />
+                        <Route path="cargos/categoria" element={<CargosCategoria />} />
+                        <Route path="cargos/departamentos" element={<CargosDepartamentos />} />
+                        <Route path="superficies/resumen" element={<SuperficiesResumen />} />
+                        <Route path="superficies/totales" element={<SuperficiesTotales />} />
+                        <Route path="superficies/presencia" element={<SuperficiesPresencia />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

@@ -7,7 +7,27 @@ from pathlib import Path
 
 import polars as pl
 
-DIR_BASE = Path("data")
+def _base_data_dir() -> Path:
+    """Directorio de datos.
+
+    Por defecto ``./data`` relativo al CWD. Si la variable de entorno
+    ``COANA_DATA_DIR`` está definida, se usa ese valor. Así el visor
+    funciona sin importar desde qué subdirectorio se haya lanzado.
+    """
+    import os
+    env = os.environ.get("COANA_DATA_DIR")
+    if env:
+        return Path(env)
+    # Si no hay env, intenta encontrar la raíz del proyecto buscando
+    # `data/` desde el CWD hacia arriba; cae al CWD si no la encuentra.
+    cwd = Path.cwd()
+    for d in (cwd, *cwd.parents):
+        if (d / "data" / "entrada").is_dir():
+            return d / "data"
+    return cwd / "data"
+
+
+DIR_BASE = _base_data_dir()
 DIR_ENTRADA = DIR_BASE / "entrada"
 DIR_FASE1 = DIR_BASE / "fase1"
 DIR_AUX = DIR_FASE1 / "auxiliares"

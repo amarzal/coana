@@ -84,10 +84,228 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cargos/_resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumen */
+        get: operations["resumen_api_cargos__resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cargos/categoria_pdi_pvi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Categoria */
+        get: operations["listar_categoria_api_cargos_categoria_pdi_pvi_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cargos/categoria_pdi_pvi/{per_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Categoria */
+        get: operations["obtener_categoria_api_cargos_categoria_pdi_pvi__per_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cargos/departamentos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Departamentos */
+        get: operations["listar_departamentos_api_cargos_departamentos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cargos/departamentos/{idx}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Cargo */
+        get: operations["obtener_cargo_api_cargos_departamentos__idx__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/superficies/_resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumen */
+        get: operations["resumen_api_superficies__resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/superficies/totales/complejos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Complejos */
+        get: operations["listar_complejos_api_superficies_totales_complejos_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/superficies/totales/edificaciones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Edificaciones */
+        get: operations["listar_edificaciones_api_superficies_totales_edificaciones_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/superficies/totales/zonas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Zonas */
+        get: operations["listar_zonas_api_superficies_totales_zonas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/entradas/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Catalogo
+         * @description Listado de subdirectorios y ficheros de data/entrada/.
+         */
+        get: operations["catalogo_api_entradas__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/entradas/xlsx": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leer Xlsx
+         * @description Devuelve un Excel paginado con filtro/sort comunes.
+         */
+        get: operations["leer_xlsx_api_entradas_xlsx_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/entradas/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Leer Tree
+         * @description Devuelve un árbol .tree serializado como JSON jerárquico.
+         */
+        get: operations["leer_tree_api_entradas_tree_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** CatalogoEntradas */
+        CatalogoEntradas: {
+            /** Grupos */
+            grupos: components["schemas"]["GrupoEntradas"][];
+        };
         /**
          * ColumnSpec
          * @description Descripción de una columna de una tabla servida al frontend.
@@ -115,6 +333,19 @@ export interface components {
              */
             sortable: boolean;
         };
+        /** FicheroEntrada */
+        FicheroEntrada: {
+            /** Nombre */
+            nombre: string;
+            /** Stem */
+            stem: string;
+            /** Extension */
+            extension: string;
+            /** Ruta Relativa */
+            ruta_relativa: string;
+            /** Tamaño Bytes */
+            "tama\u00F1o_bytes": number;
+        };
         /**
          * FieldValue
          * @description Un par (campo, valor) ya formateado para la ficha de registro.
@@ -132,6 +363,13 @@ export interface components {
              * @enum {string}
              */
             format: "text" | "int" | "float" | "euro" | "m2" | "date" | "bool";
+        };
+        /** GrupoEntradas */
+        GrupoEntradas: {
+            /** Subdirectorio */
+            subdirectorio: string;
+            /** Ficheros */
+            ficheros: components["schemas"]["FicheroEntrada"][];
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -190,6 +428,20 @@ export interface components {
             }[];
             /** Total */
             total: number;
+        };
+        /** NodoTree */
+        NodoTree: {
+            /** Código */
+            "c\u00F3digo": string;
+            /** Descripción */
+            "descripci\u00F3n": string;
+            /** Identificador */
+            identificador: string;
+            /**
+             * Hijos
+             * @default []
+             */
+            hijos: components["schemas"]["NodoTree"][];
         };
         /**
          * RecordResponse
@@ -338,6 +590,402 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_api_cargos__resumen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KpiPanel"];
+                };
+            };
+        };
+    };
+    listar_categoria_api_cargos_categoria_pdi_pvi_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_categoria_api_cargos_categoria_pdi_pvi__per_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                per_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_departamentos_api_cargos_departamentos_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_cargo_api_cargos_departamentos__idx__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                idx: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_api_superficies__resumen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KpiPanel"];
+                };
+            };
+        };
+    };
+    listar_complejos_api_superficies_totales_complejos_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_edificaciones_api_superficies_totales_edificaciones_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_zonas_api_superficies_totales_zonas_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    catalogo_api_entradas__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CatalogoEntradas"];
+                };
+            };
+        };
+    };
+    leer_xlsx_api_entradas_xlsx_get: {
+        parameters: {
+            query: {
+                /** @description Ruta relativa a data/entrada/ */
+                ruta: string;
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    leer_tree_api_entradas_tree_get: {
+        parameters: {
+            query: {
+                /** @description Ruta relativa a data/entrada/ */
+                ruta: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NodoTree"];
                 };
             };
             /** @description Validation Error */

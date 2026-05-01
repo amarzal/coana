@@ -4,15 +4,34 @@ import { cn } from "@/lib/cn";
 type Item = { label: string; to: string };
 type Group = { label: string; items: Item[] };
 
-// Estructura mínima de la fase 1 — irá creciendo en fases sucesivas.
+// Va creciendo a medida que se construyen los bloques.
 const GROUPS: Group[] = [
     {
         label: "Inicio",
         items: [{ label: "Estado del backend", to: "/" }],
     },
     {
+        label: "Entradas",
+        items: [{ label: "Catálogo", to: "/entradas" }],
+    },
+    {
         label: "Presupuesto",
         items: [{ label: "Unidades de coste", to: "/presupuesto/uc" }],
+    },
+    {
+        label: "Cargos académicos",
+        items: [
+            { label: "Categoría PDI/PVI", to: "/cargos/categoria" },
+            { label: "Departamentos", to: "/cargos/departamentos" },
+        ],
+    },
+    {
+        label: "Superficies",
+        items: [
+            { label: "Resumen", to: "/superficies/resumen" },
+            { label: "Totales", to: "/superficies/totales" },
+            { label: "Presencia centros", to: "/superficies/presencia" },
+        ],
     },
 ];
 
