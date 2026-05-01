@@ -49,7 +49,7 @@ def _safe_read(path: Path) -> pl.DataFrame | None:
 
 # Inventario enriquecido (10 cols)
 _COLS_ENRIQ: list[ColumnSpec] = [
-    ColumnSpec(name="id", label="id", format="int"),
+    ColumnSpec(name="id", label="id", format="id"),
     ColumnSpec(name="cuenta", label="Cuenta", format="text"),
     ColumnSpec(name="estado", label="Estado", format="text"),
     ColumnSpec(name="descripción", label="Descripción", format="text"),
@@ -58,18 +58,18 @@ _COLS_ENRIQ: list[ColumnSpec] = [
     ColumnSpec(name="años_amortización", label="Años amort.", format="int"),
     ColumnSpec(name="días_en_año", label="Días en año", format="int"),
     ColumnSpec(name="importe", label="Importe año", format="euro"),
-    ColumnSpec(name="id_ubicación", label="Ubicación", format="int"),
+    ColumnSpec(name="id_ubicación", label="Ubicación", format="id"),
 ]
 
 # Filtrados básicos (7 cols)
 _COLS_FILTRADO: list[ColumnSpec] = [
-    ColumnSpec(name="id", label="id", format="int"),
+    ColumnSpec(name="id", label="id", format="id"),
     ColumnSpec(name="cuenta", label="Cuenta", format="text"),
     ColumnSpec(name="estado", label="Estado", format="text"),
     ColumnSpec(name="descripción", label="Descripción", format="text"),
     ColumnSpec(name="fecha_alta", label="Alta", format="date"),
     ColumnSpec(name="valor_inicial", label="Valor inicial", format="euro"),
-    ColumnSpec(name="id_ubicación", label="Ubicación", format="int"),
+    ColumnSpec(name="id_ubicación", label="Ubicación", format="id"),
 ]
 
 # Detalle de cuentas filtradas (3 cols)

@@ -121,8 +121,8 @@ def resumen() -> KpiPanel:
 # ----------------------------------------------------------------------
 
 _COLS_EXP: list[ColumnSpec] = [
-    ColumnSpec(name="expediente", label="Expediente", format="int"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="importe", label="Importe", format="euro"),
     ColumnSpec(name="n_registros", label="N líneas nómina", format="int"),
@@ -167,7 +167,7 @@ def obtener_expediente(sector: str, expediente: int) -> RecordResponse | None:
 # ----------------------------------------------------------------------
 
 _COLS_MULTI: list[ColumnSpec] = [
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="sectores_str", label="Sectores", format="text"),
     ColumnSpec(name="n_sectores", label="N sectores", format="int"),
@@ -196,7 +196,7 @@ def listar_multiexpediente(params: QueryParams) -> ListResponse:
 # ----------------------------------------------------------------------
 
 _COLS_PERSONA: list[ColumnSpec] = [
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="n_uc", label="N UC", format="int"),
     ColumnSpec(name="importe_total", label="Importe total", format="euro"),
@@ -253,7 +253,7 @@ def obtener_persona(per_id: int) -> RecordResponse | None:
     nombre = fila.row(0, named=True).get("persona") if not fila.is_empty() else None
 
     main: list[FieldValue] = [
-        FieldValue(name="per_id", label="per_id", value=per_id, format="int"),
+        FieldValue(name="per_id", label="per_id", value=per_id, format="id"),
         FieldValue(name="persona", label="Persona", value=nombre, format="text"),
     ]
 
@@ -312,7 +312,7 @@ _COLS_ANOM: list[ColumnSpec] = [
     ColumnSpec(name="asignatura", label="Asignatura", format="text"),
     ColumnSpec(name="titulación", label="Titulación", format="text"),
     ColumnSpec(name="créditos_impartidos", label="Créditos", format="float"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
 ]
 
 

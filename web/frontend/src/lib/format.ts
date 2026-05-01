@@ -56,6 +56,7 @@ export function formatText(value: unknown): string {
 
 export type ColumnFormat =
     | "text"
+    | "id"
     | "int"
     | "float"
     | "euro"
@@ -76,6 +77,10 @@ export function formatValue(value: unknown, fmt: ColumnFormat): string {
             return formatFloat(value);
         case "bool":
             return typeof value === "boolean" ? (value ? "sí" : "no") : formatText(value);
+        case "id":
+            // Identificador entero: sin separador de miles, sin decimales.
+            // Se trata como cadena.
+            return value === null || value === undefined ? "—" : String(value);
         case "date":
         case "text":
         default:

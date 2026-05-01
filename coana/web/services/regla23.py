@@ -145,15 +145,15 @@ def resumen() -> KpiPanel:
 # ----------------------------------------------------------------------
 
 _COLS_DED_ASIG: list[ColumnSpec] = [
-    ColumnSpec(name="expediente", label="Expediente", format="int"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="asignatura", label="Asignatura", format="text"),
     ColumnSpec(name="créditos_impartidos", label="Créditos", format="float"),
 ]
 _COLS_DED_TIT: list[ColumnSpec] = [
-    ColumnSpec(name="expediente", label="Expediente", format="int"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="tipo", label="Tipo", format="text"),
     ColumnSpec(name="titulación", label="Titulación", format="text"),
@@ -161,8 +161,8 @@ _COLS_DED_TIT: list[ColumnSpec] = [
     ColumnSpec(name="créditos_impartidos", label="Créditos", format="float"),
 ]
 _COLS_DED_EST: list[ColumnSpec] = [
-    ColumnSpec(name="expediente", label="Expediente", format="int"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="tipo_estudio", label="Tipo", format="text"),
     ColumnSpec(name="código_estudio", label="Código", format="text"),
@@ -190,7 +190,7 @@ def listar_dedicacion_estudios(p: QueryParams) -> ListResponse:
 # ----------------------------------------------------------------------
 
 _COLS_HORAS: list[ColumnSpec] = [
-    ColumnSpec(name="perid", label="per_id", format="int"),
+    ColumnSpec(name="perid", label="per_id", format="id"),
     ColumnSpec(name="proyecto", label="Proyecto", format="text"),
     ColumnSpec(name="tipo_proyecto", label="Tipo proyecto", format="text"),
     ColumnSpec(name="nombre", label="Nombre", format="text"),
@@ -238,8 +238,8 @@ def listar_estructura(p: QueryParams) -> ListResponse:
 
 _COLS_ATRASOS: list[ColumnSpec] = [
     ColumnSpec(name="id", label="id", format="text"),
-    ColumnSpec(name="expediente", label="Expediente", format="int"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="categoría", label="Categoría", format="text"),
     ColumnSpec(name="sector", label="Sector", format="text"),
@@ -266,8 +266,8 @@ def listar_atrasos(p: QueryParams) -> ListResponse:
 # ----------------------------------------------------------------------
 
 _COLS_APART: list[ColumnSpec] = [
-    ColumnSpec(name="expediente", label="Expediente", format="int"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="sector", label="Sector", format="text"),
     ColumnSpec(name="tipo", label="Motivo", format="text"),
@@ -289,8 +289,8 @@ def listar_apartados(p: QueryParams) -> ListResponse:
 
 _COLS_UC_ESPECIAL: list[ColumnSpec] = [
     ColumnSpec(name="id", label="ID UC", format="text"),
-    ColumnSpec(name="expediente", label="Expediente", format="int"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="elemento_de_coste", label="Elemento", format="text"),
     ColumnSpec(name="centro_de_coste", label="Centro", format="text"),
@@ -357,7 +357,7 @@ _COLS_SIN_TIT: list[ColumnSpec] = [
     ColumnSpec(name="asignatura", label="Asignatura", format="text"),
     ColumnSpec(name="titulación", label="Titulación", format="text"),
     ColumnSpec(name="créditos_impartidos", label="Créditos", format="float"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
 ]
 
@@ -367,7 +367,7 @@ def listar_sin_titulacion(p: QueryParams) -> ListResponse:
 
 
 _COLS_ANOM_RES: list[ColumnSpec] = [
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="asignatura", label="Asignatura", format="text"),
     ColumnSpec(name="créditos_impartidos", label="Créditos", format="float"),

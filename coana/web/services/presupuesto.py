@@ -175,7 +175,7 @@ def obtener_uc(uc_id: str) -> RecordResponse | None:
 # del fichero de apuntes con algunas variantes.
 _COLS_APUNTES_BASE: list[ColumnSpec] = [
     ColumnSpec(name="asiento", label="Asiento", format="text"),
-    ColumnSpec(name="registro", label="Registro", format="int"),
+    ColumnSpec(name="registro", label="Registro", format="id"),
     ColumnSpec(name="aplicación", label="Aplicación", format="text"),
     ColumnSpec(name="programa", label="Programa", format="text"),
     ColumnSpec(name="centro", label="Centro", format="text"),

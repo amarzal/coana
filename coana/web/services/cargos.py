@@ -72,7 +72,7 @@ def _enriquecer_per_id(df: pl.DataFrame) -> pl.DataFrame:
 # ----------------------------------------------------------------------
 
 _COLUMNS_CAT: list[ColumnSpec] = [
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="categoría", label="Categoría", format="text"),
     ColumnSpec(name="fecha", label="Fecha último cobro", format="date"),
@@ -94,12 +94,12 @@ _SEARCH_CAT = [
 # ----------------------------------------------------------------------
 
 _COLUMNS_DEPT: list[ColumnSpec] = [
-    ColumnSpec(name="idx", label="#", format="int", sortable=False),
+    ColumnSpec(name="idx", label="#", format="id", sortable=False),
     ColumnSpec(name="centro_cc", label="Centro de coste", format="text"),
-    ColumnSpec(name="per_id", label="per_id", format="int"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="cargo", label="Cargo", format="text"),
-    ColumnSpec(name="servicio", label="Servicio", format="int"),
+    ColumnSpec(name="servicio", label="Servicio", format="id"),
     ColumnSpec(name="fecha_inicio", label="Inicio", format="date"),
     ColumnSpec(name="fecha_fin", label="Fin", format="date"),
     ColumnSpec(name="fecha_inicio_cobra", label="Inicio cobra", format="date"),

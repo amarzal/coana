@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-ColumnFormat = Literal["text", "int", "float", "euro", "m2", "date", "bool"]
+ColumnFormat = Literal["text", "id", "int", "float", "euro", "m2", "date", "bool"]
 """Cómo debe renderizar el frontend cada columna."""
 
 

@@ -98,6 +98,9 @@ export function DataTable({
                 enableSorting: c.sortable,
                 cell: ({ getValue }) => {
                     const v = getValue();
+                    // `id` es un entero pero se trata como cadena
+                    // identificadora: alineado a la izquierda, sin
+                    // tabular-nums.
                     const isNum = c.format === "euro" || c.format === "int" ||
                         c.format === "float" || c.format === "m2";
                     return (
@@ -181,7 +184,7 @@ export function DataTable({
 
             {/* Tabla */}
             <div className="overflow-x-auto rounded-md border border-slate-200 bg-white">
-                <table className="w-full text-sm">
+                <table className="w-full text-xs">
                     <thead className="bg-slate-50">
                         {table.getHeaderGroups().map((hg) => (
                             <tr key={hg.id}>
@@ -191,7 +194,7 @@ export function DataTable({
                                         <th
                                             key={h.id}
                                             className={cn(
-                                                "border-b border-slate-200 px-3 py-2 text-left font-medium text-slate-700",
+                                                "border-b border-slate-200 px-2 py-1.5 text-left font-medium text-slate-700",
                                                 h.column.getCanSort() &&
                                                     "cursor-pointer select-none hover:bg-slate-100",
                                             )}
@@ -234,7 +237,7 @@ export function DataTable({
                                     {row.getVisibleCells().map((cell) => (
                                         <td
                                             key={cell.id}
-                                            className="max-w-[28ch] truncate px-3 py-1.5"
+                                            className="max-w-[28ch] truncate px-2 py-1"
                                         >
                                             {flexRender(
                                                 cell.column.columnDef.cell,
