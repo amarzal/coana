@@ -2,6 +2,9 @@
 
 import subprocess
 import sys
+import threading
+import time
+import webbrowser
 from pathlib import Path
 
 import typer
@@ -36,6 +39,41 @@ def editor_tree(
     from coana.apps.editor_tree import EditorTree
 
     EditorTree(ruta_base).mainloop()
+
+
+@app.command()
+def web(
+    host: str = typer.Option("127.0.0.1", help="Interfaz en la que escuchar"),
+    port: int = typer.Option(8765, help="Puerto en el que escuchar"),
+    reload: bool = typer.Option(False, help="Recarga automática del backend (uvicorn --reload)"),
+    no_browser: bool = typer.Option(False, help="No abrir el navegador automáticamente"),
+    dev: bool = typer.Option(
+        False,
+        help=(
+            "Modo desarrollo: solo arranca el backend. El frontend Vite "
+            "se lanza aparte con `cd web/frontend && npm run dev`."
+        ),
+    ),
+):
+    """Lanza el gemelo web (FastAPI + frontend compilado)."""
+    import uvicorn
+
+    if not no_browser and not dev:
+        url = f"http://{host}:{port}"
+
+        def _open_later() -> None:
+            time.sleep(0.7)
+            webbrowser.open(url)
+
+        threading.Thread(target=_open_later, daemon=True).start()
+
+    uvicorn.run(
+        "coana.web.app:app",
+        host=host,
+        port=port,
+        reload=reload,
+        log_level="info",
+    )
 
 
 def main():
