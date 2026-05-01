@@ -24,6 +24,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sistema/fase1/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run Fase1
+         * @description Lanza una nueva ejecución de Fase 1 (en segundo plano).
+         */
+        post: operations["run_fase1_api_sistema_fase1_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sistema/fase1/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fase1 Current
+         * @description Job en curso o último ejecutado, si lo hay.
+         */
+        get: operations["fase1_current_api_sistema_fase1_current_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sistema/fase1/{job_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fase1 Status */
+        get: operations["fase1_status_api_sistema_fase1__job_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sistema/fase1/{job_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fase1 Stream
+         * @description SSE con eventos `log` por cada línea, `done` o `error` al terminar.
+         *
+         *     El cliente puede reabrir esta ruta y verá todas las líneas acumuladas
+         *     desde el principio (la lista interna del job es persistente mientras
+         *     la app esté viva).
+         */
+        get: operations["fase1_stream_api_sistema_fase1__job_id__stream_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/presupuesto/_resumen": {
         parameters: {
             query?: never;
@@ -1118,6 +1199,24 @@ export interface components {
             /** Fase1 Existe */
             fase1_existe: boolean;
         };
+        /** JobInfo */
+        JobInfo: {
+            /** Id */
+            id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "running" | "done" | "error";
+            /** Started At */
+            started_at: number;
+            /** Finished At */
+            finished_at?: number | null;
+            /** N Lines */
+            n_lines: number;
+            /** Error */
+            error?: string | null;
+        };
         /**
          * Kpi
          * @description Métrica agregada que se muestra en el panel KPI de cabecera.
@@ -1239,6 +1338,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    run_fase1_api_sistema_fase1_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"];
+                };
+            };
+        };
+    };
+    fase1_current_api_sistema_fase1_current_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"] | null;
+                };
+            };
+        };
+    };
+    fase1_status_api_sistema_fase1__job_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JobInfo"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    fase1_stream_api_sistema_fase1__job_id__stream_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
