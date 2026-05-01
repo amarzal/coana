@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { NavLink, useLocation } from "react-router";
 import { cn } from "@/lib/cn";
 
@@ -10,10 +11,6 @@ const GROUPS: Group[] = [
     {
         label: "Inicio",
         items: [{ label: "Estado del backend", to: "/" }],
-    },
-    {
-        label: "Entradas",
-        items: [{ label: "Catálogo", to: "/entradas" }],
     },
     {
         label: "Presupuesto",
@@ -106,6 +103,135 @@ function _grupoActivo(grupo: Group, ruta: string): boolean {
     return grupo.items.some((it) => it.to === ruta);
 }
 
+// ----------------------------------------------------------------------
+// Menú dinámico de Entradas
+// ----------------------------------------------------------------------
+
+type Fichero = {
+    nombre: string;
+    stem: string;
+    extension: string;
+    ruta_relativa: string;
+    tamaño_bytes: number;
+};
+type SubGrupo = { subdirectorio: string; ficheros: Fichero[] };
+type Catalogo = { grupos: SubGrupo[] };
+
+function CabeceraColapsable({
+    label, abierto, onToggle, level = 0,
+}: {
+    label: string;
+    abierto: boolean;
+    onToggle: () => void;
+    level?: number;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={abierto}
+            className={cn(
+                "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-slate-500 hover:bg-slate-100",
+                level === 0
+                    ? "text-xs font-semibold uppercase tracking-wide"
+                    : "text-xs",
+            )}
+        >
+            <span className="w-3 text-slate-400">{abierto ? "▾" : "▸"}</span>
+            <span>{label}</span>
+        </button>
+    );
+}
+
+function EntradasMenu() {
+    const { pathname } = useLocation();
+    // Subdirectorio activo: el primer segmento tras /entradas/.
+    const subdirActivo = pathname.startsWith("/entradas/")
+        ? pathname.slice("/entradas/".length).split("/")[0]
+        : null;
+
+    const [abiertoRaiz, setAbiertoRaiz] = useState(
+        () => pathname.startsWith("/entradas"),
+    );
+    const [subAbiertos, setSubAbiertos] = useState<Set<string>>(
+        () => (subdirActivo ? new Set([subdirActivo]) : new Set()),
+    );
+
+    const { data, isLoading, isError } = useQuery({
+        queryKey: ["entradas:catalogo"],
+        queryFn: async (): Promise<Catalogo> => {
+            const r = await fetch("/api/entradas/");
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json() as Promise<Catalogo>;
+        },
+    });
+
+    const toggleSub = (label: string) => {
+        setSubAbiertos((prev) => {
+            const next = new Set(prev);
+            if (next.has(label)) next.delete(label);
+            else next.add(label);
+            return next;
+        });
+    };
+
+    return (
+        <div>
+            <CabeceraColapsable
+                label="Entradas"
+                abierto={abiertoRaiz}
+                onToggle={() => setAbiertoRaiz(!abiertoRaiz)}
+            />
+            {abiertoRaiz && (
+                <div className="ml-4 flex flex-col border-l border-slate-200">
+                    {isLoading && (
+                        <div className="px-2 py-1 text-xs text-slate-500">Cargando…</div>
+                    )}
+                    {isError && (
+                        <div className="px-2 py-1 text-xs text-red-700">Error</div>
+                    )}
+                    {data?.grupos.map((sg) => {
+                        const sgOpen = subAbiertos.has(sg.subdirectorio);
+                        return (
+                            <div key={sg.subdirectorio}>
+                                <CabeceraColapsable
+                                    label={sg.subdirectorio}
+                                    abierto={sgOpen}
+                                    onToggle={() => toggleSub(sg.subdirectorio)}
+                                    level={1}
+                                />
+                                {sgOpen && (
+                                    <ul className="ml-4 flex flex-col border-l border-slate-200">
+                                        {sg.ficheros.map((f) => (
+                                            <li key={f.ruta_relativa}>
+                                                <NavLink
+                                                    to={`/entradas/${f.ruta_relativa}`}
+                                                    className={({ isActive }) =>
+                                                        cn(
+                                                            "flex items-baseline gap-2 rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100",
+                                                            isActive && "bg-slate-200 font-medium",
+                                                        )
+                                                    }
+                                                    title={f.ruta_relativa}
+                                                >
+                                                    <span className="text-xs text-slate-400">
+                                                        {f.extension === ".tree" ? "▤" : "▦"}
+                                                    </span>
+                                                    <span className="truncate">{f.stem}</span>
+                                                </NavLink>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
+    );
+}
+
 export function MainNav() {
     const { pathname } = useLocation();
     // Estado inicial: solo se despliega el grupo que contiene la ruta actual.
@@ -122,44 +248,51 @@ export function MainNav() {
         });
     };
 
+    const renderGrupo = (g: Group) => {
+        const open = abiertos.has(g.label);
+        return (
+            <div key={g.label}>
+                <button
+                    type="button"
+                    onClick={() => toggle(g.label)}
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-100"
+                >
+                    <span className="w-3 text-slate-400">{open ? "▾" : "▸"}</span>
+                    <span>{g.label}</span>
+                </button>
+                {open && (
+                    <ul className="ml-4 flex flex-col border-l border-slate-200">
+                        {g.items.map((it) => (
+                            <li key={it.to}>
+                                <NavLink
+                                    to={it.to}
+                                    end
+                                    className={({ isActive }) =>
+                                        cn(
+                                            "block rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100",
+                                            isActive && "bg-slate-200 font-medium",
+                                        )
+                                    }
+                                >
+                                    {it.label}
+                                </NavLink>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </div>
+        );
+    };
+
     return (
         <nav className="flex flex-col gap-1 text-sm">
-            {GROUPS.map((g) => {
-                const open = abiertos.has(g.label);
-                return (
-                    <div key={g.label}>
-                        <button
-                            type="button"
-                            onClick={() => toggle(g.label)}
-                            aria-expanded={open}
-                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-100"
-                        >
-                            <span className="w-3 text-slate-400">{open ? "▾" : "▸"}</span>
-                            <span>{g.label}</span>
-                        </button>
-                        {open && (
-                            <ul className="ml-4 flex flex-col border-l border-slate-200">
-                                {g.items.map((it) => (
-                                    <li key={it.to}>
-                                        <NavLink
-                                            to={it.to}
-                                            end
-                                            className={({ isActive }) =>
-                                                cn(
-                                                    "block rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100",
-                                                    isActive && "bg-slate-200 font-medium",
-                                                )
-                                            }
-                                        >
-                                            {it.label}
-                                        </NavLink>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
-                    </div>
-                );
-            })}
+            {/* «Inicio» primero */}
+            {GROUPS.filter((g) => g.label === "Inicio").map(renderGrupo)}
+            {/* «Entradas» como menú dinámico (3 niveles: Entradas → subdir → fichero) */}
+            <EntradasMenu />
+            {/* El resto de bloques estáticos */}
+            {GROUPS.filter((g) => g.label !== "Inicio").map(renderGrupo)}
         </nav>
     );
 }

@@ -96,7 +96,7 @@ export function App() {
                 <Routes>
                     <Route element={<Layout />}>
                         <Route index element={<Home />} />
-                        <Route path="entradas" element={<Entradas />} />
+                        <Route path="entradas/*" element={<Entradas />} />
                         <Route path="presupuesto/resumen" element={<PresupuestoResumen />} />
                         <Route path="presupuesto/uc" element={<PresupuestoUc />} />
                         <Route path="presupuesto/sin-clasificar" element={<PresupuestoSinClasificar />} />
