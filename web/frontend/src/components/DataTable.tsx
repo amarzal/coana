@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
     flexRender,
@@ -64,6 +64,17 @@ export function DataTable({
     const [pageIndex, setPageIndex] = useState(0);
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
     const [popoverRow, setPopoverRow] = useState<Record<string, unknown> | null>(null);
+
+    // Si cambia el endpoint o los parámetros extra (otra ruta, otro
+    // fichero en el visor xlsx, otra persona en sub-tablas, etc.), la
+    // tabla pasa a una colección distinta: no tiene sentido mantener
+    // el slider/paginación donde estaba — podríamos quedar fuera de
+    // rango. Reseteamos a la página 1 y limpiamos la selección.
+    const extraParamsKey = JSON.stringify(extraParams ?? {});
+    useEffect(() => {
+        setPageIndex(0);
+        setSelectedKey(null);
+    }, [endpoint, extraParamsKey]);
 
     const sortBy = sorting[0]?.id;
     const desc = sorting[0]?.desc ?? false;
