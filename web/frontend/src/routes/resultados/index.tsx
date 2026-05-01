@@ -6,13 +6,10 @@ const QK_RESUMEN = "resultados:resumen";
 
 function Cabecera({ title, subtitle }: { title: string; subtitle?: string }) {
     return (
-        <>
-            <div>
-                <h1 className="text-2xl font-semibold">{title}</h1>
-                {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
-            </div>
-            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
-        </>
+        <div>
+            <h1 className="text-2xl font-semibold">{title}</h1>
+            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        </div>
     );
 }
 
@@ -37,6 +34,7 @@ export function ResultadosResumen() {
                 title="Resultados Fase 1 · Resumen"
                 subtitle="Visión consolidada de las UC generadas, con desglose por origen."
             />
+            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
         </div>
     );
 }

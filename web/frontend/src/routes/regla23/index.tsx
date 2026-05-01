@@ -9,13 +9,22 @@ const QK_RESUMEN = "regla23:resumen";
 
 function Cabecera({ title, subtitle }: { title: string; subtitle?: string }) {
     return (
-        <>
-            <div>
-                <h1 className="text-2xl font-semibold">{title}</h1>
-                {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
-            </div>
+        <div>
+            <h1 className="text-2xl font-semibold">{title}</h1>
+            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        </div>
+    );
+}
+
+export function Regla23Resumen() {
+    return (
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title="Regla 23 · Resumen"
+                subtitle="Métricas del reparto de la masa retributiva indiferenciada del PDI/PVI."
+            />
             <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
-        </>
+        </div>
     );
 }
 
@@ -118,7 +127,7 @@ export function Regla23Despidos() {
         <ResourceView
             title="Regla 23 · Despidos"
             subtitle="UC de PDI/PVI por concepto retributivo de despido."
-            kpiEndpoint={KPI}
+            
             listEndpoint="/api/regla23/despidos"
             recordEndpoint="/api/regla23/despidos/{id}"
             rowKey="id"
@@ -132,7 +141,7 @@ export function Regla23IndemnizacionesAsistencias() {
         <ResourceView
             title="Regla 23 · Indemnizaciones por asistencias"
             subtitle="UC de PDI/PVI por indemnizaciones por asistencias a tribunales y similares."
-            kpiEndpoint={KPI}
+            
             listEndpoint="/api/regla23/indemnizaciones"
             recordEndpoint="/api/regla23/indemnizaciones/{id}"
             rowKey="id"
@@ -146,7 +155,7 @@ export function Regla23Cargos() {
         <ResourceView
             title="Regla 23 · Cargos en proyectos"
             subtitle="UC de PDI/PVI por cargos académicos asociados a un proyecto específico (concepto 19/64 fuera de TABLA-PROYECTOS-GENERALES)."
-            kpiEndpoint={KPI}
+            
             listEndpoint="/api/regla23/cargos"
             recordEndpoint="/api/regla23/cargos/{id}"
             rowKey="id"

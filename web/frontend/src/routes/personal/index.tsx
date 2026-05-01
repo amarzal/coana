@@ -7,13 +7,10 @@ const QK_RESUMEN = "personal:resumen";
 
 function Cabecera({ title, subtitle }: { title: string; subtitle?: string }) {
     return (
-        <>
-            <div>
-                <h1 className="text-2xl font-semibold">{title}</h1>
-                {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
-            </div>
-            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
-        </>
+        <div>
+            <h1 className="text-2xl font-semibold">{title}</h1>
+            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        </div>
     );
 }
 
@@ -24,6 +21,7 @@ export function PersonalResumen() {
                 title="Personal · Resumen"
                 subtitle="Expedientes e importes agregados por sector."
             />
+            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
         </div>
     );
 }
@@ -36,7 +34,6 @@ function ExpedientesPorSector({
         <ResourceView
             title={`Personal · Expedientes ${sector}`}
             subtitle={descripcion}
-            kpiEndpoint={KPI}
             listEndpoint={`/api/personal/expedientes/${sector}`}
             recordEndpoint={`/api/personal/expedientes/${sector}/{id}`}
             rowKey="expediente"
@@ -82,7 +79,6 @@ export function PersonalPersona() {
         <ResourceView
             title="Personal · Persona"
             subtitle="Vista por persona del reparto de SS y de todas sus UC retributivas."
-            kpiEndpoint={KPI}
             listEndpoint="/api/personal/persona"
             recordEndpoint="/api/personal/persona/{id}"
             rowKey="per_id"

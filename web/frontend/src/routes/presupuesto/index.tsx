@@ -8,13 +8,10 @@ const QK_RESUMEN = "presupuesto:resumen";
 
 function Cabecera({ title, subtitle }: { title: string; subtitle?: string }) {
     return (
-        <>
-            <div>
-                <h1 className="text-2xl font-semibold">{title}</h1>
-                {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
-            </div>
-            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
-        </>
+        <div>
+            <h1 className="text-2xl font-semibold">{title}</h1>
+            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        </div>
     );
 }
 
@@ -39,6 +36,7 @@ export function PresupuestoResumen() {
                 title="Presupuesto · Resumen"
                 subtitle="Métricas globales del traductor de presupuesto."
             />
+            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
         </div>
     );
 }
@@ -48,7 +46,6 @@ export function PresupuestoUc() {
         <ResourceView
             title="Presupuesto · Unidades de coste"
             subtitle="UC generadas por el traductor de presupuesto a partir de los apuntes."
-            kpiEndpoint={KPI}
             listEndpoint="/api/presupuesto/uc"
             recordEndpoint="/api/presupuesto/uc/{id}"
             queryKey="presupuesto:uc"

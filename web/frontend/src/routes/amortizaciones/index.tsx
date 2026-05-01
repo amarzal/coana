@@ -5,16 +5,13 @@ import { KpiPanel } from "@/components/KpiPanel";
 const KPI = "/api/amortizaciones/_resumen";
 const QK_RESUMEN = "amortizaciones:resumen";
 
-/** Cabecera con título + KPI panel común a todas las subvistas. */
+/** Cabecera simple con título y subtítulo. KPIs solo en la vista Resumen. */
 function Cabecera({ title, subtitle }: { title: string; subtitle?: string }) {
     return (
-        <>
-            <div>
-                <h1 className="text-2xl font-semibold">{title}</h1>
-                {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
-            </div>
-            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
-        </>
+        <div>
+            <h1 className="text-2xl font-semibold">{title}</h1>
+            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
+        </div>
     );
 }
 
@@ -25,6 +22,7 @@ export function AmortResumen() {
                 title="Amortizaciones · Resumen"
                 subtitle="Métricas globales del procesamiento del inventario."
             />
+            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
         </div>
     );
 }
@@ -34,7 +32,6 @@ export function AmortEnriquecido() {
         <ResourceView
             title="Amortizaciones · Inventario con amortización"
             subtitle="Registros del inventario que sobreviven a los filtros y reciben importe de amortización para el año analizado."
-            kpiEndpoint={KPI}
             listEndpoint="/api/amortizaciones/enriquecido"
             recordEndpoint="/api/amortizaciones/enriquecido/{id}"
             rowKey="id"
@@ -138,7 +135,6 @@ export function AmortUc() {
         <ResourceView
             title="Amortizaciones · UC generadas"
             subtitle="Unidades de coste creadas a partir de los registros de inventario enriquecidos."
-            kpiEndpoint={KPI}
             listEndpoint="/api/amortizaciones/uc"
             recordEndpoint="/api/amortizaciones/uc/{id}"
             rowKey="id"

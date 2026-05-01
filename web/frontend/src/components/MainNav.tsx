@@ -59,6 +59,7 @@ const GROUPS: Group[] = [
     {
         label: "Regla 23",
         items: [
+            { label: "Resumen", to: "/regla23/resumen" },
             { label: "Dedicación docente", to: "/regla23/dedicacion" },
             { label: "Docencia no oficial", to: "/regla23/no-oficial" },
             { label: "Estructura estudios", to: "/regla23/estructura" },
@@ -74,6 +75,7 @@ const GROUPS: Group[] = [
     {
         label: "Cargos académicos",
         items: [
+            { label: "Resumen", to: "/cargos/resumen" },
             { label: "Categoría PDI/PVI", to: "/cargos/categoria" },
             { label: "Departamentos", to: "/cargos/departamentos" },
         ],

@@ -19,6 +19,7 @@ import {
 } from "@/routes/presupuesto";
 import { CargosCategoria } from "@/routes/cargos/CategoriaPdiPvi";
 import { CargosDepartamentos } from "@/routes/cargos/Departamentos";
+import { CargosResumen } from "@/routes/cargos/Resumen";
 import { SuperficiesResumen } from "@/routes/superficies/Resumen";
 import { SuperficiesTotales } from "@/routes/superficies/Totales";
 import { SuperficiesPresencia } from "@/routes/superficies/PresenciaCentros";
@@ -45,6 +46,7 @@ import {
     PersonalAnomaliasPdi,
 } from "@/routes/personal";
 import {
+    Regla23Resumen,
     Regla23DedicacionDocente,
     Regla23DocenciaNoOficial,
     Regla23EstructuraEstudios,
@@ -109,6 +111,7 @@ export function App() {
                         <Route path="presupuesto/arbol/actividades" element={<PresupuestoArbolActividades />} />
                         <Route path="presupuesto/arbol/cc" element={<PresupuestoArbolCentros />} />
                         <Route path="presupuesto/arbol/ec" element={<PresupuestoArbolElementos />} />
+                        <Route path="cargos/resumen" element={<CargosResumen />} />
                         <Route path="cargos/categoria" element={<CargosCategoria />} />
                         <Route path="cargos/departamentos" element={<CargosDepartamentos />} />
                         <Route path="superficies/resumen" element={<SuperficiesResumen />} />
@@ -131,6 +134,7 @@ export function App() {
                         <Route path="personal/multiexpediente" element={<PersonalMultiexpediente />} />
                         <Route path="personal/persona" element={<PersonalPersona />} />
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
+                        <Route path="regla23/resumen" element={<Regla23Resumen />} />
                         <Route path="regla23/dedicacion" element={<Regla23DedicacionDocente />} />
                         <Route path="regla23/no-oficial" element={<Regla23DocenciaNoOficial />} />
                         <Route path="regla23/estructura" element={<Regla23EstructuraEstudios />} />
