@@ -121,6 +121,18 @@ def lookup_programa(programa: str | None) -> dict[str, str]:
     return _lookup_simple(_programas(), "programa", programa)
 
 
+def _resolver_estudio(codigo: str) -> str:
+    """Devuelve "<código> — <nombre>" si existe; si no, solo el código."""
+    df = _estudios()
+    if df is None:
+        return codigo
+    fila = df.filter(pl.col("estudio").cast(pl.Utf8) == codigo)
+    if fila.is_empty():
+        return codigo
+    nombre = fila.row(0, named=True).get("nombre") or ""
+    return f"{codigo} — {nombre}" if nombre else codigo
+
+
 def lookup_grado(valor) -> dict[str, str]:
     if valor is None:
         return {}
@@ -131,7 +143,16 @@ def lookup_grado(valor) -> dict[str, str]:
     if fila.is_empty():
         return {}
     row = fila.row(0, named=True)
-    return {k: (str(v) if v is not None else "") for k, v in row.items() if k != "grado"}
+    out: dict[str, str] = {}
+    for k, v in row.items():
+        if k == "grado":
+            continue
+        s = str(v) if v is not None else ""
+        # Encadena el lookup: estudio dentro de grado se resuelve a su nombre.
+        if k == "estudio" and s:
+            s = _resolver_estudio(s)
+        out[k] = s
+    return out
 
 
 def lookup_master(valor) -> dict[str, str]:
@@ -144,7 +165,15 @@ def lookup_master(valor) -> dict[str, str]:
     if fila.is_empty():
         return {}
     row = fila.row(0, named=True)
-    return {k: (str(v) if v is not None else "") for k, v in row.items() if k != "máster"}
+    out: dict[str, str] = {}
+    for k, v in row.items():
+        if k == "máster":
+            continue
+        s = str(v) if v is not None else ""
+        if k == "estudio" and s:
+            s = _resolver_estudio(s)
+        out[k] = s
+    return out
 
 
 def lookup_estudio(valor) -> dict[str, str]:

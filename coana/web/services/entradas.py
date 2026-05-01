@@ -88,7 +88,11 @@ def _tipo_a_format(dtype: pl.DataType) -> ColumnFormat:
     if dtype == pl.Boolean:
         return "bool"
     if dtype.is_integer():
-        return "int"
+        # En el visor genérico de un .xlsx tratamos los enteros como
+        # identificadores (sin separador de miles). Las cantidades
+        # agregadas las definen los servicios concretos, no este
+        # visor genérico.
+        return "id"
     if dtype.is_float():
         return "float"
     if dtype in (pl.Date, pl.Datetime):
