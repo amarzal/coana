@@ -73,8 +73,8 @@ const queryClient = new QueryClient({
 
 function Layout() {
     return (
-        <div className="grid min-h-screen grid-cols-[16rem_1fr] bg-slate-50 text-slate-900">
-            <aside className="flex flex-col gap-4 border-r border-slate-200 bg-white p-4">
+        <div className="grid h-screen grid-cols-[16rem_1fr] overflow-hidden bg-slate-50 text-slate-900">
+            <aside className="flex flex-col gap-4 overflow-y-auto border-r border-slate-200 bg-white p-4">
                 <div className="px-2">
                     <div className="text-sm font-semibold">CoAna</div>
                     <div className="text-xs text-slate-500">gemelo web</div>
@@ -82,7 +82,7 @@ function Layout() {
                 <EjecutarFase1 />
                 <MainNav />
             </aside>
-            <main className="overflow-x-auto p-6">
+            <main className="overflow-auto p-6">
                 <Outlet />
             </main>
         </div>
