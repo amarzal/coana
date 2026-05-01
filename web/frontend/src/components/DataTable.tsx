@@ -35,6 +35,8 @@ type Props = {
     rowKey?: string;
     /** Tamaño de página inicial. */
     pageSize?: number;
+    /** Parámetros de query adicionales que se mezclan con los estándar. */
+    extraParams?: Record<string, string | number | boolean | undefined>;
 };
 
 const PAGE_SIZES = [25, 50, 100, 250, 500];
@@ -45,6 +47,7 @@ export function DataTable({
     onRowSelect,
     rowKey = "id",
     pageSize: initialPageSize = 50,
+    extraParams,
 }: Props) {
     const [q, setQ] = useState("");
     const [columnFilter, setColumnFilter] = useState<string>(""); // "" = todas
@@ -57,6 +60,7 @@ export function DataTable({
     const desc = sorting[0]?.desc ?? false;
 
     const params = {
+        ...(extraParams ?? {}),
         q: q || undefined,
         column: columnFilter || undefined,
         sort_by: sortBy,

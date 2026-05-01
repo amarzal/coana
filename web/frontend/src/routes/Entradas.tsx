@@ -106,11 +106,10 @@ export function Entradas() {
                             </div>
                             {seleccionada.extension === ".xlsx" ? (
                                 <DataTable
-                                    endpoint={
-                                        `/api/entradas/xlsx?ruta=${encodeURIComponent(seleccionada.ruta_relativa)}`
-                                    }
+                                    endpoint="/api/entradas/xlsx"
                                     queryKey={`entradas:xlsx:${seleccionada.ruta_relativa}`}
-                                    rowKey={"__row_key_no_existe__"}
+                                    rowKey="__row_key_no_existe__"
+                                    extraParams={{ ruta: seleccionada.ruta_relativa }}
                                 />
                             ) : (
                                 <TreeView
