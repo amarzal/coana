@@ -18,7 +18,7 @@ type Props = {
 
 /** Render recursivo de un nodo con expand/collapse. */
 function Nodo({ nodo, nivel }: { nodo: NodoTree; nivel: number }) {
-    const [abierto, setAbierto] = useState(nivel < 1);
+    const [abierto, setAbierto] = useState(true);
     const tieneHijos = nodo.hijos.length > 0;
     return (
         <div>
