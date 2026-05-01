@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { ResourceView } from "@/components/ResourceView";
 import { DataTable } from "@/components/DataTable";
 import { KpiPanel } from "@/components/KpiPanel";
+import { RecordCard } from "@/components/RecordCard";
 
 const KPI = "/api/personal/_resumen";
 const QK_RESUMEN = "personal:resumen";
@@ -75,15 +77,43 @@ export function PersonalMultiexpediente() {
 }
 
 export function PersonalPersona() {
+    const [perId, setPerId] = useState<string | null>(null);
+
     return (
-        <ResourceView
-            title="Personal · Persona"
-            subtitle="Vista por persona del reparto de SS y de todas sus UC retributivas."
-            listEndpoint="/api/personal/persona"
-            recordEndpoint="/api/personal/persona/{id}"
-            rowKey="per_id"
-            queryKey="personal:persona"
-        />
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title="Personal · Persona"
+                subtitle="Vista por persona del reparto de SS y de todas sus UC retributivas."
+            />
+            <DataTable
+                endpoint="/api/personal/persona"
+                queryKey="personal:persona"
+                rowKey="per_id"
+                onRowSelect={(row) => {
+                    const v = row.per_id;
+                    setPerId(v == null ? null : String(v));
+                }}
+            />
+            {perId && (
+                <>
+                    <RecordCard
+                        endpoint="/api/personal/persona/{id}"
+                        id={perId}
+                        queryKey="personal:persona:detail"
+                    />
+                    <div className="rounded-md border border-slate-200 bg-white p-4">
+                        <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-slate-500">
+                            UC asociadas (retributivas + SS)
+                        </h2>
+                        <DataTable
+                            endpoint={`/api/personal/persona/${encodeURIComponent(perId)}/uc`}
+                            queryKey={`personal:persona:uc:${perId}`}
+                            rowKey="id"
+                        />
+                    </div>
+                </>
+            )}
+        </div>
     );
 }
 

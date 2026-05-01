@@ -229,7 +229,8 @@ def listar_personas(params: QueryParams) -> ListResponse:
         pl.col("importe_total").fill_null(0.0),
         pl.col("ss_total").fill_null(0.0),
     )
-    df = _enriquecer_per_id(df).select([c.name for c in _COLS_PERSONA if c.name in df.columns])
+    df = _enriquecer_per_id(df)
+    df = df.select([c.name for c in _COLS_PERSONA if c.name in df.columns])
     df, total = apply_query(df, params, search_columns=["persona"])
     return ListResponse(columns=_COLS_PERSONA, rows=_serialize(df.to_dicts()), total=total)
 
