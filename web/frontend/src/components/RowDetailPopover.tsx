@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { formatValue, type ColumnFormat } from "@/lib/format";
 
 type ColumnSpec = {
@@ -13,7 +14,11 @@ type Props = {
     onClose: () => void;
 };
 
-/** Modal centrado que muestra todos los campos de una fila. */
+type EnrichResponse = {
+    enriquecimientos: Record<string, Record<string, string>>;
+};
+
+/** Modal centrado que muestra todos los campos de una fila, enriquecidos. */
 export function RowDetailPopover({ row, columns, onClose }: Props) {
     // Cierra con Escape.
     useEffect(() => {
@@ -23,6 +28,22 @@ export function RowDetailPopover({ row, columns, onClose }: Props) {
         window.addEventListener("keydown", onKey);
         return () => window.removeEventListener("keydown", onKey);
     }, [onClose]);
+
+    // Pide enriquecimiento al backend (caché por contenido del row).
+    const { data: enrich } = useQuery({
+        queryKey: ["lookups:enrich-row", row],
+        queryFn: async (): Promise<EnrichResponse> => {
+            const r = await fetch("/api/lookups/enrich-row", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ row }),
+            });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json() as Promise<EnrichResponse>;
+        },
+    });
+
+    const enriquecimientos = enrich?.enriquecimientos ?? {};
 
     return (
         <div
@@ -48,17 +69,31 @@ export function RowDetailPopover({ row, columns, onClose }: Props) {
                         ✕ Cerrar
                     </button>
                 </div>
-                <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 px-4 py-3 text-sm">
-                    {columns.map((c) => (
-                        <div key={c.name} className="contents">
-                            <dt className="font-mono text-xs text-slate-500">
-                                {c.label}
-                            </dt>
-                            <dd className="font-mono break-words">
-                                {formatValue(row[c.name], c.format)}
-                            </dd>
-                        </div>
-                    ))}
+                <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 px-4 py-3 text-sm">
+                    {columns.map((c) => {
+                        const extra = enriquecimientos[c.name];
+                        return (
+                            <div key={c.name} className="contents">
+                                <dt className="font-mono text-xs text-slate-500">
+                                    {c.label}
+                                </dt>
+                                <dd className="font-mono break-words">
+                                    {formatValue(row[c.name], c.format)}
+                                    {extra && (
+                                        <span className="ml-2 text-slate-500">
+                                            {Object.entries(extra).map(([k, v], i) => (
+                                                <span key={k}>
+                                                    {i > 0 && <span className="mx-1">·</span>}
+                                                    <span className="text-slate-400">{k}:</span>{" "}
+                                                    <span className="italic">{v || "—"}</span>
+                                                </span>
+                                            ))}
+                                        </span>
+                                    )}
+                                </dd>
+                            </div>
+                        );
+                    })}
                 </dl>
             </div>
         </div>

@@ -35,6 +35,26 @@ def _personas() -> pl.DataFrame | None:
 
 
 @lru_cache(maxsize=64)
+def _grados() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "docencia" / "grados.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _masteres() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "docencia" / "másteres.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _estudios() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "docencia" / "estudios.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _subcentros() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "presupuesto" / "subcentros.xlsx")
+
+
+@lru_cache(maxsize=64)
 def _centros() -> pl.DataFrame | None:
     return _safe_read(DIR_ENTRADA / "presupuesto" / "centros.xlsx")
 
@@ -101,7 +121,85 @@ def lookup_programa(programa: str | None) -> dict[str, str]:
     return _lookup_simple(_programas(), "programa", programa)
 
 
+def lookup_grado(valor) -> dict[str, str]:
+    if valor is None:
+        return {}
+    df = _grados()
+    if df is None:
+        return {}
+    fila = df.filter(pl.col("grado").cast(pl.Utf8) == str(valor))
+    if fila.is_empty():
+        return {}
+    row = fila.row(0, named=True)
+    return {k: (str(v) if v is not None else "") for k, v in row.items() if k != "grado"}
+
+
+def lookup_master(valor) -> dict[str, str]:
+    if valor is None:
+        return {}
+    df = _masteres()
+    if df is None:
+        return {}
+    fila = df.filter(pl.col("máster").cast(pl.Utf8) == str(valor))
+    if fila.is_empty():
+        return {}
+    row = fila.row(0, named=True)
+    return {k: (str(v) if v is not None else "") for k, v in row.items() if k != "máster"}
+
+
+def lookup_estudio(valor) -> dict[str, str]:
+    if valor is None:
+        return {}
+    df = _estudios()
+    if df is None:
+        return {}
+    fila = df.filter(pl.col("estudio").cast(pl.Utf8) == str(valor))
+    if fila.is_empty():
+        return {}
+    row = fila.row(0, named=True)
+    return {k: (str(v) if v is not None else "") for k, v in row.items() if k != "estudio"}
+
+
+def lookup_subcentro(valor) -> dict[str, str]:
+    return _lookup_simple(_subcentros(), "subcentro", valor)
+
+
+# ----------------------------------------------------------------------
+# Mapeo nombre de columna → función de lookup
+# ----------------------------------------------------------------------
+
+_LOOKUP_BY_COL = {
+    "per_id": lambda v: lookup_persona(v),
+    "perid": lambda v: lookup_persona(v),
+    "centro": lookup_centro,
+    "subcentro": lookup_subcentro,
+    "proyecto": lookup_proyecto,
+    "aplicación": lookup_aplicacion,
+    "programa": lookup_programa,
+    "grado": lookup_grado,
+    "máster": lookup_master,
+    "estudio": lookup_estudio,
+}
+
+
+def enrich_row(row: dict) -> dict[str, dict[str, str]]:
+    """Aplica los lookups conocidos a cada campo del row.
+
+    Devuelve un dict ``{nombre_columna: {campo_extra: valor}}``. Solo
+    incluye columnas que tienen lookup definido y para las que el valor
+    aporta información (dict no vacío).
+    """
+    result: dict[str, dict[str, str]] = {}
+    for col, fn in _LOOKUP_BY_COL.items():
+        if col in row and row[col] not in (None, ""):
+            data = fn(row[col])
+            if data:
+                result[col] = data
+    return result
+
+
 def clear_cache() -> None:
     """Vacía las cachés de tablas de referencia (tras editar entradas)."""
-    for fn in (_personas, _centros, _proyectos, _aplicaciones, _programas):
+    for fn in (_personas, _centros, _proyectos, _aplicaciones, _programas,
+               _grados, _masteres, _estudios, _subcentros):
         fn.cache_clear()

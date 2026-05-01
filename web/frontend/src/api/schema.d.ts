@@ -1265,6 +1265,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/lookups/enrich-row": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enrich Row
+         * @description Aplica los lookups conocidos al row enviado.
+         *
+         *     Devuelve un dict ``{columna: {campo_extra: valor}}`` con solo las
+         *     columnas que tienen información adicional disponible (per_id →
+         *     persona, grado → nombre, centro → nombre, etc.).
+         */
+        post: operations["enrich_row_api_lookups_enrich_row_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1294,12 +1318,28 @@ export interface components {
              * @default text
              * @enum {string}
              */
-            format: "text" | "int" | "float" | "euro" | "m2" | "date" | "bool";
+            format: "text" | "id" | "int" | "float" | "euro" | "m2" | "date" | "bool";
             /**
              * Sortable
              * @default true
              */
             sortable: boolean;
+        };
+        /** EnrichRequest */
+        EnrichRequest: {
+            /** Row */
+            row: {
+                [key: string]: unknown;
+            };
+        };
+        /** EnrichResponse */
+        EnrichResponse: {
+            /** Enriquecimientos */
+            enriquecimientos: {
+                [key: string]: {
+                    [key: string]: string;
+                };
+            };
         };
         /** FicheroEntrada */
         FicheroEntrada: {
@@ -1330,7 +1370,7 @@ export interface components {
              * @default text
              * @enum {string}
              */
-            format: "text" | "int" | "float" | "euro" | "m2" | "date" | "bool";
+            format: "text" | "id" | "int" | "float" | "euro" | "m2" | "date" | "bool";
         };
         /** GrupoEntradas */
         GrupoEntradas: {
@@ -1387,7 +1427,7 @@ export interface components {
              * @default text
              * @enum {string}
              */
-            format: "text" | "int" | "float" | "euro" | "m2" | "date" | "bool";
+            format: "text" | "id" | "int" | "float" | "euro" | "m2" | "date" | "bool";
             /** Hint */
             hint?: string | null;
         };
@@ -4007,6 +4047,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodoTree"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    enrich_row_api_lookups_enrich_row_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrichRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnrichResponse"];
                 };
             };
             /** @description Validation Error */
