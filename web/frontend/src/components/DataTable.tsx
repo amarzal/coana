@@ -10,6 +10,7 @@ import {
 import { api } from "@/api/client";
 import { cn } from "@/lib/cn";
 import { formatValue, type ColumnFormat } from "@/lib/format";
+import { RowDetailPopover } from "@/components/RowDetailPopover";
 
 type ColumnSpec = {
     name: string;
@@ -37,6 +38,12 @@ type Props = {
     pageSize?: number;
     /** Parámetros de query adicionales que se mezclan con los estándar. */
     extraParams?: Record<string, string | number | boolean | undefined>;
+    /**
+     * Si es true, al pinchar una fila se abre un popover con todos los
+     * campos formateados. Útil para tablas genéricas (visor de xlsx)
+     * que no tienen un endpoint de ficha enriquecida.
+     */
+    showPopoverOnRowClick?: boolean;
 };
 
 const PAGE_SIZES = [10, 25, 50, 100, 250, 500];
@@ -48,6 +55,7 @@ export function DataTable({
     rowKey = "id",
     pageSize: initialPageSize = 10,
     extraParams,
+    showPopoverOnRowClick = false,
 }: Props) {
     const [q, setQ] = useState("");
     const [columnFilter, setColumnFilter] = useState<string>(""); // "" = todas
@@ -55,6 +63,7 @@ export function DataTable({
     const [pageSize, setPageSize] = useState(initialPageSize);
     const [pageIndex, setPageIndex] = useState(0);
     const [selectedKey, setSelectedKey] = useState<string | null>(null);
+    const [popoverRow, setPopoverRow] = useState<Record<string, unknown> | null>(null);
 
     const sortBy = sorting[0]?.id;
     const desc = sorting[0]?.desc ?? false;
@@ -231,6 +240,9 @@ export function DataTable({
                                     )}
                                     onClick={() => {
                                         setSelectedKey(id);
+                                        if (showPopoverOnRowClick) {
+                                            setPopoverRow(row.original);
+                                        }
                                         onRowSelect?.(row.original);
                                     }}
                                 >
@@ -330,6 +342,14 @@ export function DataTable({
                     </select>
                 </label>
             </div>
+
+            {popoverRow && (
+                <RowDetailPopover
+                    row={popoverRow}
+                    columns={columns}
+                    onClose={() => setPopoverRow(null)}
+                />
+            )}
         </div>
     );
 }

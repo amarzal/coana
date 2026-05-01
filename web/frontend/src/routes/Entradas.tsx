@@ -50,6 +50,7 @@ export function Entradas() {
                     queryKey={`entradas:xlsx:${ruta}`}
                     rowKey="__row_key_no_existe__"
                     extraParams={{ ruta }}
+                    showPopoverOnRowClick
                 />
             )}
         </div>
