@@ -10,7 +10,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from coana.web.routers import cargos, entradas, presupuesto, sistema, superficies
+from coana.web.routers import (
+    amortizaciones,
+    cargos,
+    entradas,
+    personal,
+    presupuesto,
+    sistema,
+    superficies,
+)
 
 app = FastAPI(
     title="CoAna — gemelo web",
@@ -36,6 +44,8 @@ app.include_router(presupuesto.router, prefix="/api/presupuesto", tags=["presupu
 app.include_router(cargos.router, prefix="/api/cargos", tags=["cargos académicos"])
 app.include_router(superficies.router, prefix="/api/superficies", tags=["superficies"])
 app.include_router(entradas.router, prefix="/api/entradas", tags=["entradas"])
+app.include_router(amortizaciones.router, prefix="/api/amortizaciones", tags=["amortizaciones"])
+app.include_router(personal.router, prefix="/api/personal", tags=["personal"])
 
 
 # Frontend estático: sirve coana/web/dist/ si existe (build de Vite).

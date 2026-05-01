@@ -9,6 +9,27 @@ import { SuperficiesResumen } from "@/routes/superficies/Resumen";
 import { SuperficiesTotales } from "@/routes/superficies/Totales";
 import { SuperficiesPresencia } from "@/routes/superficies/PresenciaCentros";
 import { Entradas } from "@/routes/Entradas";
+import {
+    AmortResumen,
+    AmortEnriquecido,
+    AmortFiltradosEstado,
+    AmortFiltradosCuenta,
+    AmortFiltradosFecha,
+    AmortSinCuenta,
+    AmortSinFechaAlta,
+    AmortUc,
+    AmortSinCentro,
+} from "@/routes/amortizaciones";
+import {
+    PersonalResumen,
+    ExpedientesPDI,
+    ExpedientesPTGAS,
+    ExpedientesPVI,
+    ExpedientesOtros,
+    PersonalMultiexpediente,
+    PersonalPersona,
+    PersonalAnomaliasPdi,
+} from "@/routes/personal";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -47,6 +68,23 @@ export function App() {
                         <Route path="superficies/resumen" element={<SuperficiesResumen />} />
                         <Route path="superficies/totales" element={<SuperficiesTotales />} />
                         <Route path="superficies/presencia" element={<SuperficiesPresencia />} />
+                        <Route path="amortizaciones/resumen" element={<AmortResumen />} />
+                        <Route path="amortizaciones/enriquecido" element={<AmortEnriquecido />} />
+                        <Route path="amortizaciones/filtrados-estado" element={<AmortFiltradosEstado />} />
+                        <Route path="amortizaciones/filtrados-cuenta" element={<AmortFiltradosCuenta />} />
+                        <Route path="amortizaciones/filtrados-fecha" element={<AmortFiltradosFecha />} />
+                        <Route path="amortizaciones/sin-cuenta" element={<AmortSinCuenta />} />
+                        <Route path="amortizaciones/sin-fecha-alta" element={<AmortSinFechaAlta />} />
+                        <Route path="amortizaciones/uc" element={<AmortUc />} />
+                        <Route path="amortizaciones/sin-centro" element={<AmortSinCentro />} />
+                        <Route path="personal/resumen" element={<PersonalResumen />} />
+                        <Route path="personal/pdi" element={<ExpedientesPDI />} />
+                        <Route path="personal/ptgas" element={<ExpedientesPTGAS />} />
+                        <Route path="personal/pvi" element={<ExpedientesPVI />} />
+                        <Route path="personal/otros" element={<ExpedientesOtros />} />
+                        <Route path="personal/multiexpediente" element={<PersonalMultiexpediente />} />
+                        <Route path="personal/persona" element={<PersonalPersona />} />
+                        <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

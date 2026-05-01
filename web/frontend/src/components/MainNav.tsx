@@ -19,6 +19,33 @@ const GROUPS: Group[] = [
         items: [{ label: "Unidades de coste", to: "/presupuesto/uc" }],
     },
     {
+        label: "Amortizaciones",
+        items: [
+            { label: "Resumen", to: "/amortizaciones/resumen" },
+            { label: "Inventario con amortización", to: "/amortizaciones/enriquecido" },
+            { label: "Filtrados por estado", to: "/amortizaciones/filtrados-estado" },
+            { label: "Filtrados por cuenta", to: "/amortizaciones/filtrados-cuenta" },
+            { label: "Filtrados por fecha", to: "/amortizaciones/filtrados-fecha" },
+            { label: "Sin cuenta", to: "/amortizaciones/sin-cuenta" },
+            { label: "Sin fecha de alta", to: "/amortizaciones/sin-fecha-alta" },
+            { label: "UC generadas", to: "/amortizaciones/uc" },
+            { label: "Sin centro", to: "/amortizaciones/sin-centro" },
+        ],
+    },
+    {
+        label: "Personal",
+        items: [
+            { label: "Resumen", to: "/personal/resumen" },
+            { label: "Expedientes PDI", to: "/personal/pdi" },
+            { label: "Expedientes PTGAS", to: "/personal/ptgas" },
+            { label: "Expedientes PVI", to: "/personal/pvi" },
+            { label: "Expedientes otros", to: "/personal/otros" },
+            { label: "Multiexpediente", to: "/personal/multiexpediente" },
+            { label: "Persona", to: "/personal/persona" },
+            { label: "Anomalías PDI", to: "/personal/anomalias" },
+        ],
+    },
+    {
         label: "Cargos académicos",
         items: [
             { label: "Categoría PDI/PVI", to: "/cargos/categoria" },

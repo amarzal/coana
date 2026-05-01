@@ -297,6 +297,346 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/amortizaciones/_resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumen */
+        get: operations["resumen_api_amortizaciones__resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/enriquecido": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Enriquecido */
+        get: operations["enriquecido_api_amortizaciones_enriquecido_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/filtrados/estado": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Filtrados Estado */
+        get: operations["filtrados_estado_api_amortizaciones_filtrados_estado_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/filtrados/cuenta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Filtrados Cuenta */
+        get: operations["filtrados_cuenta_api_amortizaciones_filtrados_cuenta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/filtrados/fecha": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Filtrados Fecha */
+        get: operations["filtrados_fecha_api_amortizaciones_filtrados_fecha_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/sin-cuenta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sin Cuenta */
+        get: operations["sin_cuenta_api_amortizaciones_sin_cuenta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/sin-fecha-alta": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sin Fecha Alta */
+        get: operations["sin_fecha_alta_api_amortizaciones_sin_fecha_alta_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/detalle-cuentas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Detalle Cuentas */
+        get: operations["detalle_cuentas_api_amortizaciones_detalle_cuentas_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/sin-uc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Sin Uc */
+        get: operations["sin_uc_api_amortizaciones_sin_uc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/uc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Uc */
+        get: operations["uc_api_amortizaciones_uc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/enriquecido/{reg_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Enriquecido */
+        get: operations["obtener_enriquecido_api_amortizaciones_enriquecido__reg_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/amortizaciones/uc/{uc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Uc */
+        get: operations["obtener_uc_api_amortizaciones_uc__uc_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/personal/_resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Resumen */
+        get: operations["resumen_api_personal__resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/personal/expedientes/{sector}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Sector */
+        get: operations["listar_sector_api_personal_expedientes__sector__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/personal/expedientes/{sector}/{expediente}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Expediente */
+        get: operations["obtener_expediente_api_personal_expedientes__sector___expediente__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/personal/multiexpediente": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Multiexpediente */
+        get: operations["multiexpediente_api_personal_multiexpediente_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/personal/persona": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Personas */
+        get: operations["listar_personas_api_personal_persona_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/personal/persona/{per_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Obtener Persona */
+        get: operations["obtener_persona_api_personal_persona__per_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/personal/persona/{per_id}/uc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Listar Uc Persona */
+        get: operations["listar_uc_persona_api_personal_persona__per_id__uc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/personal/anomalias-pdi": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Anomalias Pdi */
+        get: operations["anomalias_pdi_api_personal_anomalias_pdi_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -986,6 +1326,735 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NodoTree"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_api_amortizaciones__resumen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KpiPanel"];
+                };
+            };
+        };
+    };
+    enriquecido_api_amortizaciones_enriquecido_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    filtrados_estado_api_amortizaciones_filtrados_estado_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    filtrados_cuenta_api_amortizaciones_filtrados_cuenta_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    filtrados_fecha_api_amortizaciones_filtrados_fecha_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sin_cuenta_api_amortizaciones_sin_cuenta_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sin_fecha_alta_api_amortizaciones_sin_fecha_alta_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    detalle_cuentas_api_amortizaciones_detalle_cuentas_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    sin_uc_api_amortizaciones_sin_uc_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    uc_api_amortizaciones_uc_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_enriquecido_api_amortizaciones_enriquecido__reg_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                reg_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_uc_api_amortizaciones_uc__uc_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resumen_api_personal__resumen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KpiPanel"];
+                };
+            };
+        };
+    };
+    listar_sector_api_personal_expedientes__sector__get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                sector: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_expediente_api_personal_expedientes__sector___expediente__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sector: string;
+                expediente: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    multiexpediente_api_personal_multiexpediente_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_personas_api_personal_persona_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_persona_api_personal_persona__per_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                per_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listar_uc_persona_api_personal_persona__per_id__uc_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                per_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    anomalias_pdi_api_personal_anomalias_pdi_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
                 };
             };
             /** @description Validation Error */
