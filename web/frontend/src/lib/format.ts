@@ -5,12 +5,22 @@
  * Tomamos como locale 'es-ES' por consistencia con el resto del proyecto.
  */
 
+// useGrouping=true + minimumGroupingDigits=1 fuerza el separador de
+// miles incluso para números de 4 dígitos (1.234,56 en vez del
+// 1234,56 que es el default del CLDR es-ES, que solo agrupa a partir
+// de 10000).
+const _OPTS: Intl.NumberFormatOptions = {
+    useGrouping: true,
+    minimumGroupingDigits: 1,
+};
+
 const numEs = new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+    ..._OPTS,
 });
 
-const numEsInt = new Intl.NumberFormat("es-ES");
+const numEsInt = new Intl.NumberFormat("es-ES", _OPTS);
 
 /** "1.234,56 €". Devuelve cadena vacía si el valor no es finito. */
 export function formatEuro(value: unknown): string {
