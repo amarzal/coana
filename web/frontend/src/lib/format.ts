@@ -8,11 +8,12 @@
 // useGrouping=true + minimumGroupingDigits=1 fuerza el separador de
 // miles incluso para números de 4 dígitos (1.234,56 en vez del
 // 1234,56 que es el default del CLDR es-ES, que solo agrupa a partir
-// de 10000).
-const _OPTS: Intl.NumberFormatOptions = {
+// de 10000). `minimumGroupingDigits` no está aún en los typings de
+// Intl en este target de TS, por eso el cast.
+const _OPTS = {
     useGrouping: true,
     minimumGroupingDigits: 1,
-};
+} as Intl.NumberFormatOptions;
 
 const numEs = new Intl.NumberFormat("es-ES", {
     minimumFractionDigits: 2,
