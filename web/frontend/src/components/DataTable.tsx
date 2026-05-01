@@ -259,6 +259,19 @@ export function DataTable({
                 </table>
             </div>
 
+            {/* Slider rápido (oculto si solo hay una página) */}
+            {totalPages > 1 && (
+                <input
+                    type="range"
+                    min={0}
+                    max={totalPages - 1}
+                    value={pageIndex}
+                    onChange={(e) => setPageIndex(Number(e.target.value))}
+                    aria-label={`Página ${pageIndex + 1} de ${totalPages}`}
+                    className="w-full accent-slate-700"
+                />
+            )}
+
             {/* Paginación */}
             <div className="flex flex-wrap items-center gap-3 text-sm">
                 <button
