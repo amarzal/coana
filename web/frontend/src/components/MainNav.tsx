@@ -1,4 +1,5 @@
-import { NavLink } from "react-router";
+import { useState } from "react";
+import { NavLink, useLocation } from "react-router";
 import { cn } from "@/lib/cn";
 
 type Item = { label: string; to: string };
@@ -101,34 +102,64 @@ const GROUPS: Group[] = [
     },
 ];
 
+function _grupoActivo(grupo: Group, ruta: string): boolean {
+    return grupo.items.some((it) => it.to === ruta);
+}
+
 export function MainNav() {
+    const { pathname } = useLocation();
+    // Estado inicial: solo se despliega el grupo que contiene la ruta actual.
+    const [abiertos, setAbiertos] = useState<Set<string>>(
+        () => new Set(GROUPS.filter((g) => _grupoActivo(g, pathname)).map((g) => g.label)),
+    );
+
+    const toggle = (label: string) => {
+        setAbiertos((prev) => {
+            const next = new Set(prev);
+            if (next.has(label)) next.delete(label);
+            else next.add(label);
+            return next;
+        });
+    };
+
     return (
-        <nav className="flex flex-col gap-4 text-sm">
-            {GROUPS.map((g) => (
-                <div key={g.label}>
-                    <div className="mb-1 px-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                        {g.label}
+        <nav className="flex flex-col gap-1 text-sm">
+            {GROUPS.map((g) => {
+                const open = abiertos.has(g.label);
+                return (
+                    <div key={g.label}>
+                        <button
+                            type="button"
+                            onClick={() => toggle(g.label)}
+                            aria-expanded={open}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-100"
+                        >
+                            <span className="w-3 text-slate-400">{open ? "▾" : "▸"}</span>
+                            <span>{g.label}</span>
+                        </button>
+                        {open && (
+                            <ul className="ml-4 flex flex-col border-l border-slate-200">
+                                {g.items.map((it) => (
+                                    <li key={it.to}>
+                                        <NavLink
+                                            to={it.to}
+                                            end
+                                            className={({ isActive }) =>
+                                                cn(
+                                                    "block rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100",
+                                                    isActive && "bg-slate-200 font-medium",
+                                                )
+                                            }
+                                        >
+                                            {it.label}
+                                        </NavLink>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </div>
-                    <ul className="flex flex-col">
-                        {g.items.map((it) => (
-                            <li key={it.to}>
-                                <NavLink
-                                    to={it.to}
-                                    end
-                                    className={({ isActive }) =>
-                                        cn(
-                                            "block rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100",
-                                            isActive && "bg-slate-200 font-medium",
-                                        )
-                                    }
-                                >
-                                    {it.label}
-                                </NavLink>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            ))}
+                );
+            })}
         </nav>
     );
 }
