@@ -45,6 +45,16 @@ def _masteres() -> pl.DataFrame | None:
 
 
 @lru_cache(maxsize=64)
+def _asignaturas_grados() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "docencia" / "asignaturas grados.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _asignaturas_masteres() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "docencia" / "asignaturas másteres.xlsx")
+
+
+@lru_cache(maxsize=64)
 def _estudios() -> pl.DataFrame | None:
     return _safe_read(DIR_ENTRADA / "docencia" / "estudios.xlsx")
 
@@ -193,6 +203,59 @@ def lookup_subcentro(valor) -> dict[str, str]:
     return _lookup_simple(_subcentros(), "subcentro", valor)
 
 
+def lookup_asignatura(valor) -> dict[str, str]:
+    """Asignatura: busca en grados; si no, en másteres."""
+    if valor is None:
+        return {}
+    code = str(valor)
+
+    # Grados
+    df = _asignaturas_grados()
+    if df is not None:
+        fila = df.filter(pl.col("asignatura").cast(pl.Utf8) == code)
+        if not fila.is_empty():
+            row = fila.row(0, named=True)
+            nombre = str(row.get("nombre") or "")
+            grado = row.get("grado")
+            grado_nombre = ""
+            if grado is not None and grado != "":
+                gd = _grados()
+                if gd is not None:
+                    g = gd.filter(pl.col("grado").cast(pl.Utf8) == str(grado))
+                    if not g.is_empty():
+                        grado_nombre = str(g.row(0, named=True).get("nombre") or "")
+            out = {"nombre": nombre}
+            if grado is not None and grado != "":
+                out["grado"] = (
+                    f"{grado} — {grado_nombre}" if grado_nombre else str(grado)
+                )
+            return out
+
+    # Másteres
+    df = _asignaturas_masteres()
+    if df is not None:
+        fila = df.filter(pl.col("asignatura").cast(pl.Utf8) == code)
+        if not fila.is_empty():
+            row = fila.row(0, named=True)
+            nombre = str(row.get("nombre") or "")
+            master = row.get("máster")
+            master_nombre = ""
+            if master is not None and master != "":
+                md = _masteres()
+                if md is not None:
+                    m = md.filter(pl.col("máster").cast(pl.Utf8) == str(master))
+                    if not m.is_empty():
+                        master_nombre = str(m.row(0, named=True).get("nombre") or "")
+            out = {"nombre": nombre}
+            if master is not None and master != "":
+                out["máster"] = (
+                    f"{master} — {master_nombre}" if master_nombre else str(master)
+                )
+            return out
+
+    return {}
+
+
 # ----------------------------------------------------------------------
 # Mapeo nombre de columna → función de lookup
 # ----------------------------------------------------------------------
@@ -208,6 +271,8 @@ _LOOKUP_BY_COL = {
     "grado": lookup_grado,
     "máster": lookup_master,
     "estudio": lookup_estudio,
+    "asignatura": lookup_asignatura,
+    "titulación": lambda v: lookup_grado(v) or lookup_master(v),
 }
 
 
@@ -230,5 +295,6 @@ def enrich_row(row: dict) -> dict[str, dict[str, str]]:
 def clear_cache() -> None:
     """Vacía las cachés de tablas de referencia (tras editar entradas)."""
     for fn in (_personas, _centros, _proyectos, _aplicaciones, _programas,
-               _grados, _masteres, _estudios, _subcentros):
+               _grados, _masteres, _estudios, _subcentros,
+               _asignaturas_grados, _asignaturas_masteres):
         fn.cache_clear()
