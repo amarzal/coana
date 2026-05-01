@@ -7,12 +7,16 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "gen:api": "openapi-typescript http://127.0.0.1:8765/openapi.json -o src/api/schema.d.ts"
+    "gen:api": "openapi-typescript http://127.0.0.1:8765/openapi.json -o src/api/schema.d.ts",
+    "gen:api:offline": "uv --project ../.. run python -c 'import json, sys; from coana.web.app import app; sys.stdout.write(json.dumps(app.openapi()))' > .openapi.json && openapi-typescript .openapi.json -o src/api/schema.d.ts && rm .openapi.json"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.100.7",
+    "@tanstack/react-table": "^8.21.3",
     "openapi-fetch": "^0.17.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-router": "^7.14.2"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",

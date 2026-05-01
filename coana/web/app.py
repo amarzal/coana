@@ -5,11 +5,12 @@ from __future__ import annotations
 from importlib.metadata import version as _pkg_version
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
-from coana.web.routers import sistema
+from coana.web.routers import presupuesto, sistema
 
 app = FastAPI(
     title="CoAna — gemelo web",
@@ -31,9 +32,32 @@ app.add_middleware(
 
 # Routers
 app.include_router(sistema.router, prefix="/api/sistema", tags=["sistema"])
+app.include_router(presupuesto.router, prefix="/api/presupuesto", tags=["presupuesto"])
 
 
 # Frontend estático: sirve coana/web/dist/ si existe (build de Vite).
+# Para que un SPA con rutas client-side funcione (deep links del estilo
+# /presupuesto/uc), montamos los assets bajo /assets y servimos index.html
+# como _catch-all_ para cualquier otra ruta no-API.
 _DIST = Path(__file__).parent / "dist"
 if _DIST.is_dir():
-    app.mount("/", StaticFiles(directory=str(_DIST), html=True), name="frontend")
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(_DIST / "assets")),
+        name="assets",
+    )
+
+    _INDEX = _DIST / "index.html"
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    def _spa_catch_all(full_path: str) -> FileResponse:
+        # Reservar /api y /events; FastAPI solo llega aquí si ningún
+        # router los ha capturado, pero por defensa devolvemos 404.
+        if full_path.startswith(("api/", "events/", "openapi", "docs", "redoc")):
+            raise HTTPException(status_code=404)
+        # Si la ruta apunta a un fichero específico de dist (favicon, etc.),
+        # servirlo directamente.
+        candidate = _DIST / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        return FileResponse(_INDEX)

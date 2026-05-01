@@ -24,10 +24,120 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/presupuesto/_resumen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Resumen
+         * @description Panel de KPIs del bloque Presupuesto.
+         */
+        get: operations["resumen_api_presupuesto__resumen_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/uc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Listar Uc
+         * @description Listado paginado de unidades de coste de presupuesto.
+         */
+        get: operations["listar_uc_api_presupuesto_uc_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/presupuesto/uc/{uc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Obtener Uc
+         * @description Ficha de una UC concreta, con enriquecimientos.
+         */
+        get: operations["obtener_uc_api_presupuesto_uc__uc_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * ColumnSpec
+         * @description Descripción de una columna de una tabla servida al frontend.
+         */
+        ColumnSpec: {
+            /**
+             * Name
+             * @description Nombre interno de la columna
+             */
+            name: string;
+            /**
+             * Label
+             * @description Etiqueta humana mostrada en cabecera
+             */
+            label: string;
+            /**
+             * Format
+             * @default text
+             * @enum {string}
+             */
+            format: "text" | "int" | "float" | "euro" | "m2" | "date" | "bool";
+            /**
+             * Sortable
+             * @default true
+             */
+            sortable: boolean;
+        };
+        /**
+         * FieldValue
+         * @description Un par (campo, valor) ya formateado para la ficha de registro.
+         */
+        FieldValue: {
+            /** Name */
+            name: string;
+            /** Label */
+            label: string;
+            /** Value */
+            value: unknown;
+            /**
+             * Format
+             * @default text
+             * @enum {string}
+             */
+            format: "text" | "int" | "float" | "euro" | "m2" | "date" | "bool";
+        };
+        /** HTTPValidationError */
+        HTTPValidationError: {
+            /** Detail */
+            detail?: components["schemas"]["ValidationError"][];
+        };
         /** Health */
         Health: {
             /** Status */
@@ -38,6 +148,88 @@ export interface components {
             entrada_existe: boolean;
             /** Fase1 Existe */
             fase1_existe: boolean;
+        };
+        /**
+         * Kpi
+         * @description Métrica agregada que se muestra en el panel KPI de cabecera.
+         */
+        Kpi: {
+            /** Label */
+            label: string;
+            /** Value */
+            value: number | string | null;
+            /**
+             * Format
+             * @default text
+             * @enum {string}
+             */
+            format: "text" | "int" | "float" | "euro" | "m2" | "date" | "bool";
+            /** Hint */
+            hint?: string | null;
+        };
+        /** KpiPanel */
+        KpiPanel: {
+            /** Kpis */
+            kpis: components["schemas"]["Kpi"][];
+        };
+        /**
+         * ListResponse
+         * @description Respuesta común para listados con filtro/sort/paginación.
+         *
+         *     El frontend usa ``columns`` para conocer formato y orden visual de las
+         *     columnas; ``rows`` es una lista de diccionarios con valores ya
+         *     serializables a JSON; ``total`` es el número total de filas tras aplicar
+         *     el filtro pero antes de paginar.
+         */
+        ListResponse: {
+            /** Columns */
+            columns: components["schemas"]["ColumnSpec"][];
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+            /** Total */
+            total: number;
+        };
+        /**
+         * RecordResponse
+         * @description Ficha completa de un registro: campos directos + secciones enriquecidas.
+         *
+         *     El primer bloque (``main``) son los campos del propio registro; los
+         *     enriquecimientos (lookup de personas, titulaciones, etc.) van en
+         *     ``sections``.
+         */
+        RecordResponse: {
+            /** Main */
+            main: components["schemas"]["FieldValue"][];
+            /**
+             * Sections
+             * @default []
+             */
+            sections: components["schemas"]["RecordSection"][];
+        };
+        /**
+         * RecordSection
+         * @description Una sección de la ficha (puede haber varias para enriquecimientos).
+         */
+        RecordSection: {
+            /** Label */
+            label: string;
+            /** Fields */
+            fields: components["schemas"]["FieldValue"][];
+        };
+        /** ValidationError */
+        ValidationError: {
+            /** Location */
+            loc: (string | number)[];
+            /** Message */
+            msg: string;
+            /** Error Type */
+            type: string;
+            /** Input */
+            input?: unknown;
+            /** Context */
+            ctx?: Record<string, never>;
         };
     };
     responses: never;
@@ -64,6 +256,97 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    resumen_api_presupuesto__resumen_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["KpiPanel"];
+                };
+            };
+        };
+    };
+    listar_uc_api_presupuesto_uc_get: {
+        parameters: {
+            query?: {
+                /** @description Substring a buscar (insensible a tildes y mayúsculas) */
+                q?: string | null;
+                /** @description Columna sobre la que aplicar `q` (None = todas las columnas string) */
+                column?: string | null;
+                /** @description Columna por la que ordenar */
+                sort_by?: string | null;
+                /** @description Orden descendente */
+                desc?: boolean;
+                offset?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    obtener_uc_api_presupuesto_uc__uc_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                uc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecordResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

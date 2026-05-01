@@ -1,57 +1,43 @@
-import { useEffect, useState } from "react";
+import { BrowserRouter, Outlet, Route, Routes } from "react-router";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MainNav } from "@/components/MainNav";
+import { Home } from "@/routes/Home";
+import { PresupuestoUc } from "@/routes/PresupuestoUc";
 
-type Health = {
-    status: string;
-    version: string;
-    entrada_existe: boolean;
-    fase1_existe: boolean;
-};
+const queryClient = new QueryClient({
+    defaultOptions: {
+        queries: { retry: false },
+    },
+});
 
-export function App() {
-    const [health, setHealth] = useState<Health | null>(null);
-    const [error, setError] = useState<string | null>(null);
-
-    useEffect(() => {
-        fetch("/api/sistema/health")
-            .then((r) => {
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json() as Promise<Health>;
-            })
-            .then(setHealth)
-            .catch((e: unknown) =>
-                setError(e instanceof Error ? e.message : String(e))
-            );
-    }, []);
-
+function Layout() {
     return (
-        <div className="min-h-screen bg-slate-50 text-slate-900">
-            <header className="border-b border-slate-200 bg-white px-6 py-4">
-                <h1 className="text-xl font-semibold">CoAna — gemelo web</h1>
-                <p className="text-sm text-slate-500">
-                    Andamiaje (Fase 0) · React + Vite + FastAPI
-                </p>
-            </header>
-            <main className="mx-auto max-w-3xl px-6 py-8">
-                <h2 className="mb-3 text-lg font-medium">Estado del backend</h2>
-                {error ? (
-                    <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-                        Error: {error}
-                    </div>
-                ) : !health ? (
-                    <div className="text-sm text-slate-500">Cargando…</div>
-                ) : (
-                    <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-1 text-sm">
-                        <dt className="text-slate-500">status</dt>
-                        <dd>{health.status}</dd>
-                        <dt className="text-slate-500">version</dt>
-                        <dd className="font-mono">{health.version}</dd>
-                        <dt className="text-slate-500">entrada existe</dt>
-                        <dd>{health.entrada_existe ? "sí" : "no"}</dd>
-                        <dt className="text-slate-500">fase1 existe</dt>
-                        <dd>{health.fase1_existe ? "sí" : "no"}</dd>
-                    </dl>
-                )}
+        <div className="grid min-h-screen grid-cols-[16rem_1fr] bg-slate-50 text-slate-900">
+            <aside className="border-r border-slate-200 bg-white p-4">
+                <div className="mb-4 px-2">
+                    <div className="text-sm font-semibold">CoAna</div>
+                    <div className="text-xs text-slate-500">gemelo web</div>
+                </div>
+                <MainNav />
+            </aside>
+            <main className="overflow-x-auto p-6">
+                <Outlet />
             </main>
         </div>
+    );
+}
+
+export function App() {
+    return (
+        <QueryClientProvider client={queryClient}>
+            <BrowserRouter>
+                <Routes>
+                    <Route element={<Layout />}>
+                        <Route index element={<Home />} />
+                        <Route path="presupuesto/uc" element={<PresupuestoUc />} />
+                    </Route>
+                </Routes>
+            </BrowserRouter>
+        </QueryClientProvider>
     );
 }
