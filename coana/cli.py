@@ -55,7 +55,12 @@ def web(
         ),
     ),
 ):
-    """Lanza el gemelo web (FastAPI + frontend compilado)."""
+    """Lanza el gemelo web (FastAPI + frontend compilado).
+
+    Para uso normal hay un atajo: ``uv run visor`` (sin sub-comando).
+    Este comando es la versión completa con flags adicionales (`--reload`,
+    `--dev`).
+    """
     import uvicorn
 
     if not no_browser and not dev:
@@ -73,6 +78,7 @@ def web(
         port=port,
         reload=reload,
         log_level="info",
+        timeout_graceful_shutdown=3,
     )
 
 

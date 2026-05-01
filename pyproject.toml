@@ -17,6 +17,12 @@ dependencies = [
     "xlsxwriter>=3.2.9",
 ]
 
+[dependency-groups]
+dev = [
+    "httpx>=0.28",
+    "pytest>=8.0",
+]
+
 [build-system]
 requires = ["setuptools>=75.0"]
 build-backend = "setuptools.build_meta"
@@ -29,5 +35,6 @@ include = ["coana*"]
 
 [project.scripts]
 coana = "coana.cli:main"
+visor = "coana.web.launcher:main"
 editor_de_arboles = "coana.apps.editor_tree:main"
 "especificación" = "coana.apps.gen_especificacion:main"
