@@ -39,7 +39,6 @@ export function SuperficiesTotales() {
                 endpoint={ENDPOINTS[active]}
                 queryKey={`superficies:totales:${active}`}
                 rowKey={ROW_KEYS[active]}
-                pageSize={50}
             />
         </div>
     );

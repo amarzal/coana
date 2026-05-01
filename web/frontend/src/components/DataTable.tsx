@@ -39,14 +39,14 @@ type Props = {
     extraParams?: Record<string, string | number | boolean | undefined>;
 };
 
-const PAGE_SIZES = [25, 50, 100, 250, 500];
+const PAGE_SIZES = [10, 25, 50, 100, 250, 500];
 
 export function DataTable({
     endpoint,
     queryKey,
     onRowSelect,
     rowKey = "id",
-    pageSize: initialPageSize = 50,
+    pageSize: initialPageSize = 10,
     extraParams,
 }: Props) {
     const [q, setQ] = useState("");
