@@ -156,29 +156,30 @@ export function DataTable({
                             setQ(e.target.value);
                             setPageIndex(0);
                         }}
-                        placeholder="Buscar (insensible a tildes/mayúsculas)…"
-                        className="w-72 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm focus:border-slate-500 focus:outline-none"
+                        placeholder={
+                            columnFilter
+                                ? `Buscar en «${
+                                    columns.find((c) => c.name === columnFilter)?.label ?? columnFilter
+                                }»`
+                                : "Buscar en todas las columnas (insensible a tildes/mayúsculas)…"
+                        }
+                        className="w-96 rounded-md border border-slate-300 bg-white px-2 py-1 text-sm focus:border-slate-500 focus:outline-none"
                     />
                 </label>
-                <label className="flex flex-col gap-1 text-xs text-slate-500">
-                    Columna
-                    <select
-                        value={columnFilter}
-                        onChange={(e) => {
-                            setColumnFilter(e.target.value);
-                            setPageIndex(0);
-                        }}
-                        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm"
-                    >
-                        <option value="">— todas —</option>
-                        {columns.map((c) => (
-                            <option key={c.name} value={c.name}>
-                                {c.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
                 <div className="ml-auto text-xs text-slate-500">
+                    {columnFilter && (
+                        <span className="mr-3">
+                            ámbito: <span className="font-mono">{columnFilter}</span>{" "}
+                            <button
+                                type="button"
+                                onClick={() => setColumnFilter("")}
+                                className="text-slate-400 hover:text-slate-700"
+                                title="Buscar en todas las columnas"
+                            >
+                                ✕
+                            </button>
+                        </span>
+                    )}
                     {isLoading
                         ? "Cargando…"
                         : `${total.toLocaleString("es-ES")} filas`}
@@ -199,6 +200,8 @@ export function DataTable({
                             <tr key={hg.id}>
                                 {hg.headers.map((h) => {
                                     const sort = h.column.getIsSorted();
+                                    const colName = h.column.id;
+                                    const filtroActivo = columnFilter === colName;
                                     return (
                                         <th
                                             key={h.id}
@@ -220,6 +223,32 @@ export function DataTable({
                                                 {sort === "desc" && (
                                                     <span className="text-slate-400">▼</span>
                                                 )}
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setColumnFilter((prev) =>
+                                                            prev === colName ? "" : colName,
+                                                        );
+                                                        setPageIndex(0);
+                                                    }}
+                                                    title={
+                                                        filtroActivo
+                                                            ? "Quitar ámbito de columna (filtro en todas)"
+                                                            : `Filtrar solo en «${
+                                                                columns.find((c) => c.name === colName)?.label ?? colName
+                                                            }»`
+                                                    }
+                                                    aria-label="Filtrar por esta columna"
+                                                    className={cn(
+                                                        "ml-1 rounded px-1 leading-none",
+                                                        filtroActivo
+                                                            ? "bg-slate-200 text-slate-800"
+                                                            : "text-slate-300 hover:bg-slate-100 hover:text-slate-600",
+                                                    )}
+                                                >
+                                                    ⛛
+                                                </button>
                                             </span>
                                         </th>
                                     );
