@@ -19,11 +19,60 @@ type ColumnSpec = {
     sortable: boolean;
 };
 
+type ColumnStats = {
+    total: number;
+    count: number;
+    min: number | null;
+    max: number | null;
+    bins: number[];
+};
+
 type ListResponse = {
     columns: ColumnSpec[];
     rows: Record<string, unknown>[];
     total: number;
+    column_stats?: Record<string, ColumnStats>;
 };
+
+function isStatFormat(fmt: ColumnFormat): boolean {
+    // Mostramos total + histograma para columnas que representan
+    // cantidades. `id` queda fuera (los enteros del visor genérico de
+    // xlsx se sirven como id por defecto).
+    return fmt === "euro" || fmt === "m2" || fmt === "float" || fmt === "int";
+}
+
+/** Sparkline SVG con 20 bins; ocupa 84×16 px. */
+function Sparkline({ bins }: { bins: number[] }) {
+    if (bins.length === 0) return null;
+    const max = Math.max(...bins, 1);
+    const W = 84;
+    const H = 16;
+    const barW = W / bins.length;
+    return (
+        <svg
+            viewBox={`0 0 ${W} ${H}`}
+            width={W}
+            height={H}
+            preserveAspectRatio="none"
+            className="block"
+            aria-hidden="true"
+        >
+            {bins.map((v, i) => {
+                const h = (v / max) * H;
+                return (
+                    <rect
+                        key={i}
+                        x={i * barW + 0.5}
+                        y={H - h}
+                        width={Math.max(0, barW - 1)}
+                        height={h}
+                        className="fill-slate-400"
+                    />
+                );
+            })}
+        </svg>
+    );
+}
 
 type Props = {
     /** Endpoint relativo, sin prefijo /api. Ej: "/presupuesto/uc". */
@@ -44,6 +93,12 @@ type Props = {
      * que no tienen un endpoint de ficha enriquecida.
      */
     showPopoverOnRowClick?: boolean;
+    /**
+     * Por defecto, las columnas euro/m²/float se traen a la izquierda
+     * justo detrás de la primera columna. Si la vista quiere mantener
+     * el orden tal y como llega del backend, pasar `false`.
+     */
+    reorderImportes?: boolean;
 };
 
 const PAGE_SIZES = [10, 25, 50, 100, 250, 500];
@@ -56,6 +111,7 @@ export function DataTable({
     pageSize: initialPageSize = 10,
     extraParams,
     showPopoverOnRowClick = false,
+    reorderImportes = true,
 }: Props) {
     const [q, setQ] = useState("");
     const [columnFilter, setColumnFilter] = useState<string>(""); // "" = todas
@@ -105,9 +161,35 @@ export function DataTable({
         staleTime: 5_000,
     });
 
-    const columns: ColumnSpec[] = data?.columns ?? [];
+    const rawColumns: ColumnSpec[] = data?.columns ?? [];
     const rows: Record<string, unknown>[] = data?.rows ?? [];
     const total = data?.total ?? 0;
+    const columnStats: Record<string, ColumnStats> = data?.column_stats ?? {};
+
+    // Los importes (euro/m²/float) son los datos más informativos; los
+    // traemos a la izquierda — justo detrás de la primera columna (que
+    // suele ser el identificador/clave). `int` se queda donde está
+    // porque suele ser un contador (n_uc, n_personas…), no una cantidad.
+    // Para tablas sin importes no cambia nada. La vista puede pedir
+    // que respete el orden del backend con `reorderImportes={false}`.
+    const columns = useMemo<ColumnSpec[]>(() => {
+        if (!reorderImportes || rawColumns.length <= 1) return rawColumns;
+        const isImporte = (f: ColumnFormat) =>
+            f === "euro" || f === "m2" || f === "float";
+        const head = rawColumns[0];
+        const importes = rawColumns.slice(1).filter((c) => isImporte(c.format));
+        if (importes.length === 0) return rawColumns;
+        const resto = rawColumns.slice(1).filter((c) => !isImporte(c.format));
+        return [head, ...importes, ...resto];
+    }, [rawColumns, reorderImportes]);
+
+    // Una fila de stats (total + sparkline) solo si alguna columna numérica
+    // mostrable tiene datos. En el visor genérico (entradas xlsx) los
+    // enteros se sirven como "id" y por tanto no entran aquí.
+    const statColumns = columns.filter(
+        (c) => isStatFormat(c.format) && columnStats[c.name]?.count,
+    );
+    const showStatsRow = statColumns.length > 0;
 
     const tableColumns = useMemo<ColumnDef<Record<string, unknown>>[]>(
         () =>
@@ -266,6 +348,39 @@ export function DataTable({
                                 })}
                             </tr>
                         ))}
+                        {showStatsRow && (
+                            <tr className="bg-slate-50/60">
+                                {columns.map((c) => {
+                                    const s = columnStats[c.name];
+                                    if (!s || !s.count || !isStatFormat(c.format)) {
+                                        return (
+                                            <th
+                                                key={`stat-${c.name}`}
+                                                className="border-b border-slate-200 px-2 py-1"
+                                            />
+                                        );
+                                    }
+                                    return (
+                                        <th
+                                            key={`stat-${c.name}`}
+                                            className="border-b border-slate-200 px-2 py-1 text-right align-top font-normal"
+                                            title={
+                                                `Total: ${formatValue(s.total, c.format)}\n` +
+                                                `Min: ${formatValue(s.min, c.format)} · ` +
+                                                `Max: ${formatValue(s.max, c.format)}`
+                                            }
+                                        >
+                                            <div className="flex flex-col items-end gap-0.5">
+                                                <span className="tabular-nums text-[11px] text-slate-700">
+                                                    Σ {formatValue(s.total, c.format)}
+                                                </span>
+                                                <Sparkline bins={s.bins} />
+                                            </div>
+                                        </th>
+                                    );
+                                })}
+                            </tr>
+                        )}
                     </thead>
                     <tbody>
                         {table.getRowModel().rows.map((row) => {

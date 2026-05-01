@@ -64,6 +64,17 @@ export type ColumnFormat =
     | "date"
     | "bool";
 
+/** Devuelve solo la parte YYYY-MM-DD de una fecha/datetime ISO. Acepta
+ * valores ya en formato corto. Ignora la hora aunque esté presente. */
+export function formatDate(value: unknown): string {
+    if (value === null || value === undefined || value === "") return "—";
+    const s = String(value);
+    // Capta YYYY-MM-DD al inicio (cubre tanto "2024-05-01" como
+    // "2024-05-01T00:00:00" o "2024-05-01 00:00:00").
+    const m = s.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : s;
+}
+
 /** Aplica el formateador adecuado según el tipo declarado en ColumnSpec. */
 export function formatValue(value: unknown, fmt: ColumnFormat): string {
     switch (fmt) {
@@ -82,6 +93,7 @@ export function formatValue(value: unknown, fmt: ColumnFormat): string {
             // Se trata como cadena.
             return value === null || value === undefined ? "—" : String(value);
         case "date":
+            return formatDate(value);
         case "text":
         default:
             return formatText(value);

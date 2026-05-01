@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from coana.web.schemas.common import KpiPanel, ListResponse
+from coana.web.schemas.common import KpiPanel, ListResponse, RecordResponse
 from coana.web.services import entradas as svc_entradas
 from coana.web.services import resultados as svc
 from coana.web.services.query import QueryParams, query_dependency
@@ -20,6 +20,19 @@ def resumen() -> KpiPanel:
 @router.get("/uc", response_model=ListResponse)
 def todas_uc(p: QueryParams = Depends(query_dependency)) -> ListResponse:
     return svc.listar_todas(p)
+
+
+@router.get("/uc/{origen}/{uc_id}", response_model=RecordResponse)
+def obtener_uc(origen: str, uc_id: str) -> RecordResponse:
+    """Ficha de una UC concreta + sección con el registro original (apunte
+    presupuestario, bien inventariable, línea de nómina…)."""
+    rec = svc.obtener_uc(origen, uc_id)
+    if rec is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"UC no encontrada: origen={origen!r}, id={uc_id!r}",
+        )
+    return rec
 
 
 @router.get("/actividades", response_model=ListResponse)

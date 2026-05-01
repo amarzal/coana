@@ -1,8 +1,67 @@
-import { useState } from "react";
-import { ResourceView } from "@/components/ResourceView";
+import { useEffect, useState } from "react";
 import { DataTable } from "@/components/DataTable";
 import { KpiPanel } from "@/components/KpiPanel";
 import { RecordCard } from "@/components/RecordCard";
+
+/** Modal con un sub-DataTable de las líneas de nómina de un expediente. */
+function LineasExpedienteModal({
+    sector,
+    expediente,
+    onClose,
+}: {
+    sector: string;
+    expediente: string;
+    onClose: () => void;
+}) {
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [onClose]);
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-6"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+        >
+            <div
+                className="flex max-h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                    <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
+                        Expediente {expediente} ({sector}) · líneas de nómina
+                    </h2>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                        aria-label="Cerrar"
+                    >
+                        ✕ Cerrar
+                    </button>
+                </div>
+                <div className="flex flex-col gap-4 overflow-auto p-4">
+                    <RecordCard
+                        endpoint={`/api/personal/expedientes/${sector}/{id}`}
+                        id={expediente}
+                        queryKey={`personal:multiexp:exp-record:${sector}:${expediente}`}
+                    />
+                    <DataTable
+                        endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/lineas`}
+                        queryKey={`personal:multiexp:exp-lineas:${sector}:${expediente}`}
+                        rowKey="id"
+                        showPopoverOnRowClick
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
 
 const KPI = "/api/personal/_resumen";
 const QK_RESUMEN = "personal:resumen";
@@ -32,15 +91,37 @@ function ExpedientesPorSector({
     sector,
     descripcion,
 }: { sector: string; descripcion: string }) {
+    const [expediente, setExpediente] = useState<string | null>(null);
+
     return (
-        <ResourceView
-            title={`Personal · Expedientes ${sector}`}
-            subtitle={descripcion}
-            listEndpoint={`/api/personal/expedientes/${sector}`}
-            recordEndpoint={`/api/personal/expedientes/${sector}/{id}`}
-            rowKey="expediente"
-            queryKey={`personal:exp:${sector}`}
-        />
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title={`Personal · Expedientes ${sector}`}
+                subtitle={descripcion}
+            />
+            <DataTable
+                endpoint={`/api/personal/expedientes/${sector}`}
+                queryKey={`personal:exp:${sector}`}
+                rowKey="expediente"
+                onRowSelect={(row) => {
+                    const v = row.expediente;
+                    setExpediente(v == null ? null : String(v));
+                }}
+            />
+            {expediente && (
+                <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-slate-500">
+                        Líneas de nómina del expediente {expediente}
+                    </h2>
+                    <DataTable
+                        endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/lineas`}
+                        queryKey={`personal:exp:${sector}:lineas:${expediente}`}
+                        rowKey="id"
+                        showPopoverOnRowClick
+                    />
+                </div>
+            )}
+        </div>
     );
 }
 
@@ -61,6 +142,9 @@ export function ExpedientesOtros() {
 }
 
 export function PersonalMultiexpediente() {
+    const [perId, setPerId] = useState<string | null>(null);
+    const [expSel, setExpSel] = useState<{ sector: string; expediente: string } | null>(null);
+
     return (
         <div className="flex flex-col gap-6">
             <Cabecera
@@ -71,7 +155,41 @@ export function PersonalMultiexpediente() {
                 endpoint="/api/personal/multiexpediente"
                 queryKey="personal:multiexpediente"
                 rowKey="per_id"
+                onRowSelect={(row) => {
+                    const v = row.per_id;
+                    setPerId(v == null ? null : String(v));
+                    setExpSel(null);
+                }}
             />
+            {perId && (
+                <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-slate-500">
+                        Matriz mensual de importes (per_id {perId})
+                    </h2>
+                    <DataTable
+                        endpoint={`/api/personal/multiexpediente/${encodeURIComponent(perId)}/matriz`}
+                        queryKey={`personal:multiexp:matriz:${perId}`}
+                        rowKey="expediente"
+                        pageSize={50}
+                        onRowSelect={(row) => {
+                            const exp = row.expediente;
+                            const sec = row.sector;
+                            if (exp == null || sec == null) return;
+                            setExpSel({
+                                sector: String(sec),
+                                expediente: String(exp),
+                            });
+                        }}
+                    />
+                </div>
+            )}
+            {expSel && (
+                <LineasExpedienteModal
+                    sector={expSel.sector}
+                    expediente={expSel.expediente}
+                    onClose={() => setExpSel(null)}
+                />
+            )}
         </div>
     );
 }

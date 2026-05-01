@@ -19,18 +19,38 @@ class ColumnSpec(BaseModel):
     sortable: bool = True
 
 
+class ColumnStats(BaseModel):
+    """Resumen estadístico de una columna numérica del dataset filtrado.
+
+    Calculado sobre todas las filas que pasan el filtro (no solo la página
+    actual) para que el total y el histograma sean estables al paginar.
+    Solo se calcula para columnas numéricas (Float/Int).
+    """
+
+    total: float = Field(..., description="Suma de valores no nulos")
+    count: int = Field(..., description="Número de valores no nulos")
+    min: float | None = None
+    max: float | None = None
+    bins: list[int] = Field(
+        default_factory=list,
+        description="Conteo por bin (20 bins de igual anchura entre min y max)",
+    )
+
+
 class ListResponse(BaseModel):
     """Respuesta común para listados con filtro/sort/paginación.
 
     El frontend usa ``columns`` para conocer formato y orden visual de las
     columnas; ``rows`` es una lista de diccionarios con valores ya
     serializables a JSON; ``total`` es el número total de filas tras aplicar
-    el filtro pero antes de paginar.
+    el filtro pero antes de paginar; ``column_stats`` aporta total e
+    histograma para columnas numéricas.
     """
 
     columns: list[ColumnSpec]
     rows: list[dict[str, Any]]
     total: int
+    column_stats: dict[str, ColumnStats] = Field(default_factory=dict)
 
 
 class Kpi(BaseModel):

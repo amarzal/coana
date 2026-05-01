@@ -124,9 +124,9 @@ def listar_uc(params: QueryParams) -> ListResponse:
     cols_existentes = [c for c in _COLUMN_NAMES if c in uc.columns]
     uc = uc.select(cols_existentes)
 
-    df, total = apply_query(uc, params, search_columns=_SEARCH_COLUMNS)
+    df, total, stats = apply_query(uc, params, search_columns=_SEARCH_COLUMNS)
     rows = df.to_dicts()
-    return ListResponse(columns=_COLUMNS, rows=rows, total=total)
+    return ListResponse(columns=_COLUMNS, rows=rows, total=total, column_stats=stats)
 
 
 def obtener_uc(uc_id: str) -> RecordResponse | None:
@@ -213,8 +213,8 @@ def _listar(
         return ListResponse(columns=cols, rows=[], total=0)
     nombres = [c.name for c in cols if c.name in df.columns]
     df = df.select(nombres)
-    df, total = apply_query(df, params, search_columns=search)
-    return ListResponse(columns=cols, rows=_serialize(df.to_dicts()), total=total)
+    df, total, stats = apply_query(df, params, search_columns=search)
+    return ListResponse(columns=cols, rows=_serialize(df.to_dicts()), total=total, column_stats=stats)
 
 
 def listar_sin_uc(params) -> ListResponse:
@@ -252,10 +252,10 @@ def listar_filtrados_por_motivo(params) -> ListResponse:
         .agg(pl.len().alias("n"), pl.col("importe").sum().alias("importe"))
         .sort("importe", descending=True)
     )
-    agg, total = apply_query(agg, params, search_columns=["motivo"])
+    agg, total, stats = apply_query(agg, params, search_columns=["motivo"])
     return ListResponse(
         columns=_COLS_FILTRADOS_POR_MOTIVO,
-        rows=agg.to_dicts(), total=total,
+        rows=agg.to_dicts(), total=total, column_stats=stats,
     )
 
 

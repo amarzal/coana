@@ -84,6 +84,56 @@ def _programas() -> pl.DataFrame | None:
     return _safe_read(DIR_ENTRADA / "presupuesto" / "programas presupuestarios.xlsx")
 
 
+@lru_cache(maxsize=64)
+def _ubicaciones() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "superficies" / "ubicaciones.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _servicios() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "inventario" / "servicios.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _cuentas() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "inventario" / "años amortización por cuenta.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _categorias_rh() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "nóminas" / "categorías recursos humanos.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _categorias_plaza() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "nóminas" / "categorías plazas.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _conceptos_retributivos() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "nóminas" / "conceptos retributivos.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _tipos_coste() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "nóminas" / "tipos coste plantilla.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _perceptores() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "nóminas" / "perceptores.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _cargos() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "nóminas" / "cargos.xlsx")
+
+
+@lru_cache(maxsize=64)
+def _tipos_cargo() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "nóminas" / "tipos cargo.xlsx")
+
+
 def lookup_persona(per_id: int | str | None) -> dict[str, str]:
     if per_id is None:
         return {}
@@ -203,6 +253,75 @@ def lookup_subcentro(valor) -> dict[str, str]:
     return _lookup_simple(_subcentros(), "subcentro", valor)
 
 
+def lookup_servicio(valor) -> dict[str, str]:
+    return _lookup_simple(_servicios(), "servicio", valor)
+
+
+def lookup_cuenta(valor) -> dict[str, str]:
+    return _lookup_simple(_cuentas(), "cuenta", valor)
+
+
+def lookup_categoria(valor) -> dict[str, str]:
+    """Categoría: prueba primero RR.HH., y si no hay, plazas."""
+    res = _lookup_simple(_categorias_rh(), "categoría", valor)
+    if res:
+        return res
+    return _lookup_simple(_categorias_plaza(), "categoría", valor)
+
+
+def lookup_categoria_plaza(valor) -> dict[str, str]:
+    return _lookup_simple(_categorias_plaza(), "categoría", valor)
+
+
+def lookup_concepto_retributivo(valor) -> dict[str, str]:
+    return _lookup_simple(_conceptos_retributivos(), "concepto_retributivo", valor)
+
+
+def lookup_tipo_coste(valor) -> dict[str, str]:
+    return _lookup_simple(_tipos_coste(), "tipo_coste", valor)
+
+
+def lookup_perceptor(valor) -> dict[str, str]:
+    return _lookup_simple(_perceptores(), "perceptor", valor)
+
+
+def lookup_cargo(valor) -> dict[str, str]:
+    """Cargo: enlaza también con tipo_cargo cuando lo tenga."""
+    base = _lookup_simple(_cargos(), "cargo", valor)
+    tc = base.get("tipo_cargo")
+    if tc:
+        nombre = _lookup_simple(_tipos_cargo(), "tipo_cargo", tc).get("nombre")
+        if nombre:
+            base["tipo_cargo"] = f"{tc} — {nombre}"
+    return base
+
+
+def lookup_tipo_cargo(valor) -> dict[str, str]:
+    return _lookup_simple(_tipos_cargo(), "tipo_cargo", valor)
+
+
+def lookup_ubicacion(valor) -> dict[str, str]:
+    """Lookup por id_ubicación: devuelve área/edificio/planta/etc."""
+    if valor is None:
+        return {}
+    df = _ubicaciones()
+    if df is None:
+        return {}
+    try:
+        v_int = int(valor)
+    except (TypeError, ValueError):
+        return {}
+    fila = df.filter(pl.col("id_ubicación") == v_int)
+    if fila.is_empty():
+        return {}
+    row = fila.row(0, named=True)
+    return {
+        k: (str(v) if v is not None else "")
+        for k, v in row.items()
+        if k != "id_ubicación"
+    }
+
+
 def lookup_asignatura(valor) -> dict[str, str]:
     """Asignatura: busca en grados; si no, en másteres."""
     if valor is None:
@@ -264,6 +383,7 @@ _LOOKUP_BY_COL = {
     "per_id": lambda v: lookup_persona(v),
     "perid": lambda v: lookup_persona(v),
     "centro": lookup_centro,
+    "centro_plaza": lookup_centro,
     "subcentro": lookup_subcentro,
     "proyecto": lookup_proyecto,
     "aplicación": lookup_aplicacion,
@@ -273,6 +393,16 @@ _LOOKUP_BY_COL = {
     "estudio": lookup_estudio,
     "asignatura": lookup_asignatura,
     "titulación": lambda v: lookup_grado(v) or lookup_master(v),
+    "id_ubicación": lookup_ubicacion,
+    "servicio": lookup_servicio,
+    "cuenta": lookup_cuenta,
+    "categoría": lookup_categoria,
+    "categoría_plaza": lookup_categoria_plaza,
+    "concepto_retributivo": lookup_concepto_retributivo,
+    "tipo_coste": lookup_tipo_coste,
+    "perceptor": lookup_perceptor,
+    "cargo": lookup_cargo,
+    "tipo_cargo": lookup_tipo_cargo,
 }
 
 
@@ -295,6 +425,9 @@ def enrich_row(row: dict) -> dict[str, dict[str, str]]:
 def clear_cache() -> None:
     """Vacía las cachés de tablas de referencia (tras editar entradas)."""
     for fn in (_personas, _centros, _proyectos, _aplicaciones, _programas,
-               _grados, _masteres, _estudios, _subcentros,
-               _asignaturas_grados, _asignaturas_masteres):
+               _grados, _masteres, _estudios, _subcentros, _ubicaciones,
+               _asignaturas_grados, _asignaturas_masteres,
+               _servicios, _cuentas, _categorias_rh, _categorias_plaza,
+               _conceptos_retributivos, _tipos_coste, _perceptores,
+               _cargos, _tipos_cargo):
         fn.cache_clear()

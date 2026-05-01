@@ -39,6 +39,7 @@ PATH_MULTI = DIR_NOMINAS / "multiexpediente.parquet"
 PATH_UC = DIR_NOMINAS / "persona_uc.parquet"
 PATH_SS = DIR_NOMINAS / "persona_ss.parquet"
 PATH_ANOM_PDI = DIR_NOMINAS / "regla_23_asignaturas_sin_titulación.parquet"
+PATH_NOMINAS_RAW = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
 
 _SECTOR_PATHS = {
     "PDI": PATH_PDI,
@@ -139,8 +140,70 @@ def listar_sector(sector: str, params: QueryParams) -> ListResponse | None:
         return ListResponse(columns=_COLS_EXP, rows=[], total=0)
     df = _enriquecer_per_id(df)
     df = df.select([c.name for c in _COLS_EXP if c.name in df.columns])
-    df, total = apply_query(df, params, search_columns=_SEARCH_EXP)
-    return ListResponse(columns=_COLS_EXP, rows=_serialize(df.to_dicts()), total=total)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_EXP)
+    return ListResponse(columns=_COLS_EXP, rows=_serialize(df.to_dicts()), total=total, column_stats=stats)
+
+
+@lru_cache(maxsize=2)
+def _nominas_raw_cached(path_str: str, mtime_ns: int) -> pl.DataFrame:
+    del mtime_ns
+    p = Path(path_str)
+    if not p.exists():
+        return pl.DataFrame()
+    return read_excel(p)
+
+
+def _nominas_raw() -> pl.DataFrame:
+    return _nominas_raw_cached(str(PATH_NOMINAS_RAW), _mtime_ns(PATH_NOMINAS_RAW))
+
+
+# Columnas de la tabla de líneas de nómina por expediente. El orden lo
+# decide el frontend (ID + importes a la izquierda); aquí solo declaramos
+# tipos para que se rendericen bien.
+_COLS_LINEAS_NOMINA: list[ColumnSpec] = [
+    ColumnSpec(name="id", label="ID", format="text"),
+    ColumnSpec(name="tipo_coste", label="Tipo coste", format="text"),
+    ColumnSpec(name="categoría", label="Categoría", format="text"),
+    ColumnSpec(name="perceptor", label="Perceptor", format="id"),
+    ColumnSpec(name="provisión", label="Provisión", format="text"),
+    ColumnSpec(name="categoría_plaza", label="Cat. plaza", format="text"),
+    ColumnSpec(name="sector_plaza", label="Sector plaza", format="text"),
+    ColumnSpec(name="fecha", label="Fecha", format="date"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="atrasos", label="Atrasos", format="euro"),
+    ColumnSpec(name="concepto_retributivo", label="Concepto", format="text"),
+    ColumnSpec(name="proyecto", label="Proyecto", format="text"),
+    ColumnSpec(name="subproyecto", label="Subproy.", format="text"),
+    ColumnSpec(name="aplicación", label="Aplicación", format="text"),
+    ColumnSpec(name="programa", label="Programa", format="text"),
+    ColumnSpec(name="línea", label="Línea", format="text"),
+    ColumnSpec(name="centro", label="Centro", format="text"),
+    ColumnSpec(name="subcentro", label="Subcentro", format="text"),
+    ColumnSpec(name="servicio", label="Servicio", format="id"),
+    ColumnSpec(name="centro_plaza", label="Centro plaza", format="id"),
+]
+_SEARCH_LINEAS = [
+    "id", "tipo_coste", "categoría", "categoría_plaza", "sector_plaza",
+    "concepto_retributivo", "proyecto", "subproyecto", "aplicación",
+    "programa", "línea", "centro", "subcentro",
+]
+
+
+def listar_lineas_nomina(expediente: int, params: QueryParams) -> ListResponse:
+    """Todas las líneas de nómina (importes y SS) de un expediente."""
+    df = _nominas_raw()
+    if df.is_empty() or "expediente" not in df.columns:
+        return ListResponse(columns=_COLS_LINEAS_NOMINA, rows=[], total=0)
+    df = df.filter(pl.col("expediente") == expediente)
+    nombres = [c.name for c in _COLS_LINEAS_NOMINA if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_LINEAS)
+    return ListResponse(
+        columns=_COLS_LINEAS_NOMINA,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )
 
 
 def obtener_expediente(sector: str, expediente: int) -> RecordResponse | None:
@@ -156,10 +219,79 @@ def obtener_expediente(sector: str, expediente: int) -> RecordResponse | None:
     fila = _enriquecer_per_id(fila)
     row = fila.row(0, named=True)
     main = [
+        FieldValue(name="sector", label="Sector", value=sector, format="text"),
+    ] + [
         FieldValue(name=c.name, label=c.label, value=row.get(c.name), format=c.format)
         for c in _COLS_EXP if c.name in row
     ]
-    return RecordResponse(main=main, sections=[])
+
+    # Sección de puesto: categoría y categoría_plaza distintas
+    # observadas en las líneas de nómina del expediente.
+    sections: list[RecordSection] = []
+    raw = _nominas_raw()
+    if not raw.is_empty() and "expediente" in raw.columns:
+        sub = raw.filter(pl.col("expediente") == expediente)
+        if not sub.is_empty():
+            from coana.web.services.lookups import (
+                lookup_categoria, lookup_categoria_plaza,
+            )
+
+            def _join_with_lookup(valores: list[str], fn) -> str:
+                """Devuelve "COD — Nombre, COD2 — Nombre2…" sin duplicados."""
+                vistos: list[str] = []
+                for v in valores:
+                    if v in (None, "") or v in vistos:
+                        continue
+                    vistos.append(v)
+                partes: list[str] = []
+                for v in vistos:
+                    nom = fn(v).get("nombre") or ""
+                    partes.append(f"{v} — {nom}" if nom else str(v))
+                return " · ".join(partes)
+
+            campos_puesto: list[FieldValue] = []
+            if "categoría_plaza" in sub.columns:
+                vals = sub["categoría_plaza"].drop_nulls().unique().to_list()
+                if vals:
+                    campos_puesto.append(FieldValue(
+                        name="categoría_plaza",
+                        label="Categoría plaza",
+                        value=_join_with_lookup(vals, lookup_categoria_plaza),
+                        format="text",
+                    ))
+            if "categoría" in sub.columns:
+                vals = sub["categoría"].drop_nulls().unique().to_list()
+                if vals:
+                    campos_puesto.append(FieldValue(
+                        name="categoría",
+                        label="Categoría RR.HH.",
+                        value=_join_with_lookup(vals, lookup_categoria),
+                        format="text",
+                    ))
+            if "sector_plaza" in sub.columns:
+                vals = sub["sector_plaza"].drop_nulls().unique().to_list()
+                if vals:
+                    campos_puesto.append(FieldValue(
+                        name="sector_plaza",
+                        label="Sector plaza",
+                        value=", ".join(str(v) for v in vals),
+                        format="text",
+                    ))
+            if "centro_plaza" in sub.columns:
+                vals = sub["centro_plaza"].drop_nulls().unique().to_list()
+                if vals:
+                    campos_puesto.append(FieldValue(
+                        name="centro_plaza",
+                        label="Centro plaza",
+                        value=", ".join(str(v) for v in vals),
+                        format="text",
+                    ))
+            if campos_puesto:
+                sections.append(RecordSection(
+                    label="Puesto", fields=campos_puesto,
+                ))
+
+    return RecordResponse(main=main, sections=sections)
 
 
 # ----------------------------------------------------------------------
@@ -177,6 +309,91 @@ _COLS_MULTI: list[ColumnSpec] = [
 ]
 
 
+_MESES_ES = ["ene", "feb", "mar", "abr", "may", "jun",
+             "jul", "ago", "sep", "oct", "nov", "dic"]
+
+
+def matriz_mensual(per_id: int, params: QueryParams) -> ListResponse:
+    """Matriz expediente × mes con importes para una persona.
+
+    Pensada para la vista Multiexpediente: una persona con varios
+    expedientes en el año. Filas = expedientes; columnas = meses en
+    los que hay nómina; celdas = suma de importes de la nómina ese mes.
+    """
+    # 1) Expedientes y sector de la persona.
+    pares: list[tuple[int, str]] = []
+    for sector, path in _SECTOR_PATHS.items():
+        df = _safe_read(path)
+        if df is None or "per_id" not in df.columns:
+            continue
+        sub = df.filter(pl.col("per_id") == per_id)
+        for r in sub.iter_rows(named=True):
+            pares.append((int(r["expediente"]), sector))
+    if not pares:
+        return ListResponse(columns=[], rows=[], total=0)
+    expedientes = [p[0] for p in pares]
+    sector_de = {p[0]: p[1] for p in pares}
+
+    # 2) Líneas de nómina (importes y SS) de esos expedientes.
+    raw = _nominas_raw()
+    if raw.is_empty() or "fecha" not in raw.columns:
+        return ListResponse(columns=[], rows=[], total=0)
+    sub = raw.filter(pl.col("expediente").is_in(expedientes))
+    if sub.is_empty():
+        return ListResponse(columns=[], rows=[], total=0)
+
+    # 3) Agregar por (expediente, año-mes).
+    g = (
+        sub.with_columns(pl.col("fecha").dt.strftime("%Y-%m").alias("yyyymm"))
+        .group_by("expediente", "yyyymm")
+        .agg(pl.col("importe").sum().alias("imp"))
+    )
+
+    # 4) Pivote a wide. Dejamos los huecos como null para que el
+    # frontend los muestre en blanco (un 0,00 € visual confunde con
+    # «hubo nómina y dio cero»).
+    pivot = g.pivot(values="imp", index="expediente", on="yyyymm")
+
+    yyyymm_cols = sorted(c for c in pivot.columns if c != "expediente")
+    años = sorted({c[:4] for c in yyyymm_cols})
+    multi_año = len(años) > 1
+
+    def _label(yyyymm: str) -> str:
+        # "2025-03" → "mar 2025" (o "mar" si solo hay un año).
+        try:
+            mes = int(yyyymm[5:7])
+        except ValueError:
+            return yyyymm
+        nombre = _MESES_ES[mes - 1] if 1 <= mes <= 12 else yyyymm
+        return f"{nombre} {yyyymm[:4]}" if multi_año else nombre
+
+    pivot = pivot.with_columns(
+        pl.col("expediente").cast(pl.Int64),
+        pl.col("expediente").map_elements(
+            lambda e: sector_de.get(int(e), ""), return_dtype=pl.Utf8,
+        ).alias("sector"),
+        pl.sum_horizontal(yyyymm_cols).alias("total"),
+    )
+    final_cols = ["sector", "expediente"] + yyyymm_cols + ["total"]
+    pivot = pivot.select(final_cols).sort("total", descending=True)
+
+    columns = (
+        [
+            ColumnSpec(name="sector", label="Sector", format="text"),
+            ColumnSpec(name="expediente", label="Expediente", format="id"),
+        ]
+        + [ColumnSpec(name=m, label=_label(m), format="euro") for m in yyyymm_cols]
+        + [ColumnSpec(name="total", label="Total", format="euro")]
+    )
+    df_q, total, stats = apply_query(pivot, params, search_columns=["sector"])
+    return ListResponse(
+        columns=columns,
+        rows=df_q.to_dicts(),
+        total=total,
+        column_stats=stats,
+    )
+
+
 def listar_multiexpediente(params: QueryParams) -> ListResponse:
     df = _safe_read(PATH_MULTI)
     if df is None:
@@ -187,8 +404,8 @@ def listar_multiexpediente(params: QueryParams) -> ListResponse:
             pl.col("sectores").list.join(", ").alias("sectores_str"),
         )
     df = df.select([c.name for c in _COLS_MULTI if c.name in df.columns])
-    df, total = apply_query(df, params, search_columns=["persona", "sectores_str"])
-    return ListResponse(columns=_COLS_MULTI, rows=_serialize(df.to_dicts()), total=total)
+    df, total, stats = apply_query(df, params, search_columns=["persona", "sectores_str"])
+    return ListResponse(columns=_COLS_MULTI, rows=_serialize(df.to_dicts()), total=total, column_stats=stats)
 
 
 # ----------------------------------------------------------------------
@@ -231,8 +448,8 @@ def listar_personas(params: QueryParams) -> ListResponse:
     )
     df = _enriquecer_per_id(df)
     df = df.select([c.name for c in _COLS_PERSONA if c.name in df.columns])
-    df, total = apply_query(df, params, search_columns=["persona"])
-    return ListResponse(columns=_COLS_PERSONA, rows=_serialize(df.to_dicts()), total=total)
+    df, total, stats = apply_query(df, params, search_columns=["persona"])
+    return ListResponse(columns=_COLS_PERSONA, rows=_serialize(df.to_dicts()), total=total, column_stats=stats)
 
 
 _COLS_UC_PERSONA: list[ColumnSpec] = [
@@ -297,11 +514,11 @@ def listar_uc_persona(per_id: int, params: QueryParams) -> ListResponse:
         return ListResponse(columns=_COLS_UC_PERSONA, rows=[], total=0)
     df = uc.filter(pl.col("per_id") == per_id)
     df = df.select([c.name for c in _COLS_UC_PERSONA if c.name in df.columns])
-    df, total = apply_query(
+    df, total, stats = apply_query(
         df, params,
         search_columns=["id", "elemento_de_coste", "centro_de_coste", "actividad", "tipo"],
     )
-    return ListResponse(columns=_COLS_UC_PERSONA, rows=_serialize(df.to_dicts()), total=total)
+    return ListResponse(columns=_COLS_UC_PERSONA, rows=_serialize(df.to_dicts()), total=total, column_stats=stats)
 
 
 # ----------------------------------------------------------------------
@@ -322,5 +539,5 @@ def listar_anomalias_pdi(params: QueryParams) -> ListResponse:
         return ListResponse(columns=_COLS_ANOM, rows=[], total=0)
     nombres = [c.name for c in _COLS_ANOM if c.name in df.columns]
     df = df.select(nombres)
-    df, total = apply_query(df, params)
-    return ListResponse(columns=_COLS_ANOM, rows=_serialize(df.to_dicts()), total=total)
+    df, total, stats = apply_query(df, params)
+    return ListResponse(columns=_COLS_ANOM, rows=_serialize(df.to_dicts()), total=total, column_stats=stats)

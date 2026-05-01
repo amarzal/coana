@@ -116,14 +116,14 @@ def listar_xlsx(ruta_relativa: str, params: QueryParams) -> ListResponse | None:
         ColumnSpec(name=c, label=c, format=_tipo_a_format(df.schema[c]))
         for c in df.columns
     ]
-    df_q, total = apply_query(df, params)
+    df_q, total, stats = apply_query(df, params)
     rows = []
     for r in df_q.to_dicts():
         rows.append({
             k: (v.isoformat() if hasattr(v, "isoformat") else v)
             for k, v in r.items()
         })
-    return ListResponse(columns=columnas, rows=rows, total=total)
+    return ListResponse(columns=columnas, rows=rows, total=total, column_stats=stats)
 
 
 # ----------------------------------------------------------------------
@@ -134,15 +134,23 @@ class NodoTree(BaseModel):
     código: str
     descripción: str
     identificador: str
+    # `nuevo=True` en árboles finales indica que el nodo no estaba en
+    # el árbol original (entradas/estructuras) — fue añadido por las
+    # reglas de la fase 1. El frontend lo destaca en otro color.
+    nuevo: bool = False
     hijos: list["NodoTree"] = []
 
 
-def _serializar_nodo(nodo: NodoÁrbol) -> NodoTree:
+def _serializar_nodo(
+    nodo: NodoÁrbol, identificadores_nuevos: set[str] | None = None,
+) -> NodoTree:
+    nuevos = identificadores_nuevos or set()
     return NodoTree(
         código=nodo.código,
         descripción=nodo.descripción,
         identificador=nodo.identificador,
-        hijos=[_serializar_nodo(h) for h in nodo.hijos],
+        nuevo=nodo.identificador in nuevos,
+        hijos=[_serializar_nodo(h, nuevos) for h in nodo.hijos],
     )
 
 

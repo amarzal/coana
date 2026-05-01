@@ -37,11 +37,31 @@ def obtener_expediente(sector: str, expediente: int) -> RecordResponse:
     return rec
 
 
+@router.get("/expedientes/{sector}/{expediente}/lineas", response_model=ListResponse)
+def listar_lineas_expediente(
+    sector: str,
+    expediente: int,
+    p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Líneas de la nómina (incluye SS) asociadas a un expediente."""
+    del sector  # el filtro real es por expediente
+    return svc.listar_lineas_nomina(expediente, p)
+
+
 # ---- Multiexpediente ------------------------------------------------
 
 @router.get("/multiexpediente", response_model=ListResponse)
 def multiexpediente(p: QueryParams = Depends(query_dependency)) -> ListResponse:
     return svc.listar_multiexpediente(p)
+
+
+@router.get("/multiexpediente/{per_id}/matriz", response_model=ListResponse)
+def matriz_mensual(
+    per_id: int,
+    p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Matriz expediente × mes con importes para una persona."""
+    return svc.matriz_mensual(per_id, p)
 
 
 # ---- Persona --------------------------------------------------------

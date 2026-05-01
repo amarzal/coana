@@ -148,12 +148,12 @@ def listar_categoria(params: QueryParams) -> ListResponse:
     if df is None:
         return ListResponse(columns=_COLUMNS_CAT, rows=[], total=0)
     df = _enriquecer_per_id(df)
-    df, total = apply_query(df, params, search_columns=_SEARCH_CAT)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_CAT)
     rows = df.to_dicts()
     # Las fechas Date salen como objetos date(); FastAPI las serializa OK,
     # pero las pasamos a string ISO para uniformidad con el resto.
     rows = [_serialize_dates(r) for r in rows]
-    return ListResponse(columns=_COLUMNS_CAT, rows=rows, total=total)
+    return ListResponse(columns=_COLUMNS_CAT, rows=rows, total=total, column_stats=stats)
 
 
 def listar_departamentos(params: QueryParams) -> ListResponse:
@@ -161,10 +161,10 @@ def listar_departamentos(params: QueryParams) -> ListResponse:
     if df is None:
         return ListResponse(columns=_COLUMNS_DEPT, rows=[], total=0)
     df = _con_idx(_enriquecer_per_id(df))
-    df, total = apply_query(df, params, search_columns=_SEARCH_DEPT)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_DEPT)
     rows = df.to_dicts()
     rows = [_serialize_dates(r) for r in rows]
-    return ListResponse(columns=_COLUMNS_DEPT, rows=rows, total=total)
+    return ListResponse(columns=_COLUMNS_DEPT, rows=rows, total=total, column_stats=stats)
 
 
 def obtener_categoria(per_id: int) -> RecordResponse | None:

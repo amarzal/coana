@@ -97,8 +97,8 @@ def _listar(
         df = _enriq(df)
     nombres = [c.name for c in cols if c.name in df.columns]
     df = df.select(nombres)
-    df, total = apply_query(df, params, search_columns=search)
-    return ListResponse(columns=cols, rows=_serialize(df.to_dicts()), total=total)
+    df, total, stats = apply_query(df, params, search_columns=search)
+    return ListResponse(columns=cols, rows=_serialize(df.to_dicts()), total=total, column_stats=stats)
 
 
 # ----------------------------------------------------------------------

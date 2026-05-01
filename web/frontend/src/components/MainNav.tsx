@@ -1,15 +1,40 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NavLink, useLocation } from "react-router";
+import {
+    Wallet,
+    Boxes,
+    Users,
+    Scale,
+    GraduationCap,
+    Building2,
+    Sigma,
+    Inbox,
+    Folder,
+    Sheet,
+    ListTree,
+    ChevronDown,
+    ChevronRight,
+    type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/cn";
 
-type Item = { label: string; to: string };
-type Group = { label: string; items: Item[] };
+type IconCmp = LucideIcon;
+
+type Leaf = { label: string; to: string; icon?: IconCmp };
+type SubGrupo = { label: string; items: Leaf[]; icon?: IconCmp };
+type Item = Leaf | SubGrupo;
+type Group = { label: string; items: Item[]; icon: IconCmp };
+
+function esSubgrupo(it: Item): it is SubGrupo {
+    return (it as SubGrupo).items !== undefined;
+}
 
 // Va creciendo a medida que se construyen los bloques.
 const GROUPS: Group[] = [
     {
         label: "Presupuesto",
+        icon: Wallet,
         items: [
             { label: "Resumen", to: "/presupuesto/resumen" },
             { label: "Unidades de coste", to: "/presupuesto/uc" },
@@ -27,20 +52,27 @@ const GROUPS: Group[] = [
     },
     {
         label: "Amortizaciones",
+        icon: Boxes,
         items: [
             { label: "Resumen", to: "/amortizaciones/resumen" },
             { label: "Inventario con amortización", to: "/amortizaciones/enriquecido" },
-            { label: "Filtrados por estado", to: "/amortizaciones/filtrados-estado" },
-            { label: "Filtrados por cuenta", to: "/amortizaciones/filtrados-cuenta" },
-            { label: "Filtrados por fecha", to: "/amortizaciones/filtrados-fecha" },
-            { label: "Sin cuenta", to: "/amortizaciones/sin-cuenta" },
-            { label: "Sin fecha de alta", to: "/amortizaciones/sin-fecha-alta" },
+            {
+                label: "Descartados",
+                items: [
+                    { label: "Filtrados por estado", to: "/amortizaciones/filtrados-estado" },
+                    { label: "Filtrados por cuenta", to: "/amortizaciones/filtrados-cuenta" },
+                    { label: "Filtrados por fecha", to: "/amortizaciones/filtrados-fecha" },
+                    { label: "Sin cuenta", to: "/amortizaciones/sin-cuenta" },
+                    { label: "Sin fecha de alta", to: "/amortizaciones/sin-fecha-alta" },
+                ],
+            },
             { label: "UC generadas", to: "/amortizaciones/uc" },
             { label: "Sin centro", to: "/amortizaciones/sin-centro" },
         ],
     },
     {
         label: "Personal",
+        icon: Users,
         items: [
             { label: "Resumen", to: "/personal/resumen" },
             { label: "Expedientes PDI", to: "/personal/pdi" },
@@ -54,6 +86,7 @@ const GROUPS: Group[] = [
     },
     {
         label: "Regla 23",
+        icon: Scale,
         items: [
             { label: "Resumen", to: "/regla23/resumen" },
             { label: "Dedicación docente", to: "/regla23/dedicacion" },
@@ -70,6 +103,7 @@ const GROUPS: Group[] = [
     },
     {
         label: "Cargos académicos",
+        icon: GraduationCap,
         items: [
             { label: "Resumen", to: "/cargos/resumen" },
             { label: "Categoría PDI/PVI", to: "/cargos/categoria" },
@@ -78,6 +112,7 @@ const GROUPS: Group[] = [
     },
     {
         label: "Superficies",
+        icon: Building2,
         items: [
             { label: "Resumen", to: "/superficies/resumen" },
             { label: "Totales", to: "/superficies/totales" },
@@ -86,6 +121,7 @@ const GROUPS: Group[] = [
     },
     {
         label: "Resultados Fase 1",
+        icon: Sigma,
         items: [
             { label: "Resumen", to: "/resultados/resumen" },
             { label: "Todas las UC", to: "/resultados/uc" },
@@ -97,8 +133,13 @@ const GROUPS: Group[] = [
     },
 ];
 
+function _itemActivo(it: Item, ruta: string): boolean {
+    if (esSubgrupo(it)) return it.items.some((leaf) => leaf.to === ruta);
+    return it.to === ruta;
+}
+
 function _grupoActivo(grupo: Group, ruta: string): boolean {
-    return grupo.items.some((it) => it.to === ruta);
+    return grupo.items.some((it) => _itemActivo(it, ruta));
 }
 
 // ----------------------------------------------------------------------
@@ -112,17 +153,19 @@ type Fichero = {
     ruta_relativa: string;
     tamaño_bytes: number;
 };
-type SubGrupo = { subdirectorio: string; ficheros: Fichero[] };
-type Catalogo = { grupos: SubGrupo[] };
+type SubgrupoEntradas = { subdirectorio: string; ficheros: Fichero[] };
+type Catalogo = { grupos: SubgrupoEntradas[] };
 
 function CabeceraColapsable({
-    label, abierto, onToggle, level = 0,
+    label, abierto, onToggle, level = 0, Icon,
 }: {
     label: string;
     abierto: boolean;
     onToggle: () => void;
     level?: number;
+    Icon?: IconCmp;
 }) {
+    const Chevron = abierto ? ChevronDown : ChevronRight;
     return (
         <button
             type="button"
@@ -135,7 +178,8 @@ function CabeceraColapsable({
                     : "text-xs",
             )}
         >
-            <span className="w-3 text-slate-400">{abierto ? "▾" : "▸"}</span>
+            <Chevron size={12} className="shrink-0 text-slate-400" />
+            {Icon && <Icon size={14} className="shrink-0" />}
             <span>{label}</span>
         </button>
     );
@@ -179,6 +223,7 @@ function EntradasMenu() {
                 label="Entradas"
                 abierto={abiertoRaiz}
                 onToggle={() => setAbiertoRaiz(!abiertoRaiz)}
+                Icon={Inbox}
             />
             {abiertoRaiz && (
                 <div className="ml-4 flex flex-col border-l border-slate-200">
@@ -197,28 +242,34 @@ function EntradasMenu() {
                                     abierto={sgOpen}
                                     onToggle={() => toggleSub(sg.subdirectorio)}
                                     level={1}
+                                    Icon={Folder}
                                 />
                                 {sgOpen && (
                                     <ul className="ml-4 flex flex-col border-l border-slate-200">
-                                        {sg.ficheros.map((f) => (
-                                            <li key={f.ruta_relativa}>
-                                                <NavLink
-                                                    to={`/entradas/${f.ruta_relativa}`}
-                                                    className={({ isActive }) =>
-                                                        cn(
-                                                            "flex items-baseline gap-2 rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100",
-                                                            isActive && "bg-slate-200 font-medium",
-                                                        )
-                                                    }
-                                                    title={f.ruta_relativa}
-                                                >
-                                                    <span className="text-xs text-slate-400">
-                                                        {f.extension === ".tree" ? "▤" : "▦"}
-                                                    </span>
-                                                    <span className="truncate">{f.stem}</span>
-                                                </NavLink>
-                                            </li>
-                                        ))}
+                                        {sg.ficheros.map((f) => {
+                                            const FileIcon =
+                                                f.extension === ".tree" ? ListTree : Sheet;
+                                            return (
+                                                <li key={f.ruta_relativa}>
+                                                    <NavLink
+                                                        to={`/entradas/${f.ruta_relativa}`}
+                                                        className={({ isActive }) =>
+                                                            cn(
+                                                                "flex items-center gap-2 rounded-md px-2 py-1 text-sm text-slate-700 hover:bg-slate-100",
+                                                                isActive && "bg-slate-200 font-medium",
+                                                            )
+                                                        }
+                                                        title={f.ruta_relativa}
+                                                    >
+                                                        <FileIcon
+                                                            size={14}
+                                                            className="shrink-0 text-slate-400"
+                                                        />
+                                                        <span className="truncate">{f.stem}</span>
+                                                    </NavLink>
+                                                </li>
+                                            );
+                                        })}
                                     </ul>
                                 )}
                             </div>
@@ -232,10 +283,22 @@ function EntradasMenu() {
 
 export function MainNav() {
     const { pathname } = useLocation();
-    // Estado inicial: solo se despliega el grupo que contiene la ruta actual.
-    const [abiertos, setAbiertos] = useState<Set<string>>(
-        () => new Set(GROUPS.filter((g) => _grupoActivo(g, pathname)).map((g) => g.label)),
-    );
+    // Estado inicial: solo se despliega el grupo que contiene la ruta
+    // actual, y dentro de él los sub-grupos cuyo contenido coincida.
+    const [abiertos, setAbiertos] = useState<Set<string>>(() => {
+        const open = new Set<string>();
+        GROUPS.forEach((g) => {
+            if (_grupoActivo(g, pathname)) {
+                open.add(g.label);
+                g.items.forEach((it) => {
+                    if (esSubgrupo(it) && _itemActivo(it, pathname)) {
+                        open.add(`${g.label}/${it.label}`);
+                    }
+                });
+            }
+        });
+        return open;
+    });
 
     const toggle = (label: string) => {
         setAbiertos((prev) => {
@@ -246,8 +309,55 @@ export function MainNav() {
         });
     };
 
+    const navClasses = ({ isActive }: { isActive: boolean }) =>
+        cn(
+            "block rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100",
+            isActive && "bg-slate-200 font-medium",
+        );
+
+    const renderItem = (grupoLabel: string, it: Item) => {
+        if (!esSubgrupo(it)) {
+            return (
+                <li key={it.to}>
+                    <NavLink to={it.to} end className={navClasses}>
+                        {it.label}
+                    </NavLink>
+                </li>
+            );
+        }
+        const key = `${grupoLabel}/${it.label}`;
+        const open = abiertos.has(key);
+        const Chevron = open ? ChevronDown : ChevronRight;
+        return (
+            <li key={key}>
+                <button
+                    type="button"
+                    onClick={() => toggle(key)}
+                    aria-expanded={open}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100"
+                >
+                    <Chevron size={12} className="shrink-0 text-slate-400" />
+                    <span>{it.label}</span>
+                </button>
+                {open && (
+                    <ul className="ml-4 flex flex-col border-l border-slate-200">
+                        {it.items.map((leaf) => (
+                            <li key={leaf.to}>
+                                <NavLink to={leaf.to} end className={navClasses}>
+                                    {leaf.label}
+                                </NavLink>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </li>
+        );
+    };
+
     const renderGrupo = (g: Group) => {
         const open = abiertos.has(g.label);
+        const Chevron = open ? ChevronDown : ChevronRight;
+        const Icon = g.icon;
         return (
             <div key={g.label}>
                 <button
@@ -256,27 +366,13 @@ export function MainNav() {
                     aria-expanded={open}
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-slate-500 hover:bg-slate-100"
                 >
-                    <span className="w-3 text-slate-400">{open ? "▾" : "▸"}</span>
+                    <Chevron size={12} className="shrink-0 text-slate-400" />
+                    <Icon size={14} className="shrink-0" />
                     <span>{g.label}</span>
                 </button>
                 {open && (
                     <ul className="ml-4 flex flex-col border-l border-slate-200">
-                        {g.items.map((it) => (
-                            <li key={it.to}>
-                                <NavLink
-                                    to={it.to}
-                                    end
-                                    className={({ isActive }) =>
-                                        cn(
-                                            "block rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100",
-                                            isActive && "bg-slate-200 font-medium",
-                                        )
-                                    }
-                                >
-                                    {it.label}
-                                </NavLink>
-                            </li>
-                        ))}
+                        {g.items.map((it) => renderItem(g.label, it))}
                     </ul>
                 )}
             </div>

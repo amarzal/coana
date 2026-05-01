@@ -182,8 +182,8 @@ def listar_complejos(params: QueryParams) -> ListResponse:
     if df.is_empty():
         return ListResponse(columns=_COLS_COMPLEJOS, rows=[], total=0)
     df = df.select([c.name for c in _COLS_COMPLEJOS])
-    df, total = apply_query(df, params, search_columns=["complejo", "descripción"])
-    return ListResponse(columns=_COLS_COMPLEJOS, rows=df.to_dicts(), total=total)
+    df, total, stats = apply_query(df, params, search_columns=["complejo", "descripción"])
+    return ListResponse(columns=_COLS_COMPLEJOS, rows=df.to_dicts(), total=total, column_stats=stats)
 
 
 def listar_edificaciones(params: QueryParams) -> ListResponse:
@@ -191,8 +191,8 @@ def listar_edificaciones(params: QueryParams) -> ListResponse:
     if df.is_empty():
         return ListResponse(columns=_COLS_EDIFICACIONES, rows=[], total=0)
     df = df.select([c.name for c in _COLS_EDIFICACIONES])
-    df, total = apply_query(df, params, search_columns=["complejo", "edificación", "descripción"])
-    return ListResponse(columns=_COLS_EDIFICACIONES, rows=df.to_dicts(), total=total)
+    df, total, stats = apply_query(df, params, search_columns=["complejo", "edificación", "descripción"])
+    return ListResponse(columns=_COLS_EDIFICACIONES, rows=df.to_dicts(), total=total, column_stats=stats)
 
 
 def listar_zonas(params: QueryParams) -> ListResponse:
@@ -200,5 +200,5 @@ def listar_zonas(params: QueryParams) -> ListResponse:
     if df.is_empty():
         return ListResponse(columns=_COLS_ZONAS, rows=[], total=0)
     df = df.select([c.name for c in _COLS_ZONAS])
-    df, total = apply_query(df, params, search_columns=["complejo", "edificación", "zona", "descripción"])
-    return ListResponse(columns=_COLS_ZONAS, rows=df.to_dicts(), total=total)
+    df, total, stats = apply_query(df, params, search_columns=["complejo", "edificación", "zona", "descripción"])
+    return ListResponse(columns=_COLS_ZONAS, rows=df.to_dicts(), total=total, column_stats=stats)
