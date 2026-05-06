@@ -512,3 +512,68 @@ def listar_anomalias(params: QueryParams) -> ListResponse:
         search_columns=["id", "_origen", "campo", "valor_inexistente"],
     )
     return ListResponse(columns=_COLS_ANOM, rows=todo.to_dicts(), total=total, column_stats=stats)
+
+
+_COLS_ANOM_UNICOS: list[ColumnSpec] = [
+    ColumnSpec(name="campo", label="Campo afectado", format="text"),
+    ColumnSpec(name="valor_inexistente", label="Identificador inexistente", format="text"),
+    ColumnSpec(name="n_uc", label="N UC afectadas", format="int"),
+    ColumnSpec(name="importe", label="Importe total", format="euro"),
+]
+
+
+def listar_anomalias_unicos(params: QueryParams) -> ListResponse:
+    """Identificadores inexistentes únicos: agrega las anomalías por
+    (campo, valor_inexistente) y devuelve el número de UC afectadas y
+    el importe acumulado. Útil para tener la lista de "qué hay que
+    arreglar en los árboles" sin repetir filas."""
+    df = _todas_uc()
+    if df.is_empty():
+        return ListResponse(columns=_COLS_ANOM_UNICOS, rows=[], total=0)
+
+    ids_act = _identificadores_arbol("actividades")
+    ids_cc = _identificadores_arbol("centros de coste")
+    ids_ec = _identificadores_arbol("elementos de coste")
+
+    anomalías: list[pl.DataFrame] = []
+    for col, campo, ids_ok in (
+        ("actividad", "actividad", ids_act),
+        ("centro_de_coste", "centro_de_coste", ids_cc),
+        ("elemento_de_coste", "elemento_de_coste", ids_ec),
+    ):
+        if not ids_ok or col not in df.columns:
+            continue
+        sub = df.filter(
+            pl.col(col).is_not_null() & ~pl.col(col).is_in(list(ids_ok))
+        )
+        if sub.is_empty():
+            continue
+        anomalías.append(
+            sub.select(
+                pl.lit(campo).alias("campo"),
+                pl.col(col).alias("valor_inexistente"),
+                pl.col("importe"),
+            )
+        )
+
+    if not anomalías:
+        return ListResponse(columns=_COLS_ANOM_UNICOS, rows=[], total=0)
+
+    todo = pl.concat(anomalías, how="diagonal")
+    agg = (
+        todo.group_by("campo", "valor_inexistente")
+        .agg(
+            pl.len().alias("n_uc"),
+            pl.col("importe").sum().alias("importe"),
+        )
+        .sort(["campo", "valor_inexistente"])
+    )
+    agg, total, stats = apply_query(
+        agg, params, search_columns=["campo", "valor_inexistente"],
+    )
+    return ListResponse(
+        columns=_COLS_ANOM_UNICOS,
+        rows=agg.to_dicts(),
+        total=total,
+        column_stats=stats,
+    )

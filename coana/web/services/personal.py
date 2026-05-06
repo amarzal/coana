@@ -14,6 +14,7 @@ from functools import lru_cache
 from pathlib import Path
 
 import polars as pl
+from pydantic import BaseModel, Field
 
 from coana.util import read_excel
 from coana.web.deps import DIR_AUX, DIR_ENTRADA, _mtime_ns, read_parquet
@@ -189,12 +190,251 @@ _SEARCH_LINEAS = [
 ]
 
 
-def listar_lineas_nomina(expediente: int, params: QueryParams) -> ListResponse:
-    """Todas las líneas de nómina (importes y SS) de un expediente."""
+# Proyectos «ordinarios» de PTGAS — vienen del clasificador de centros
+# de coste de fase 1; se reusa la misma lista para reproducir la
+# clasificación que hacía el visor Streamlit.
+try:
+    from coana.fase1.clasificador_centros_coste import (
+        PROYECTOS_ORDINARIOS as _PROY_ORD,
+    )
+    _PROYECTOS_ORDINARIOS: list[str] = list(_PROY_ORD)
+except Exception:
+    _PROYECTOS_ORDINARIOS = []
+
+
+@lru_cache(maxsize=2)
+def _lineas_financiacion_cached(path_str: str, mtime_ns: int) -> pl.DataFrame:
+    del mtime_ns
+    p = Path(path_str)
+    if not p.exists():
+        return pl.DataFrame()
+    return read_excel(p)
+
+
+def _enriquecer_tipo_linea(df: pl.DataFrame) -> pl.DataFrame:
+    """Añade ``tipo_línea`` a partir de ``líneas de financiación.xlsx``."""
+    if "línea" not in df.columns:
+        return df
+    p = DIR_ENTRADA / "presupuesto" / "líneas de financiación.xlsx"
+    ref = _lineas_financiacion_cached(str(p), _mtime_ns(p))
+    if ref.is_empty() or "línea" not in ref.columns or "tipo" not in ref.columns:
+        return df
+    return df.join(
+        ref.select(pl.col("línea"), pl.col("tipo").alias("tipo_línea")),
+        on="línea",
+        how="left",
+    )
+
+
+def _grupos_lineas(df: pl.DataFrame, sector: str) -> list[tuple[str, pl.DataFrame]]:
+    """Reparte las líneas de nómina de un expediente en grupos.
+
+    La clasificación reproduce la del visor Streamlit:
+    - costes sociales = aplicación que empieza por «12».
+    - PTGAS: ordinarias / extra (proyecto en PROYECTOS_ORDINARIOS o no).
+    - PVI: simplemente costes sociales / retribuciones.
+    - PDI: costes sociales, retribuciones con financiación finalista
+      (tipo_línea ≠ "00") y, dentro del resto, docencia / gestión /
+      investigación / incentivos / regla 23 según concepto y proyecto.
+    - Otros: igual que PVI.
+    """
+    if df.is_empty() or "aplicación" not in df.columns:
+        return []
+    es_cs = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+    cs = df.filter(es_cs)
+    no_cs = df.filter(~es_cs)
+    grupos: list[tuple[str, pl.DataFrame]] = []
+    grupos.append(("Costes sociales", cs))
+
+    if sector == "PTGAS" and "proyecto" in df.columns and _PROYECTOS_ORDINARIOS:
+        es_ord = pl.col("proyecto").is_in(_PROYECTOS_ORDINARIOS)
+        grupos += [
+            ("Retribuciones ordinarias", no_cs.filter(es_ord)),
+            ("Retribuciones extra", no_cs.filter(~es_ord)),
+        ]
+    elif sector == "PDI":
+        df = _enriquecer_tipo_linea(df)
+        no_cs = df.filter(~es_cs)
+        if "tipo_línea" in df.columns:
+            finalista = no_cs.filter(pl.col("tipo_línea") != "00")
+            resto = no_cs.filter(pl.col("tipo_línea") == "00")
+        else:
+            finalista = no_cs.head(0)
+            resto = no_cs
+        cr_str = pl.col("concepto_retributivo").cast(pl.Utf8)
+        proy = pl.col("proyecto").cast(pl.Utf8)
+        docencia = resto.filter(
+            proy.is_in(["1G019", "23G019"])
+            & cr_str.is_in(["17", "20", "24", "44", "86", "99"])
+        )
+        gestion = resto.filter(
+            proy.is_in(["02G041", "11G006", "1G019", "23G019"])
+            & cr_str.is_in(["19", "30"])
+        )
+        investigacion = resto.filter(
+            proy.is_in(["1G019", "23G019"]) & cr_str.is_in(["26", "77"])
+        )
+        incentivos = resto.filter(cr_str.is_in(["13", "67"]))
+        ids_clas = pl.concat(
+            [docencia, gestion, investigacion, incentivos], how="diagonal",
+        ).select("id")
+        regla23 = resto.join(ids_clas, on="id", how="anti")
+        grupos += [
+            ("Retribuciones con financiación finalista", finalista),
+            ("Retribuciones ordinarias docencia", docencia),
+            ("Retribuciones ordinarias gestión", gestion),
+            ("Retribuciones ordinarias investigación", investigacion),
+            ("Retribuciones por incentivos", incentivos),
+            ("Retribuciones para regla 23", regla23),
+        ]
+    elif sector == "PVI":
+        grupos.append(("Retribuciones", no_cs))
+    else:
+        grupos.append(("Retribuciones", no_cs))
+
+    return [(label, sub) for label, sub in grupos if not sub.is_empty()]
+
+
+class GrupoLineas(BaseModel):
+    label: str = Field(..., description="Etiqueta legible del grupo")
+    n: int = Field(..., description="Número de líneas")
+    importe: float = Field(..., description="Suma de importes del grupo")
+
+
+class GruposLineasResponse(BaseModel):
+    grupos: list[GrupoLineas]
+
+
+UC_GENERADAS_LABEL = "UC generadas"
+
+
+def grupos_lineas_nomina(sector: str, expediente: int) -> GruposLineasResponse:
+    """Metadatos (label, n, importe) de los grupos de un expediente.
+
+    Incluye además, como pestaña sintética «UC generadas», las
+    unidades de coste producidas por la fase 1 para ese expediente.
+    """
+    df = _nominas_raw()
+    out: list[GrupoLineas] = []
+    if not df.is_empty() and "expediente" in df.columns:
+        sub = df.filter(pl.col("expediente") == expediente)
+        for label, g in _grupos_lineas(sub, sector):
+            out.append(GrupoLineas(
+                label=label,
+                n=g.height,
+                importe=(
+                    float(g["importe"].sum() or 0) if "importe" in g.columns else 0.0
+                ),
+            ))
+    uc = _uc_de_expediente(sector, expediente)
+    if not uc.is_empty():
+        out.append(GrupoLineas(
+            label=UC_GENERADAS_LABEL,
+            n=uc.height,
+            importe=float(uc["importe"].sum() or 0) if "importe" in uc.columns else 0.0,
+        ))
+    return GruposLineasResponse(grupos=out)
+
+
+_UC_PATHS_POR_SECTOR = {
+    "PDI": DIR_NOMINAS / "uc_pdi.parquet",
+    "PTGAS": DIR_NOMINAS / "uc_ptgas.parquet",
+    "PVI": DIR_NOMINAS / "uc_pvi.parquet",
+}
+
+# UC adicionales que pueden aplicar a un expediente con independencia
+# del sector: despidos (CR 47), indemnizaciones por asistencia (CR 48),
+# y cargos asociados a un proyecto específico (CR 19/64 cuando el
+# proyecto no es general). Estas se generan en parquets separados; al
+# consultarlas por expediente las consolidamos aquí.
+_UC_PATHS_TRANSVERSALES = [
+    DIR_NOMINAS / "uc_despidos.parquet",
+    DIR_NOMINAS / "uc_indemnizaciones_asistencias.parquet",
+    DIR_NOMINAS / "uc_cargos.parquet",
+]
+
+
+_COLS_UC_EXP: list[ColumnSpec] = [
+    ColumnSpec(name="id", label="ID UC", format="text"),
+    ColumnSpec(name="elemento_de_coste", label="Elemento", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="origen", label="Origen", format="text"),
+    ColumnSpec(name="origen_id", label="Origen ID", format="text"),
+    ColumnSpec(name="origen_porción", label="Porción", format="float"),
+]
+
+
+def _uc_de_expediente(sector: str, expediente: int) -> pl.DataFrame:
+    """Consolida las UC del expediente desde el parquet del sector y los
+    parquets transversales (despidos, indemnizaciones por asistencia,
+    cargos asociados a proyecto específico)."""
+    partes: list[pl.DataFrame] = []
+    rutas: list[Path] = []
+    sector_path = _UC_PATHS_POR_SECTOR.get(sector)
+    if sector_path is not None:
+        rutas.append(sector_path)
+    rutas.extend(_UC_PATHS_TRANSVERSALES)
+    for path in rutas:
+        df = _safe_read(path)
+        if df is None or df.is_empty() or "expediente" not in df.columns:
+            continue
+        sub = df.filter(pl.col("expediente") == expediente).drop("expediente")
+        if not sub.is_empty():
+            partes.append(sub)
+    if not partes:
+        return pl.DataFrame()
+    return pl.concat(partes, how="diagonal")
+
+
+def listar_uc_expediente(
+    sector: str, expediente: int, params: QueryParams,
+) -> ListResponse:
+    """UC generadas durante la fase 1 para un expediente concreto."""
+    df = _uc_de_expediente(sector, expediente)
+    if df.is_empty():
+        return ListResponse(columns=_COLS_UC_EXP, rows=[], total=0)
+    nombres = [c.name for c in _COLS_UC_EXP if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(
+        df, params,
+        search_columns=[
+            "id", "elemento_de_coste", "centro_de_coste", "actividad",
+            "origen", "origen_id",
+        ],
+    )
+    return ListResponse(
+        columns=_COLS_UC_EXP,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )
+
+
+def listar_lineas_nomina(
+    expediente: int,
+    params: QueryParams,
+    sector: str | None = None,
+    grupo: str | None = None,
+) -> ListResponse:
+    """Líneas de nómina (importes y SS) de un expediente.
+
+    Si ``sector`` y ``grupo`` están informados, devuelve solo las
+    líneas pertenecientes a ese grupo (Costes sociales, Retribuciones
+    ordinarias, etc.) según la clasificación del visor Streamlit.
+    """
     df = _nominas_raw()
     if df.is_empty() or "expediente" not in df.columns:
         return ListResponse(columns=_COLS_LINEAS_NOMINA, rows=[], total=0)
     df = df.filter(pl.col("expediente") == expediente)
+    if sector and grupo:
+        partes = _grupos_lineas(df, sector)
+        seleccion = next((g for label, g in partes if label == grupo), None)
+        if seleccion is None:
+            df = df.head(0)
+        else:
+            df = seleccion
     nombres = [c.name for c in _COLS_LINEAS_NOMINA if c.name in df.columns]
     df = df.select(nombres)
     df, total, stats = apply_query(df, params, search_columns=_SEARCH_LINEAS)

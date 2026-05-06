@@ -55,6 +55,12 @@ def anomalias(p: QueryParams = Depends(query_dependency)) -> ListResponse:
     return svc.listar_anomalias(p)
 
 
+@router.get("/anomalias-unicos", response_model=ListResponse)
+def anomalias_unicos(p: QueryParams = Depends(query_dependency)) -> ListResponse:
+    """Identificadores inexistentes únicos (sin repetir), con número de UC afectadas e importe."""
+    return svc.listar_anomalias_unicos(p)
+
+
 @router.get("/arbol/{nombre}", response_model=svc_entradas.NodoTree)
 def arbol_final(nombre: str) -> svc_entradas.NodoTree:
     """Árbol final tras la fase 1: actividades, centros-de-coste, elementos-de-coste."""

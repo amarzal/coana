@@ -167,14 +167,76 @@ export function ResultadosElementos() {
     );
 }
 
-export function ResultadosAnomalias() {
+function AnomaliasUnicosModal({ onClose }: { onClose: () => void }) {
+    useEffect(() => {
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [onClose]);
+
     return (
-        <Lista
-            title="Resultados Fase 1 · Anomalías UC"
-            subtitle="Comprobación de integridad referencial: UC que referencian nodos inexistentes en los árboles finales."
-            endpoint="/api/resultados/anomalias"
-            queryKey="resultados:anomalias"
-            rowKey="id"
-        />
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-6"
+            onClick={onClose}
+            role="dialog"
+            aria-modal="true"
+        >
+            <div
+                className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-2">
+                    <h2 className="text-sm font-medium uppercase tracking-wide text-slate-500">
+                        Identificadores inexistentes (sin repeticiones)
+                    </h2>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="rounded px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                        aria-label="Cerrar"
+                    >
+                        ✕ Cerrar
+                    </button>
+                </div>
+                <div className="overflow-auto p-4">
+                    <DataTable
+                        endpoint="/api/resultados/anomalias-unicos"
+                        queryKey="resultados:anomalias-unicos"
+                        rowKey="valor_inexistente"
+                        pageSize={100}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export function ResultadosAnomalias() {
+    const [verUnicos, setVerUnicos] = useState(false);
+
+    return (
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title="Resultados Fase 1 · Anomalías UC"
+                subtitle="Comprobación de integridad referencial: UC que referencian nodos inexistentes en los árboles finales."
+            />
+            <div>
+                <button
+                    type="button"
+                    onClick={() => setVerUnicos(true)}
+                    className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-100"
+                >
+                    Ver identificadores únicos
+                </button>
+            </div>
+            <DataTable
+                endpoint="/api/resultados/anomalias"
+                queryKey="resultados:anomalias"
+                rowKey="id"
+            />
+            {verUnicos && <AnomaliasUnicosModal onClose={() => setVerUnicos(false)} />}
+        </div>
     );
 }

@@ -1,7 +1,78 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/DataTable";
 import { KpiPanel } from "@/components/KpiPanel";
 import { RecordCard } from "@/components/RecordCard";
+import { Tabs } from "@/components/Tabs";
+import { formatEuro } from "@/lib/format";
+
+type GrupoLineas = { label: string; n: number; importe: number };
+type GruposResponse = { grupos: GrupoLineas[] };
+
+/** Tabla de líneas de nómina de un expediente, organizada en pestañas
+ * por grupo (Costes sociales, Retribuciones ordinarias, etc.). */
+function LineasExpedienteTabs({
+    sector, expediente,
+}: { sector: string; expediente: string }) {
+    const { data, isLoading } = useQuery({
+        queryKey: ["personal:exp-grupos", sector, expediente],
+        queryFn: async (): Promise<GruposResponse> => {
+            const r = await fetch(
+                `/api/personal/expedientes/${encodeURIComponent(sector)}/${encodeURIComponent(expediente)}/grupos`,
+            );
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json() as Promise<GruposResponse>;
+        },
+    });
+    const grupos = data?.grupos ?? [];
+    const [activo, setActivo] = useState<string | null>(null);
+    const activoLabel = activo ?? grupos[0]?.label ?? null;
+
+    if (isLoading) return <div className="text-sm text-slate-500">Cargando…</div>;
+    if (grupos.length === 0)
+        return <div className="text-sm text-slate-500">Sin líneas para este expediente.</div>;
+
+    const tabs = grupos.map((g) => ({
+        key: g.label,
+        label: (
+            <span>
+                {g.label}{" "}
+                <span className="ml-1 text-xs text-slate-400 tabular-nums">
+                    {g.n} · {formatEuro(g.importe)}
+                </span>
+            </span>
+        ),
+    }));
+
+    const esUc = activoLabel === "UC generadas";
+
+    return (
+        <div className="flex flex-col gap-3">
+            <Tabs
+                tabs={tabs}
+                active={activoLabel ?? grupos[0].label}
+                onChange={setActivo}
+            />
+            {activoLabel && esUc && (
+                <DataTable
+                    endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/uc`}
+                    queryKey={`personal:exp:${sector}:${expediente}:uc`}
+                    rowKey="id"
+                    showPopoverOnRowClick
+                />
+            )}
+            {activoLabel && !esUc && (
+                <DataTable
+                    endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/lineas`}
+                    queryKey={`personal:exp:${sector}:${expediente}:grupo:${activoLabel}`}
+                    rowKey="id"
+                    extraParams={{ grupo: activoLabel }}
+                    showPopoverOnRowClick
+                />
+            )}
+        </div>
+    );
+}
 
 /** Modal con un sub-DataTable de las líneas de nómina de un expediente. */
 function LineasExpedienteModal({
@@ -51,12 +122,7 @@ function LineasExpedienteModal({
                         id={expediente}
                         queryKey={`personal:multiexp:exp-record:${sector}:${expediente}`}
                     />
-                    <DataTable
-                        endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/lineas`}
-                        queryKey={`personal:multiexp:exp-lineas:${sector}:${expediente}`}
-                        rowKey="id"
-                        showPopoverOnRowClick
-                    />
+                    <LineasExpedienteTabs sector={sector} expediente={expediente} />
                 </div>
             </div>
         </div>
@@ -113,12 +179,7 @@ function ExpedientesPorSector({
                     <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-slate-500">
                         Líneas de nómina del expediente {expediente}
                     </h2>
-                    <DataTable
-                        endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/lineas`}
-                        queryKey={`personal:exp:${sector}:lineas:${expediente}`}
-                        rowKey="id"
-                        showPopoverOnRowClick
-                    />
+                    <LineasExpedienteTabs sector={sector} expediente={expediente} />
                 </div>
             )}
         </div>

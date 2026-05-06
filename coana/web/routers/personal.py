@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from coana.web.schemas.common import KpiPanel, ListResponse, RecordResponse
 from coana.web.services import personal as svc
@@ -41,11 +41,39 @@ def obtener_expediente(sector: str, expediente: int) -> RecordResponse:
 def listar_lineas_expediente(
     sector: str,
     expediente: int,
+    grupo: str | None = Query(None, description="Filtra por grupo (Costes sociales, Retribuciones ordinarias…)"),
     p: QueryParams = Depends(query_dependency),
 ) -> ListResponse:
-    """Líneas de la nómina (incluye SS) asociadas a un expediente."""
-    del sector  # el filtro real es por expediente
-    return svc.listar_lineas_nomina(expediente, p)
+    """Líneas de la nómina (incluye SS) asociadas a un expediente.
+
+    Si se pasa ``grupo``, devuelve solo las líneas de ese grupo según
+    la clasificación por sector (PDI/PTGAS/PVI/Otros).
+    """
+    return svc.listar_lineas_nomina(expediente, p, sector=sector, grupo=grupo)
+
+
+@router.get(
+    "/expedientes/{sector}/{expediente}/grupos",
+    response_model=svc.GruposLineasResponse,
+)
+def grupos_lineas_expediente(
+    sector: str, expediente: int,
+) -> svc.GruposLineasResponse:
+    """Metadatos de los grupos en que se reparten las líneas del expediente."""
+    return svc.grupos_lineas_nomina(sector, expediente)
+
+
+@router.get(
+    "/expedientes/{sector}/{expediente}/uc",
+    response_model=ListResponse,
+)
+def listar_uc_expediente(
+    sector: str,
+    expediente: int,
+    p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """UC generadas durante la fase 1 para un expediente concreto."""
+    return svc.listar_uc_expediente(sector, expediente, p)
 
 
 # ---- Multiexpediente ------------------------------------------------
