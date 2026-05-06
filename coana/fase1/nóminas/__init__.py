@@ -109,7 +109,11 @@ _PTGAS_CR_YYY: dict[str, str] = {
     "15": "esp",        "17": "otfij",      "18": "esp",        "19": "cargos",
     "20": "quin",       "24": "dst",        "25": "otvars",     "26": "sexinv",
     "30": "cargos",     "32": "prod",       "34": "otfij",      "35": "otvars",
-    "43": "otvars",     "44": "trienios",   "47": "otvars",     "48": "otvars",
+    "43": "otvars",     "44": "trienios",   "47": "otvars",
+    # CR 48 (indemnización por asistencias) NO está en esta tabla:
+    # se imputa al elemento de coste fijo `otras-indemnizaciones` para
+    # los tres sectores (PTGAS + PDI + PVI), vía
+    # `generar_uc_indemnizaciones_asistencias`.
     "53": "otvars",
     "55": "otvars",     "56": "esp",        "57": "otfij",      "59": "dst",
     "62": "otvars",     "64": "otvars",     "67": "otvars",     "68": "esp",
@@ -236,7 +240,8 @@ def _generar_uc_ptgas(
     )
 
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    registros = registros.filter(~es_ss)
+    es_cr_48 = pl.col("concepto_retributivo").cast(pl.Utf8) == "48"
+    registros = registros.filter(~es_ss & ~es_cr_48)
     if registros.is_empty():
         return pl.DataFrame()
 
@@ -374,62 +379,148 @@ def _generar_uc_ptgas(
     if not uc_partes:
         return pl.DataFrame()
 
+    # Solo retributivas: la SS de PTGAS se reparte por persona en
+    # `_generar_reparto_ss_persona`, junto con la de PDI/PVI.
     return pl.concat(uc_partes)
 
 
-def _generar_uc_pdi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame) -> pl.DataFrame:
-    """Genera UC a partir de retribuciones del PDI.
+def _generar_uc_pdi_pvi_extras(
+    nóminas_filtradas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    *,
+    sector_canónico: str,
+    elemento_coste_fn,
+    id_prefix: str,
+    origen_tag: str,
+    ctx_enriquecimiento=None,
+    árbol_actividades=None,
+    árbol_cc=None,
+    distribución_costes=None,
+    obtener_descripciones=None,
+) -> pl.DataFrame:
+    """Genera UC «retribuciones extra» de PDI o PVI.
 
-    Cada fila no-SS del PDI recibe un elemento_de_coste ``pdi-XXX-YYY``
-    calculado a partir de (categoría, concepto_retributivo).
-    Las UC se agrupan por (expediente, proyecto, elemento_de_coste).
-    Centro de coste y actividad quedan vacíos hasta el rediseño.
+    «Extra» = proyecto NO en TABLA-PROYECTOS-GENERALES (los registros
+    en proyecto general se apartan: van por la regla 23 o por las
+    funciones específicas — atrasos, despidos, indemnizaciones,
+    cargos, etc.). Se excluyen también CR 47/48 (van por sus
+    funciones propias) y CR 19/64 con proyecto NO general (van por
+    `generar_uc_cargos`). Los registros con CR 19/64 en proyecto
+    general siguen aquí como UC retributivas mientras no esté
+    operativo el cálculo de UC por departamento (Fase B).
+
+    Las UC obtenidas reciben CC y actividad concretos vía los
+    clasificadores compartidos.
     """
-    exp_pdi = _mapear_sector(expedientes)
-    exp_pdi = exp_pdi.filter(pl.col("sector_mapeado") == "PDI")
-    if exp_pdi.is_empty():
+    exp_filtrados = _mapear_sector(expedientes)
+    exp_filtrados = exp_filtrados.filter(pl.col("sector_mapeado") == sector_canónico)
+    if exp_filtrados.is_empty():
         return pl.DataFrame()
 
     registros = nóminas_filtradas.join(
-        exp_pdi.select("expediente", "per_id"),
+        exp_filtrados.select("expediente", "per_id"),
         on="expediente",
         how="inner",
     )
 
-    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    # Excluir conceptos que se tratan aparte como UC definidas:
-    # 47 = despidos, 48 = indemnizaciones por asistencia, y 19/64 sólo
-    # cuando el proyecto es específico (no general).
     from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
+
     cr = pl.col("concepto_retributivo").cast(pl.Utf8)
     es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_GENERALES))
+    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
     es_uc_definida = (
         cr.is_in(["47", "48"])
         | (cr.is_in(["19", "64"]) & ~es_proy_gen)
     )
-    retribuciones = registros.filter(~es_ss & ~es_uc_definida)
-    if retribuciones.is_empty():
+
+    # «Extras» = proyecto NO general. La masa en proyecto general queda
+    # apartada para regla 23 (no genera UC retributivas individuales),
+    # excepto los CR 19/64 que de momento se mantienen aquí como UC
+    # retributivas (TODO: descartar cuando estén las UC calculadas por
+    # departamento — Fase B).
+    es_extra = ~es_proy_gen | cr.is_in(["19", "64"])
+    extras = registros.filter(~es_ss & ~es_uc_definida & es_extra)
+
+    if extras.is_empty():
+        # Reportar masa apartada para regla 23
+        masa_regla_23 = (
+            registros.filter(~es_ss & es_proy_gen & ~cr.is_in(["19", "64", "47", "48"]))
+        )
+        if not masa_regla_23.is_empty():
+            print(
+                f"    {sector_canónico}: {len(masa_regla_23):,} registros en "
+                f"proyecto general apartados para regla 23 "
+                f"({float(masa_regla_23['importe'].sum()):,.2f} €)"
+            )
         return pl.DataFrame()
 
-    ecs = [
-        _elemento_coste_pdi(row["categoría"], row["concepto_retributivo"])
-        for row in retribuciones.select(
-            "categoría", "concepto_retributivo",
-        ).iter_rows(named=True)
-    ]
-    retribuciones = retribuciones.with_columns(pl.Series("_ec", ecs))
+    # Reportar masa apartada para regla 23 (proyecto general, conceptos
+    # no especiales): de momento no genera UC; se reparte cuando esté
+    # implementada la regla 23.
+    masa_regla_23 = (
+        registros.filter(~es_ss & es_proy_gen & ~cr.is_in(["19", "64", "47", "48", "30", "87"]))
+    )
+    if not masa_regla_23.is_empty():
+        print(
+            f"    {sector_canónico}: {len(masa_regla_23):,} registros en "
+            f"proyecto general apartados para regla 23 "
+            f"({float(masa_regla_23['importe'].sum()):,.2f} €)"
+        )
 
-    errores = retribuciones.filter(pl.col("_ec").is_null())
+    ecs = [elemento_coste_fn(row) for row in extras.iter_rows(named=True)]
+    extras = extras.with_columns(pl.Series("_ec", ecs))
+
+    errores = extras.filter(pl.col("_ec").is_null())
     if not errores.is_empty():
         n_err = len(errores)
         imp_err = float(errores["importe"].sum())
-        print(f"    ⚠ {n_err:,} registros PDI sin elemento de coste ({imp_err:,.2f} €)")
-    retribuciones = retribuciones.filter(pl.col("_ec").is_not_null())
-    if retribuciones.is_empty():
+        print(
+            f"    ⚠ {n_err:,} registros {sector_canónico} sin elemento de coste "
+            f"({imp_err:,.2f} €)"
+        )
+    extras = extras.filter(pl.col("_ec").is_not_null())
+    if extras.is_empty():
+        return pl.DataFrame()
+
+    # Clasificación de CC y actividad
+    _desc_fn = obtener_descripciones or (lambda c, v: {})
+    if ctx_enriquecimiento is not None:
+        extras = enriquecer_para_actividades(extras, ctx_enriquecimiento)
+    if árbol_cc is not None:
+        extras, _ = clasificar_centros_coste(
+            extras, árbol_cc, distribución_costes, _desc_fn,
+        )
+    else:
+        extras = extras.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias("_centro_de_coste")
+        )
+    if árbol_actividades is not None:
+        extras, _ = clasificar_actividades(
+            extras, árbol_actividades, _desc_fn,
+        )
+    elif "_actividad" not in extras.columns:
+        extras = extras.with_columns(
+            pl.lit(None).cast(pl.Utf8).alias("_actividad")
+        )
+
+    sin_res = extras.filter(
+        pl.col("_centro_de_coste").is_null() | pl.col("_actividad").is_null()
+    )
+    if not sin_res.is_empty():
+        print(
+            f"    ⚠ {len(sin_res):,} extras {sector_canónico} sin CC/actividad "
+            f"resueltos ({float(sin_res['importe'].sum()):,.2f} €)"
+        )
+    extras = extras.filter(
+        pl.col("_centro_de_coste").is_not_null() & pl.col("_actividad").is_not_null()
+    )
+    if extras.is_empty():
         return pl.DataFrame()
 
     agrup = (
-        retribuciones.group_by("expediente", "proyecto", "_ec")
+        extras.group_by(
+            "expediente", "proyecto", "_ec", "_centro_de_coste", "_actividad",
+        )
         .agg(pl.col("importe").sum())
     )
 
@@ -437,7 +528,7 @@ def _generar_uc_pdi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
 
     def _next_id() -> str:
         _id_counter[0] += 1
-        return f"D-{_id_counter[0]:05d}"
+        return f"{id_prefix}-{_id_counter[0]:05d}"
 
     filas = []
     for row in agrup.iter_rows(named=True):
@@ -445,11 +536,14 @@ def _generar_uc_pdi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
             "id": _next_id(),
             "expediente": row["expediente"],
             "elemento_de_coste": row["_ec"],
-            "centro_de_coste": "",
-            "actividad": "",
+            "centro_de_coste": row["_centro_de_coste"],
+            "actividad": row["_actividad"],
             "importe": row["importe"],
             "origen": "nómina",
-            "origen_id": f"PDI-exp-{row['expediente']}-proy-{row['proyecto']}-ec-{row['_ec']}",
+            "origen_id": (
+                f"{origen_tag}-exp-{row['expediente']}-proy-{row['proyecto']}"
+                f"-ec-{row['_ec']}-cc-{row['_centro_de_coste']}-act-{row['_actividad']}"
+            ),
             "origen_porción": 1.0,
         })
 
@@ -459,90 +553,58 @@ def _generar_uc_pdi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame)
     return pl.DataFrame(filas)
 
 
-def _generar_uc_pvi(nóminas_filtradas: pl.DataFrame, expedientes: pl.DataFrame) -> pl.DataFrame:
-    """Genera UC a partir de retribuciones del PVI.
-
-    Cada fila no-SS del PVI recibe un elemento_de_coste ``piyotper-XXX-YYY``
-    calculado a partir de (categoría, perceptor, provisión, concepto_retributivo).
-    Las UC se agrupan por (expediente, proyecto, elemento_de_coste).
-    Centro de coste y actividad quedan vacíos hasta el rediseño.
-    """
-    exp_pvi = _mapear_sector(expedientes)
-    exp_pvi = exp_pvi.filter(pl.col("sector_mapeado") == "PVI")
-    if exp_pvi.is_empty():
-        return pl.DataFrame()
-
-    registros = nóminas_filtradas.join(
-        exp_pvi.select("expediente", "per_id"),
-        on="expediente",
-        how="inner",
+def _generar_uc_pdi(
+    nóminas_filtradas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    ctx_enriquecimiento=None,
+    árbol_actividades=None,
+    árbol_cc=None,
+    distribución_costes=None,
+    obtener_descripciones=None,
+) -> pl.DataFrame:
+    """UC retributivas extra del PDI (proyecto NO general)."""
+    return _generar_uc_pdi_pvi_extras(
+        nóminas_filtradas, expedientes,
+        sector_canónico="PDI",
+        elemento_coste_fn=lambda row: _elemento_coste_pdi(
+            row["categoría"], row["concepto_retributivo"],
+        ),
+        id_prefix="D",
+        origen_tag="PDI",
+        ctx_enriquecimiento=ctx_enriquecimiento,
+        árbol_actividades=árbol_actividades,
+        árbol_cc=árbol_cc,
+        distribución_costes=distribución_costes,
+        obtener_descripciones=obtener_descripciones,
     )
 
-    # Retribuciones = todo menos SS; se excluyen conceptos que son UC definidas.
-    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
-    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
-    es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_GENERALES))
-    es_uc_definida = (
-        cr.is_in(["47", "48"])
-        | (cr.is_in(["19", "64"]) & ~es_proy_gen)
-    )
-    retribuciones = registros.filter(~es_ss & ~es_uc_definida)
 
-    if retribuciones.is_empty():
-        return pl.DataFrame()
-
-    ecs = [
-        _elemento_coste_pvi(
+def _generar_uc_pvi(
+    nóminas_filtradas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    ctx_enriquecimiento=None,
+    árbol_actividades=None,
+    árbol_cc=None,
+    distribución_costes=None,
+    obtener_descripciones=None,
+) -> pl.DataFrame:
+    """UC retributivas extra del PVI (proyecto NO general)."""
+    return _generar_uc_pdi_pvi_extras(
+        nóminas_filtradas, expedientes,
+        sector_canónico="PVI",
+        elemento_coste_fn=lambda row: _elemento_coste_pvi(
             row["categoría"], row["perceptor"], row["provisión"],
             row["concepto_retributivo"],
             row.get("categoría_plaza"), row.get("sector_plaza"),
-        )
-        for row in retribuciones.select(
-            "categoría", "perceptor", "provisión", "concepto_retributivo",
-            "categoría_plaza", "sector_plaza",
-        ).iter_rows(named=True)
-    ]
-    retribuciones = retribuciones.with_columns(pl.Series("_ec", ecs))
-
-    errores = retribuciones.filter(pl.col("_ec").is_null())
-    if not errores.is_empty():
-        n_err = len(errores)
-        imp_err = float(errores["importe"].sum())
-        print(f"    ⚠ {n_err:,} registros PVI sin elemento de coste ({imp_err:,.2f} €)")
-    retribuciones = retribuciones.filter(pl.col("_ec").is_not_null())
-    if retribuciones.is_empty():
-        return pl.DataFrame()
-
-    agrup = (
-        retribuciones.group_by("expediente", "proyecto", "_ec")
-        .agg(pl.col("importe").sum())
+        ),
+        id_prefix="V",
+        origen_tag="PVI",
+        ctx_enriquecimiento=ctx_enriquecimiento,
+        árbol_actividades=árbol_actividades,
+        árbol_cc=árbol_cc,
+        distribución_costes=distribución_costes,
+        obtener_descripciones=obtener_descripciones,
     )
-
-    _id_counter = [0]
-
-    def _next_id() -> str:
-        _id_counter[0] += 1
-        return f"V-{_id_counter[0]:05d}"
-
-    filas = []
-    for row in agrup.iter_rows(named=True):
-        filas.append({
-            "id": _next_id(),
-            "expediente": row["expediente"],
-            "elemento_de_coste": row["_ec"],
-            "centro_de_coste": "",
-            "actividad": "",
-            "importe": row["importe"],
-            "origen": "nómina",
-            "origen_id": f"PVI-exp-{row['expediente']}-proy-{row['proyecto']}-ec-{row['_ec']}",
-            "origen_porción": 1.0,
-        })
-
-    if not filas:
-        return pl.DataFrame()
-
-    return pl.DataFrame(filas)
 
 
 def _generar_multiexpediente(
@@ -626,6 +688,8 @@ def _generar_reparto_ss_persona(
     expedientes: pl.DataFrame,
     uc_ptgas: pl.DataFrame,
     uc_pvi: pl.DataFrame,
+    uc_pdi: pl.DataFrame,
+    uc_extra: list[pl.DataFrame],
     uc_por_expediente: dict[int, pl.DataFrame],
     dir_salida: Path,
 ) -> None:
@@ -635,22 +699,31 @@ def _generar_reparto_ss_persona(
     de presupuesto), calcula el porcentaje de cada par (actividad, centro_de_coste)
     y reparte la SS proporcionalmente.
 
+    Cubre los tres sectores (PTGAS, PDI, PVI). Para asignar el elemento
+    de coste de la SS se usa el sector principal de la persona, con
+    prelación PTGAS > PVI > PDI > Otros (véase la spec).
+
     Guarda:
       - persona_uc.parquet: todas las UC retributivas por persona (columnas completas)
-      - persona_ss.parquet: reparto de SS por (per_id, actividad, centro_de_coste)
+      - persona_ss.parquet: reparto de SS por (per_id, actividad, centro_de_coste).
     """
     # Mapa expediente → per_id
     exp_per = expedientes.select("expediente", "per_id")
 
-    # Reunir todas las UC con todas sus columnas
+    # Reunir todas las UC con todas sus columnas. Quitamos per_id si
+    # alguna UC ya lo trae, para añadirlo de forma uniforme con el join
+    # contra exp_per.
     partes: list[pl.DataFrame] = []
-    if not uc_ptgas.is_empty():
-        partes.append(uc_ptgas)
-    if not uc_pvi.is_empty():
-        partes.append(uc_pvi)
+    for df in (uc_ptgas, uc_pvi, uc_pdi, *uc_extra):
+        if df is not None and not df.is_empty():
+            if "per_id" in df.columns:
+                df = df.drop("per_id")
+            partes.append(df)
     for exp_id, df_uc in uc_por_expediente.items():
         if "actividad" in df_uc.columns and "centro_de_coste" in df_uc.columns:
             sub = df_uc.with_columns(pl.lit(exp_id).cast(pl.Int64).alias("expediente"))
+            if "per_id" in sub.columns:
+                sub = sub.drop("per_id")
             partes.append(sub)
 
     if not partes:
@@ -676,7 +749,8 @@ def _generar_reparto_ss_persona(
     # Marcar como retributivas
     todas_uc = todas_uc.with_columns(pl.lit("retributiva").alias("tipo"))
 
-    # SS total por persona: suma de registros de nómina con aplicación que empieza por "12"
+    # SS total por persona: suma de registros de nómina con aplicación
+    # que empieza por "12" en cualquiera de sus expedientes.
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
     ss_por_exp = (
         nóminas.filter(es_ss)
@@ -876,24 +950,33 @@ def preprocesar_nóminas(
         print(f"  UC PTGAS retrib. ordinarias: {len(uc_ptgas):,} UC, {importe_ptgas:,.2f} €")
         uc_ptgas.write_parquet(dir_salida / "uc_ptgas.parquet")
 
-    # -- UC de retribuciones PVI --
-    uc_pvi = _generar_uc_pvi(nóminas, expedientes)
+    # -- UC «extra» PVI (proyecto NO general) --
+    uc_pvi = _generar_uc_pvi(
+        nóminas, expedientes,
+        ctx_enriquecimiento=ctx_enriquecimiento,
+        árbol_actividades=árbol_actividades,
+        árbol_cc=árbol_cc,
+        distribución_costes=distribución_costes,
+        obtener_descripciones=obtener_descripciones,
+    )
     if not uc_pvi.is_empty():
         importe_pvi = float(uc_pvi["importe"].sum())
-        print(f"  UC PVI retribuciones: {len(uc_pvi):,} UC, {importe_pvi:,.2f} €")
+        print(f"  UC PVI extras: {len(uc_pvi):,} UC, {importe_pvi:,.2f} €")
         uc_pvi.write_parquet(dir_salida / "uc_pvi.parquet")
 
-    # -- UC de retribuciones PDI --
-    uc_pdi = _generar_uc_pdi(nóminas, expedientes)
+    # -- UC «extra» PDI (proyecto NO general) --
+    uc_pdi = _generar_uc_pdi(
+        nóminas, expedientes,
+        ctx_enriquecimiento=ctx_enriquecimiento,
+        árbol_actividades=árbol_actividades,
+        árbol_cc=árbol_cc,
+        distribución_costes=distribución_costes,
+        obtener_descripciones=obtener_descripciones,
+    )
     if not uc_pdi.is_empty():
         importe_pdi = float(uc_pdi["importe"].sum())
-        print(f"  UC PDI retribuciones: {len(uc_pdi):,} UC, {importe_pdi:,.2f} €")
+        print(f"  UC PDI extras: {len(uc_pdi):,} UC, {importe_pdi:,.2f} €")
         uc_pdi.write_parquet(dir_salida / "uc_pdi.parquet")
-
-    # -- Reparto de SS por persona --
-    _generar_reparto_ss_persona(
-        nóminas, expedientes, uc_ptgas, uc_pvi, {}, dir_salida,
-    )
 
     # -- Regla 23: diccionarios de dedicación real (PDI/PVI) --
     generar_dedicación_docente(expedientes, ruta_base, dir_salida)
@@ -919,6 +1002,16 @@ def preprocesar_nóminas(
         nóminas, expedientes, dir_salida, **_clasif_kw,
     )
     uc_cargos = generar_uc_cargos(nóminas, expedientes, dir_salida, **_clasif_kw)
+
+    # -- Reparto de SS por persona (incluye PTGAS + PVI + PDI + UC
+    #    definidas: despidos, indemnizaciones por asistencias, cargos) --
+    _generar_reparto_ss_persona(
+        nóminas, expedientes,
+        uc_ptgas, uc_pvi, uc_pdi,
+        [uc_despidos, uc_indemn, uc_cargos],
+        {},
+        dir_salida,
+    )
 
     return ResultadoNóminas(
         uc_despidos=uc_despidos,

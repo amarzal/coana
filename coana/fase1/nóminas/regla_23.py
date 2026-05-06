@@ -890,11 +890,18 @@ def generar_uc_indemnizaciones_asistencias(
 ) -> pl.DataFrame:
     """Genera UC de indemnizaciones por asistencia (concepto 48).
 
-    El elemento de coste es fijo: ``otras-indemnizaciones``.
-    El CC y la actividad se determinan con los clasificadores compartidos.
+    Cubre los tres sectores (PTGAS, PDI, PVI). El elemento de coste
+    es fijo: ``otras-indemnizaciones``. El CC y la actividad se
+    determinan con los clasificadores compartidos.
     """
-    rows = _filtrar_pdi_pvi_por_conceptos(
-        nóminas, expedientes, (_CONCEPTO_INDEMN_ASIST,),
+    exp_min = expedientes.select("expediente", "per_id", "sector")
+    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+    rows = (
+        nóminas.join(exp_min, on="expediente", how="inner")
+        .filter(
+            ~es_ss
+            & (pl.col("concepto_retributivo").cast(pl.Utf8) == _CONCEPTO_INDEMN_ASIST)
+        )
     )
     if rows.is_empty():
         p = dir_salida / "uc_indemnizaciones_asistencias.parquet"
@@ -918,7 +925,7 @@ def generar_uc_indemnizaciones_asistencias(
     )
     if not uc.is_empty():
         print(
-            f"  UC indemnizaciones asistencias (PDI/PVI): {len(uc):,} UC, "
+            f"  UC indemnizaciones asistencias (PTGAS/PDI/PVI): {len(uc):,} UC, "
             f"{float(uc['importe'].sum()):,.2f} €"
         )
     return uc
