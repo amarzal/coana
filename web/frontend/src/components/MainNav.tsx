@@ -15,6 +15,7 @@ import {
     ListTree,
     ChevronDown,
     ChevronRight,
+    Microscope,
     type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -82,6 +83,14 @@ const GROUPS: Group[] = [
             { label: "Multiexpediente", to: "/personal/multiexpediente" },
             { label: "Persona", to: "/personal/persona" },
             { label: "Anomalías PDI", to: "/personal/anomalias" },
+        ],
+    },
+    {
+        label: "Investigación",
+        icon: Microscope,
+        items: [
+            { label: "Resumen", to: "/investigacion/resumen" },
+            { label: "Dedicación por persona", to: "/investigacion/personas" },
         ],
     },
     {

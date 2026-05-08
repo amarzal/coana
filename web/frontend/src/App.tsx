@@ -46,6 +46,10 @@ import {
     PersonalAnomaliasPdi,
 } from "@/routes/personal";
 import {
+    InvestigacionResumen,
+    InvestigacionPersonas,
+} from "@/routes/investigacion";
+import {
     Regla23Resumen,
     Regla23DedicacionDocente,
     Regla23DocenciaNoOficial,
@@ -143,6 +147,8 @@ export function App() {
                         <Route path="personal/multiexpediente" element={<PersonalMultiexpediente />} />
                         <Route path="personal/persona" element={<PersonalPersona />} />
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
+                        <Route path="investigacion/resumen" element={<InvestigacionResumen />} />
+                        <Route path="investigacion/personas" element={<InvestigacionPersonas />} />
                         <Route path="regla23/resumen" element={<Regla23Resumen />} />
                         <Route path="regla23/dedicacion" element={<Regla23DedicacionDocente />} />
                         <Route path="regla23/no-oficial" element={<Regla23DocenciaNoOficial />} />
