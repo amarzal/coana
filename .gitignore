@@ -20,3 +20,6 @@ coana/web/dist/
 web/frontend/node_modules/
 web/frontend/.vite/
 *.tsbuildinfo
+
+# Modelos LLM locales (demasiado grandes para git)
+*.gguf

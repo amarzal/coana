@@ -205,15 +205,24 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
     # -- Dedicación a investigación --
     print("Procesando dedicación a investigación…")
     from coana.fase1.investigacion import consolidar_dedicacion_investigacion
-    resumen_inv, detalle_inv = consolidar_dedicacion_investigacion(ruta_base, año)
+    resumen_inv, detalle_inv, sin_fechas_inv = consolidar_dedicacion_investigacion(
+        ruta_base, año,
+    )
     dir_inv = dir_salida / "auxiliares" / "investigación"
     dir_inv.mkdir(parents=True, exist_ok=True)
     resumen_inv.write_parquet(dir_inv / "resumen_investigacion.parquet")
     detalle_inv.write_parquet(dir_inv / "detalle_investigacion.parquet")
+    if not sin_fechas_inv.is_empty():
+        sin_fechas_inv.write_parquet(dir_inv / "proyectos_sin_fechas.parquet")
     print(f"  Personas con dedicación a investigación: {_fmt_n(resumen_inv.height)}")
     if not resumen_inv.is_empty() and "horas_totales" in resumen_inv.columns:
         total_horas = float(resumen_inv["horas_totales"].sum() or 0)
         print(f"  Total horas de investigación: {total_horas:,.1f}")
+    if not sin_fechas_inv.is_empty():
+        print(
+            f"  Proyectos descartados sin fechas resolubles: "
+            f"{_fmt_n(sin_fechas_inv.height)} (ver proyectos_sin_fechas.parquet)"
+        )
 
     # -- Fichero combinado --
     if todas_uc:

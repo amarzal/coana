@@ -1,0 +1,3 @@
+```dockerfile
+    FROM ./qwen.gguf
+    ```
