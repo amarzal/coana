@@ -72,6 +72,7 @@ export function RowDetailPopover({ row, columns, onClose }: Props) {
                 <dl className="grid grid-cols-[max-content_1fr] gap-x-6 gap-y-2 px-4 py-3 text-sm">
                     {columns.map((c) => {
                         const extra = enriquecimientos[c.name];
+                        const extraEntries = extra ? Object.entries(extra) : [];
                         return (
                             <div key={c.name} className="contents">
                                 <dt className="font-mono text-xs text-slate-500">
@@ -79,16 +80,21 @@ export function RowDetailPopover({ row, columns, onClose }: Props) {
                                 </dt>
                                 <dd className="font-mono break-words">
                                     {formatValue(row[c.name], c.format)}
-                                    {extra && (
-                                        <span className="ml-2 text-slate-500">
-                                            {Object.entries(extra).map(([k, v], i) => (
-                                                <span key={k}>
-                                                    {i > 0 && <span className="mx-1">·</span>}
-                                                    <span className="text-slate-400">{k}:</span>{" "}
-                                                    <span className="italic">{v || "—"}</span>
-                                                </span>
-                                            ))}
-                                        </span>
+                                    {extraEntries.length > 0 && (
+                                        <table className="mt-1 border-collapse text-xs text-slate-500">
+                                            <tbody>
+                                                {extraEntries.map(([k, v]) => (
+                                                    <tr key={k} className="align-top">
+                                                        <td className="pr-3 text-slate-400">
+                                                            {k}
+                                                        </td>
+                                                        <td className="italic">
+                                                            {v || "—"}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
                                     )}
                                 </dd>
                             </div>

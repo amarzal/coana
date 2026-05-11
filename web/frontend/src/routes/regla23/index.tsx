@@ -67,6 +67,7 @@ export function Regla23DedicacionDocente() {
                 endpoint={DED_EP[active]}
                 queryKey={`regla23:dedicacion:${active}`}
                 rowKey="expediente"
+                showPopoverOnRowClick
             />
         </div>
     );

@@ -1,4 +1,3 @@
-import { ResourceView } from "@/components/ResourceView";
 import { DataTable } from "@/components/DataTable";
 import { KpiPanel } from "@/components/KpiPanel";
 import { TreeView } from "@/components/TreeView";
@@ -24,7 +23,12 @@ function Lista({
     return (
         <div className="flex flex-col gap-6">
             <Cabecera title={title} subtitle={subtitle} />
-            <DataTable endpoint={endpoint} queryKey={queryKey} rowKey={rowKey} />
+            <DataTable
+                endpoint={endpoint}
+                queryKey={queryKey}
+                rowKey={rowKey}
+                showPopoverOnRowClick
+            />
         </div>
     );
 }
@@ -43,11 +47,10 @@ export function PresupuestoResumen() {
 
 export function PresupuestoUc() {
     return (
-        <ResourceView
+        <Lista
             title="Presupuesto · Unidades de coste"
             subtitle="UC generadas por el traductor de presupuesto a partir de los apuntes."
-            listEndpoint="/api/presupuesto/uc"
-            recordEndpoint="/api/presupuesto/uc/{id}"
+            endpoint="/api/presupuesto/uc"
             queryKey="presupuesto:uc"
         />
     );
@@ -80,6 +83,7 @@ export function PresupuestoFiltrados() {
                     endpoint="/api/presupuesto/filtrados-por-motivo"
                     queryKey="presupuesto:filtrados:resumen"
                     rowKey="motivo"
+                    showPopoverOnRowClick
                 />
             </div>
             <div className="rounded-md border border-slate-200 bg-white p-4">
@@ -90,6 +94,7 @@ export function PresupuestoFiltrados() {
                     endpoint="/api/presupuesto/filtrados"
                     queryKey="presupuesto:filtrados:todos"
                     rowKey="asiento"
+                    showPopoverOnRowClick
                 />
             </div>
         </div>

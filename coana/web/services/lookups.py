@@ -18,8 +18,8 @@ from pathlib import Path
 
 import polars as pl
 
-from coana.util import read_excel
-from coana.web.deps import DIR_ENTRADA
+from coana.util import Árbol, read_excel
+from coana.web.deps import DIR_ENTRADA, DIR_FASE1, _mtime_ns
 
 
 def _safe_read(path: Path) -> pl.DataFrame | None:
@@ -376,6 +376,52 @@ def lookup_asignatura(valor) -> dict[str, str]:
 
 
 # ----------------------------------------------------------------------
+# Árboles finales (elemento de coste, centro de coste, actividad).
+# Se leen de data/fase1/*.tree con caché por mtime.
+# ----------------------------------------------------------------------
+
+@lru_cache(maxsize=8)
+def _arbol_cached(path_str: str, mtime_ns: int) -> Árbol | None:
+    del mtime_ns
+    p = Path(path_str)
+    if not p.exists():
+        return None
+    return Árbol.from_file(p)
+
+
+def _arbol_fase1(name: str) -> Árbol | None:
+    p = DIR_FASE1 / f"{name}.tree"
+    return _arbol_cached(str(p), _mtime_ns(p))
+
+
+def _lookup_arbol(name: str, identificador) -> dict[str, str]:
+    if identificador in (None, ""):
+        return {}
+    arbol = _arbol_fase1(name)
+    if arbol is None:
+        return {}
+    nodo = arbol._por_id.get(str(identificador))
+    if nodo is None:
+        return {}
+    out: dict[str, str] = {"código": str(nodo.código)}
+    if nodo.descripción:
+        out["descripción"] = str(nodo.descripción)
+    return out
+
+
+def lookup_actividad(valor) -> dict[str, str]:
+    return _lookup_arbol("actividades", valor)
+
+
+def lookup_centro_de_coste(valor) -> dict[str, str]:
+    return _lookup_arbol("centros de coste", valor)
+
+
+def lookup_elemento_de_coste(valor) -> dict[str, str]:
+    return _lookup_arbol("elementos de coste", valor)
+
+
+# ----------------------------------------------------------------------
 # Mapeo nombre de columna → función de lookup
 # ----------------------------------------------------------------------
 
@@ -403,6 +449,9 @@ _LOOKUP_BY_COL = {
     "perceptor": lookup_perceptor,
     "cargo": lookup_cargo,
     "tipo_cargo": lookup_tipo_cargo,
+    "actividad": lookup_actividad,
+    "centro_de_coste": lookup_centro_de_coste,
+    "elemento_de_coste": lookup_elemento_de_coste,
 }
 
 
@@ -429,5 +478,5 @@ def clear_cache() -> None:
                _asignaturas_grados, _asignaturas_masteres,
                _servicios, _cuentas, _categorias_rh, _categorias_plaza,
                _conceptos_retributivos, _tipos_coste, _perceptores,
-               _cargos, _tipos_cargo):
+               _cargos, _tipos_cargo, _arbol_cached):
         fn.cache_clear()
