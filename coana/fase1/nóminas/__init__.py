@@ -77,9 +77,12 @@ def _mapear_sector(expedientes: pl.DataFrame) -> pl.DataFrame:
 
 # Mapeo categoría → XXX del elemento de coste PTGAS (ptgas-XXX-YYY).
 # La excepción de FC + per_id 65214 → "dir" se trata en código.
+# LF = Laboral Fijo, LT = Laboral Temporal, LE = Laboral Eventual
+# (los dos últimos son no-fijos y comparten subtipo «labtemp» en el
+# árbol de elementos de coste).
 _PTGAS_CAT_XXX: dict[str, str] = {
     "FC": "func", "FI": "func", "E": "ev",
-    "LE": "lab", "LF": "lab", "LT": "lab",
+    "LF": "labfijo", "LT": "labtemp", "LE": "labtemp",
 }
 
 # Mapeo categoría → XXX del elemento de coste PDI (pdi-XXX-YYY).
@@ -195,6 +198,12 @@ def _elemento_coste_pvi(
     yyy = _PTGAS_CR_YYY.get(cr)
     if yyy is None:
         return None
+    # Excepción: el personal con contrato de actividades científico-técnicas
+    # (XXX = "act") no tiene rama «cprof» (carrera profesional) en el árbol.
+    # Los conceptos retributivos 75/76 que normalmente irían a `cprof` se
+    # canalizan a `otvars` para esa categoría.
+    if xxx == "act" and yyy == "cprof":
+        yyy = "otvars"
     return f"piyotper-{xxx}-{yyy}"
 
 
@@ -211,12 +220,65 @@ def _elemento_coste_pdi(categoría: str, concepto_retributivo: str) -> str | Non
     return f"pdi-{xxx}-{yyy}"
 
 
+# Acumulador global de etiquetas de elemento de coste que no existen en el
+# árbol. Lo poblamos durante `preprocesar_nóminas` y, al final, si tiene
+# contenido, se lanza un único `ValueError` con TODAS las etiquetas faltantes
+# (en lugar de detener en la primera, que obligaría a iterar varias veces).
+_etiquetas_ec_faltantes: dict[str, tuple[float, set[str]]] = {}
+
+
+def _reset_etiquetas_ec_faltantes() -> None:
+    _etiquetas_ec_faltantes.clear()
+
+
+def _validar_etiquetas_ec(
+    etiquetas_con_importe: dict[str, float],
+    árbol_ec,
+    contexto: str = "",
+) -> None:
+    """Registra etiquetas que no existen en el árbol de EC.
+
+    No detiene el proceso aquí: las acumula en `_etiquetas_ec_faltantes`
+    para que al final de `preprocesar_nóminas` se reporten todas juntas.
+    Implementa el requisito de la spec: «cuando generas una etiqueta
+    `ZZZ-XXX-YYY` has de comprobar que existe en el árbol de elementos
+    de coste. Si no existe… error que sí detenga el proceso».
+    """
+    if árbol_ec is None:
+        return
+    for etq, imp in etiquetas_con_importe.items():
+        if etq in árbol_ec._por_id:
+            continue
+        previo_imp, contextos = _etiquetas_ec_faltantes.get(etq, (0.0, set()))
+        _etiquetas_ec_faltantes[etq] = (
+            previo_imp + float(imp),
+            contextos | ({contexto} if contexto else set()),
+        )
+
+
+def _detener_si_etiquetas_ec_faltantes() -> None:
+    if not _etiquetas_ec_faltantes:
+        return
+    lineas = []
+    for etq, (imp, contextos) in sorted(
+        _etiquetas_ec_faltantes.items(), key=lambda x: -x[1][0]
+    ):
+        ctx = f"  [{', '.join(sorted(contextos))}]" if contextos else ""
+        lineas.append(f"  · {etq}  ({imp:,.2f} €){ctx}")
+    raise ValueError(
+        "Etiquetas de elemento de coste no existentes en el árbol "
+        "(añádelas a data/entrada/estructuras/elementos de coste.tree o "
+        "ajusta las reglas):\n" + "\n".join(lineas)
+    )
+
+
 def _generar_uc_ptgas(
     nóminas_filtradas: pl.DataFrame,
     expedientes: pl.DataFrame,
     ctx_enriquecimiento=None,
     árbol_actividades=None,
     árbol_cc=None,
+    árbol_ec=None,
     distribución_costes=None,
     obtener_descripciones=None,
 ) -> pl.DataFrame:
@@ -259,6 +321,16 @@ def _generar_uc_ptgas(
         imp_err = float(errores["importe"].sum())
         print(f"    ⚠ {n_err:,} registros PTGAS sin elemento de coste ({imp_err:,.2f} €)")
     registros = registros.filter(pl.col("_ec").is_not_null())
+
+    # Spec: «cuando generas una etiqueta `ZZZ-XXX-YYY` has de comprobar
+    # que existe en el árbol de elementos de coste. Si no existe… error
+    # que sí detenga el proceso».
+    importes_por_etq = dict(
+        registros.group_by("_ec")
+        .agg(pl.col("importe").sum().alias("imp"))
+        .iter_rows()
+    )
+    _validar_etiquetas_ec(importes_por_etq, árbol_ec, contexto="PTGAS")
 
     _desc_fn = obtener_descripciones or (lambda col, vals: {})
 
@@ -395,6 +467,7 @@ def _generar_uc_pdi_pvi_extras(
     ctx_enriquecimiento=None,
     árbol_actividades=None,
     árbol_cc=None,
+    árbol_ec=None,
     distribución_costes=None,
     obtener_descripciones=None,
 ) -> pl.DataFrame:
@@ -482,6 +555,16 @@ def _generar_uc_pdi_pvi_extras(
     if extras.is_empty():
         return pl.DataFrame()
 
+    # Validación contra el árbol de elementos de coste (spec)
+    importes_por_etq = dict(
+        extras.group_by("_ec")
+        .agg(pl.col("importe").sum().alias("imp"))
+        .iter_rows()
+    )
+    _validar_etiquetas_ec(
+        importes_por_etq, árbol_ec, contexto=f"extras {sector_canónico}",
+    )
+
     # Clasificación de CC y actividad
     _desc_fn = obtener_descripciones or (lambda c, v: {})
     if ctx_enriquecimiento is not None:
@@ -559,6 +642,7 @@ def _generar_uc_pdi(
     ctx_enriquecimiento=None,
     árbol_actividades=None,
     árbol_cc=None,
+    árbol_ec=None,
     distribución_costes=None,
     obtener_descripciones=None,
 ) -> pl.DataFrame:
@@ -574,6 +658,7 @@ def _generar_uc_pdi(
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
         árbol_cc=árbol_cc,
+        árbol_ec=árbol_ec,
         distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
     )
@@ -585,6 +670,7 @@ def _generar_uc_pvi(
     ctx_enriquecimiento=None,
     árbol_actividades=None,
     árbol_cc=None,
+    árbol_ec=None,
     distribución_costes=None,
     obtener_descripciones=None,
 ) -> pl.DataFrame:
@@ -602,6 +688,7 @@ def _generar_uc_pvi(
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
         árbol_cc=árbol_cc,
+        árbol_ec=árbol_ec,
         distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
     )
@@ -981,8 +1068,18 @@ def _generar_reparto_ss_persona(
         .select("per_id", pl.col("sector_mapeado").alias("sector_principal"))
     )
 
-    # Mapeo sector → elemento de coste de SS
+    # Mapeo sector → elemento de coste de SS (cotizada)
     _EC_SS = {"PTGAS": "ss-ptgas", "PDI": "ss-pdi-func", "PVI": "ss-pvi-otpersonal"}
+    # Personas en clases pasivas: su SS no es cotizada sino calculada y va
+    # a un elemento distinto («previsión social de funcionarios»).
+    per_ids_pasivas: set[int] = set()
+    if (
+        ss_calculados_por_persona is not None
+        and not ss_calculados_por_persona.is_empty()
+    ):
+        per_ids_pasivas = set(
+            ss_calculados_por_persona.get_column("per_id").to_list()
+        )
 
     # Generar UC de costes sociales (una por cada par actividad/CC con SS > 0)
     ss_base = (
@@ -994,12 +1091,16 @@ def _generar_reparto_ss_persona(
     ss_counter = 0
     for row in ss_base.iter_rows(named=True):
         ss_counter += 1
-        sector = row.get("sector_principal", "")
+        if row["per_id"] in per_ids_pasivas:
+            ec = "prevsoc-funcs-pdi"
+        else:
+            sector = row.get("sector_principal", "")
+            ec = _EC_SS.get(sector, f"ss-{sector.lower()}")
         filas_ss.append({
             "per_id": row["per_id"],
             "expediente": None,
             "id": f"SS-{ss_counter:05d}",
-            "elemento_de_coste": _EC_SS.get(sector, f"ss-{sector.lower()}"),
+            "elemento_de_coste": ec,
             "centro_de_coste": row["centro_de_coste"],
             "actividad": row["actividad"],
             "importe": row["ss_proporcional"],
@@ -1037,6 +1138,7 @@ def preprocesar_nóminas(
     ctx_enriquecimiento=None,
     árbol_actividades=None,
     árbol_cc=None,
+    árbol_ec=None,
     distribución_costes=None,
     obtener_descripciones=None,
     ruta_base: Path = Path("data"),
@@ -1057,6 +1159,28 @@ def preprocesar_nóminas(
         )
 
     print(f"  Registros de nómina: {len(nóminas):,}")
+
+    _reset_etiquetas_ec_faltantes()
+
+    # Filtro de la spec: solo se consideran expedientes con alguna
+    # retribución en el ejercicio analizado. Los expedientes que constan
+    # en la tabla de RR.HH. pero no tienen ninguna línea de nómina (o la
+    # suma total es 0 €) se descartan por completo del preprocesamiento.
+    exp_con_actividad = (
+        nóminas.group_by("expediente")
+        .agg(pl.col("importe").sum().alias("_imp"))
+        .filter(pl.col("_imp").abs() > 0)
+        .get_column("expediente")
+    )
+    n_antes = expedientes.height
+    expedientes = expedientes.filter(
+        pl.col("expediente").is_in(exp_con_actividad)
+    )
+    if expedientes.height < n_antes:
+        print(
+            f"  Filtrados {n_antes - expedientes.height:,} expedientes "
+            f"sin retribución en el ejercicio (quedan {expedientes.height:,})"
+        )
 
     # Join para obtener per_id y sector de cada línea de nómina.
     con_sector = nóminas.join(
@@ -1112,6 +1236,7 @@ def preprocesar_nóminas(
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
         árbol_cc=árbol_cc,
+        árbol_ec=árbol_ec,
         distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
     )
@@ -1126,6 +1251,7 @@ def preprocesar_nóminas(
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
         árbol_cc=árbol_cc,
+        árbol_ec=árbol_ec,
         distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
     )
@@ -1140,6 +1266,7 @@ def preprocesar_nóminas(
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
         árbol_cc=árbol_cc,
+        árbol_ec=árbol_ec,
         distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
     )
@@ -1147,6 +1274,10 @@ def preprocesar_nóminas(
         importe_pdi = float(uc_pdi["importe"].sum())
         print(f"  UC PDI extras: {len(uc_pdi):,} UC, {importe_pdi:,.2f} €")
         uc_pdi.write_parquet(dir_salida / "uc_pdi.parquet")
+
+    # Spec: validamos aquí —tras procesar las tres ramas— para reportar
+    # todas las etiquetas faltantes en una sola pasada.
+    _detener_si_etiquetas_ec_faltantes()
 
     # -- Regla 23: diccionarios de dedicación real (PDI/PVI) --
     generar_dedicación_docente(expedientes, ruta_base, dir_salida)

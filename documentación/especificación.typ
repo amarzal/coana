@@ -3509,6 +3509,7 @@ Esta tabla, que llamamos TABLA-CONCEPTO-A-ELEMENTO, se va a usar para determinar
 )
 
 ==== Reglas para determinar el elemento de coste
+#nota[¿y, para el PTGAS, estamos determinando el resto de componentes (centro y actividad)?]
 
 Hay un regla previa al resto, que son más complejas, para quitarnos de encima las indemnizaciones por asistencias:
 
@@ -3546,7 +3547,9 @@ Para determinar el valor de `XXX`:
 
         - Si no, si el valor es #val("E"), `XXX` es #val("ev").
 
-        - Si no, si el valor es #val("LE"), #val("LF") o #val("LT"), `XXX` es #val("lab").
+        - Si no, si el valor es #val("LF") (laboral fijo), `XXX` es #val("labfijo").
+
+        - Si no, si el valor es #val("LT") (laboral temporal) o #val("LE") (laboral eventual), `XXX` es #val("labtemp"). LE y LT comparten subtipo porque ambos son no-fijos.
 
         - Si no, marca un error, porque no debería de pasar.
 
@@ -3601,6 +3604,8 @@ Para determinar el valor de `YYY`:
 #reglas[
     - Hay que mirar el campo #campo("concepto_retributivo") del registro y usar la tabla que hemos definido antes para determinar la etiqueta del elemento de coste a partir del concepto retributivo. Por ejemplo, si el concepto retributivo es #val("01"), el valor de `YYY` es #val("sueldo"). Si el concepto retributivo es #val("03"), el valor de `YYY` es #val("trienios"). Y así sucesivamente.
 
+    Excepción: el personal con contrato de actividades científico-técnicas (`XXX` = #val("act") en PVI) no tiene rama de #val("cprof") (carrera profesional) en el árbol de elementos de coste. Para esa categoría, los conceptos retributivos #val("75") y #val("76") (carrera profesional) usan #val("otvars") como `YYY` en lugar de #val("cprof").
+
     Si el #campo("concepto_retributivo") del registro no aparece en la tabla, o si el #campo("categoría") del registro no permite resolver `XXX` con las reglas previas, el registro se descarta de la generación de UC y se reporta como aviso en la #app (con el número de registros e importe agregado), para que el analista pueda decidir si la tabla debe ampliarse. Es decir, la falta de entrada en la tabla no detiene el proceso, pero queda explícitamente registrada en lugar de propagarse silenciosamente.
 
     Cuando generas un etiqueta `ZZZ-XXX-YYY` has de comprobar que existe en el árbol de elementos de coste. Si no existe (por ejemplo, porque combinaciones perfectamente válidas en aislado dan una etiqueta no contemplada en el árbol), has de dar un error que sí detenga el proceso, porque señala una incoherencia entre las reglas y el árbol de elementos de coste que requiere intervención antes de continuar.
@@ -3611,10 +3616,13 @@ Para determinar el valor de `YYY`:
 
     Caso especial: para el servicio #val("368") (personal de suport, conserjerías), la tabla anterior no es suficiente porque el coste se imputa físicamente al centro donde la persona presta el servicio, no al servicio nominal. En ese caso se usa el #campo("centro_plaza") del registro de nómina y una tabla análoga (TABLA-CENTROPLAZA→CC) que mapea cada #campo("centro_plaza") a su par (CC, actividad). Si ahí tampoco hay entrada, se aplica también #etqact("dag-general-universidad").
 
-    El importe de la unidad de coste creada es el importe total de las retribuciones ordinarias del par elemento-servicio (o elemento-centro_plaza para el servicio #val("368"))).
+    El importe de la unidad de coste creada es el importe total de las retribuciones ordinarias del par elemento-servicio (o elemento-centro_plaza para el servicio #val("368")).
 
+    La granularidad efectiva de agrupación es (#campo("expediente"), elemento de coste, #campo("servicio") o #campo("centro_plaza"), centro de coste): si el clasificador asigna centros de coste distintos a filas distintas con el mismo servicio, se generan tantas UC como pares (CC, servicio) distintos. El #campo("origen_id") tiene la forma `PTGAS-exp-{N}-srv-{N}` para servicios distintos a 368, y `PTGAS-exp-{N}-srv-368-cp-{N}` para el servicio 368.
 
-    - La actividad se ha de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
+    Para las #campo("retribuciones extra") (las que NO están en proyecto general), tanto el centro de coste como la actividad se determinan con los módulos de clasificación de presupuesto (no con la tabla servicio→CC), igual que se hace en el traductor de presupuesto. El elemento de coste se construye con el mismo esquema `ZZZ-XXX-YYY` que las ordinarias. Se genera una unidad de coste por fila de retribución extra. El #campo("origen_id") tiene la forma `PTGAS-extra-exp-{N}-{proyecto}`.
+
+    Si para alguna fila (ordinarias o extras) el clasificador no resuelve centro de coste o actividad, esa fila se descarta y se reporta en la #app como aviso (número de registros e importe agregado), análogamente a lo que se hace cuando no resuelven XXX o YYY.
 ]
 
 Las unidades de coste de seguridad social se crean *por persona* (no por expediente), agregando todos los expedientes que tenga la persona en el año. El detalle del cálculo se desarrolla en la sección «Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social». La idea es: para cada persona se conoce su coste social total cotizado en el año (suma de los registros con #campo("aplicación") que empieza por #val("12") en todos sus expedientes); y se conocen las unidades de coste retributivas que hemos generado para sus expedientes (con sus pares centro de coste, actividad). El coste social total se reparte proporcionalmente al peso retributivo de cada par (centro de coste, actividad).

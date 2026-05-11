@@ -175,6 +175,7 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
         ctx_enriquecimiento=ctx,
         árbol_actividades=ctx.actividades,
         árbol_cc=ctx.centros_de_coste,
+        árbol_ec=ctx.elementos_de_coste,
         distribución_costes=resultado_inv.distribución_costes,
         obtener_descripciones=traductor._obtener_descripciones,
         ruta_base=ruta_base,

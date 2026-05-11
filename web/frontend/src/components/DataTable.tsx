@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import {
     flexRender,
     getCoreRowModel,
@@ -159,6 +159,7 @@ export function DataTable({
             return r.data;
         },
         staleTime: 5_000,
+        placeholderData: keepPreviousData,
     });
 
     const rawColumns: ColumnSpec[] = data?.columns ?? [];

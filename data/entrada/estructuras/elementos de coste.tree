@@ -253,51 +253,51 @@ Costes de personal | costes-personal
                 Complemento de productividad | ptgas-func-prod
                 Otras retribuciones variables | ptgas-func-otvars
         PTGAS laboral | ptgas-lab
-            PTGAS laboral fijo | ptgas-lab-fijo
-                Retribuciones fijas | ptgas-lab-fijo-fijas
-                    Retribuciones básicas | ptgas-lab-fijo-bas
-                        Sueldo | ptgas-lab-fijo-sueldo
-                        Trienios | ptgas-lab-fijo-trienios
-                    Retribuciones complementarias | ptgas-lab-fijo-comp
-                        Complemento de destino | ptgas-lab-fijo-dst
-                        Complemento específico general | ptgas-lab-fijo-esp
-                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-lab-fijo-cprof
-                        Otros complementos fijos | ptgas-lab-fijo-otfij
-                    Retribuciones básicas y complementarias | ptgas-lab-fijo-bas-comp
-                        Paga extraordinaria | ptgas-lab-fijo-paga-extra
-                Retribuciones variables | ptgas-lab-fijo-vars
-                    Complemento de productividad | ptgas-lab-fijo-prod
-                    Otras retribuciones variables | ptgas-lab-fijo-otvars
-            PTGAS laboral indefinido no fijo | ptgas-lab-nofijo
-                Retribuciones fijas | ptgas-lab-nofijo-fijas
-                    Retribuciones básicas | ptgas-lab-nofijo-bas
-                        Sueldo | ptgas-lab-nofijo-sueldo
-                        Trienios | ptgas-lab-nofijo-trienios
-                    Retribuciones complementarias | ptgas-lab-nofijo-comp
-                        Complemento de destino | ptgas-lab-nofijo-dst
-                        Complemento específico general | ptgas-lab-nofijo-esp
-                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-lab-nofijo-cprof
-                        Otros complementos fijos | ptgas-lab-nofijo-otfij
-                    Retribuciones básicas y complementarias | ptgas-lab-nofijo-bas-comp
-                        Paga extraordinaria | ptgas-lab-nofijo-paga-extra
-                Retribuciones variables | ptgas-lab-nofijo-vars
-                    Complemento de productividad | ptgas-lab-nofijo-prod
-                    Otras retribuciones variables | ptgas-lab-nofijo-otvars
-            PTGAS laboral temporal | ptgas-lab-temp
-                Retribuciones fijas | ptgas-lab-temp-fijas
-                    Retribuciones básicas | ptgas-lab-temp-bas
-                        Sueldo | ptgas-lab-temp-sueldo
-                        Trienios | ptgas-lab-temp-trienios
-                    Retribuciones complementarias | ptgas-lab-temp-comp
-                        Complemento de destino | ptgas-lab-temp-dst
-                        Complemento específico general | ptgas-lab-temp-esp
-                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-lab-temp-cprof
-                        Otros complementos fijos | ptgas-lab-temp-otfij
-                    Retribuciones básicas y complementarias | ptgas-lab-temp-bas-comp
-                        Paga extraordinaria | ptgas-lab-temp-paga-extra
-                Retribuciones variables | ptgas-lab-temp-vars
-                    Complemento de productividad | ptgas-lab-temp-prod
-                    Otras retribuciones variables | ptgas-lab-temp-otvars
+            PTGAS laboral fijo | ptgas-labfijo
+                Retribuciones fijas | ptgas-labfijo-fijas
+                    Retribuciones básicas | ptgas-labfijo-bas
+                        Sueldo | ptgas-labfijo-sueldo
+                        Trienios | ptgas-labfijo-trienios
+                    Retribuciones complementarias | ptgas-labfijo-comp
+                        Complemento de destino | ptgas-labfijo-dst
+                        Complemento específico general | ptgas-labfijo-esp
+                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-labfijo-cprof
+                        Otros complementos fijos | ptgas-labfijo-otfij
+                    Retribuciones básicas y complementarias | ptgas-labfijo-bas-comp
+                        Paga extraordinaria | ptgas-labfijo-paga-extra
+                Retribuciones variables | ptgas-labfijo-vars
+                    Complemento de productividad | ptgas-labfijo-prod
+                    Otras retribuciones variables | ptgas-labfijo-otvars
+            PTGAS laboral indefinido no fijo | ptgas-labnofijo
+                Retribuciones fijas | ptgas-labnofijo-fijas
+                    Retribuciones básicas | ptgas-labnofijo-bas
+                        Sueldo | ptgas-labnofijo-sueldo
+                        Trienios | ptgas-labnofijo-trienios
+                    Retribuciones complementarias | ptgas-labnofijo-comp
+                        Complemento de destino | ptgas-labnofijo-dst
+                        Complemento específico general | ptgas-labnofijo-esp
+                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-labnofijo-cprof
+                        Otros complementos fijos | ptgas-labnofijo-otfij
+                    Retribuciones básicas y complementarias | ptgas-labnofijo-bas-comp
+                        Paga extraordinaria | ptgas-labnofijo-paga-extra
+                Retribuciones variables | ptgas-labnofijo-vars
+                    Complemento de productividad | ptgas-labnofijo-prod
+                    Otras retribuciones variables | ptgas-labnofijo-otvars
+            PTGAS laboral temporal | ptgas-labtemp
+                Retribuciones fijas | ptgas-labtemp-fijas
+                    Retribuciones básicas | ptgas-labtemp-bas
+                        Sueldo | ptgas-labtemp-sueldo
+                        Trienios | ptgas-labtemp-trienios
+                    Retribuciones complementarias | ptgas-labtemp-comp
+                        Complemento de destino | ptgas-labtemp-dst
+                        Complemento específico general | ptgas-labtemp-esp
+                        Complemento por desarrollo de la carrera profesional horizontal | ptgas-labtemp-cprof
+                        Otros complementos fijos | ptgas-labtemp-otfij
+                    Retribuciones básicas y complementarias | ptgas-labtemp-bas-comp
+                        Paga extraordinaria | ptgas-labtemp-paga-extra
+                Retribuciones variables | ptgas-labtemp-vars
+                    Complemento de productividad | ptgas-labtemp-prod
+                    Otras retribuciones variables | ptgas-labtemp-otvars
         Personal eventual | ptgas-ev
             Retribuciones fijas | ptgas-ev-fijas
                 Retribuciones básicas | ptgas-ev-bas
@@ -417,9 +417,9 @@ Costes de personal | costes-personal
                 Profesores/as Distinguidos/as | acsoc-pdi-pd
             PTGAS funcionario | acsoc-ptgas-func
             PTGAS laboral | acsoc-ptgas-lab
-                PTGAS laboral fijo | acsoc-ptgas-lab-fijo
-                PTGAS laboral indefinido no fijo | acsoc-ptgas-lab-nofijo
-                PTGAS laboral temporal | acsoc-ptgas-lab-temp
+                PTGAS laboral fijo | acsoc-ptgas-labfijo
+                PTGAS laboral indefinido no fijo | acsoc-ptgas-labnofijo
+                PTGAS laboral temporal | acsoc-ptgas-labtemp
             Personal eventual | acsoc-ptgas-ev
             Personal directivo | acsoc-ptgas-dir
             Personal investigador en formación | acsoc-pif
@@ -440,9 +440,9 @@ Costes de personal | costes-personal
                 Profesores/as Distinguidos/as | formación-pdi-pd
             PTGAS funcionario | formación-ptgas-func
             PTGAS laboral | formación-ptgas-lab
-                PTGAS laboral fijo | formación-ptgas-lab-fijo
-                PTGAS laboral indefinido no fijo | formación-ptgas-lab-nofijo
-                PTGAS laboral temporal | formación-ptgas-lab-temp
+                PTGAS laboral fijo | formación-ptgas-labfijo
+                PTGAS laboral indefinido no fijo | formación-ptgas-labnofijo
+                PTGAS laboral temporal | formación-ptgas-labtemp
             Personal eventual | formación-ptgas-ev
             Personal directivo | formación-ptgas-dir
             Personal investigador en formación | formación-pif
@@ -462,9 +462,9 @@ Costes de personal | costes-personal
                 Profesores/as Distinguidos/as | seguros-pdi-pd
             PTGAS funcionario | seguros-ptgas-func
             PTGAS laboral | seguros-ptgas-lab
-                PTGAS laboral fijo | seguros-ptgas-lab-fijo
-                PTGAS laboral indefinido no fijo | seguros-ptgas-lab-nofijo
-                PTGAS laboral temporal | seguros-ptgas-lab-temp
+                PTGAS laboral fijo | seguros-ptgas-labfijo
+                PTGAS laboral indefinido no fijo | seguros-ptgas-labnofijo
+                PTGAS laboral temporal | seguros-ptgas-labtemp
             Personal eventual | seguros-ptgas-ev
             Personal directivo | seguros-ptgas-dir
             Personal investigador en formación | seguros-pif
@@ -485,9 +485,9 @@ Costes de personal | costes-personal
                 Profesores/as Distinguidos/as | otcsoc-otpdi-pd
             PTGAS funcionario | otcsoc-otptgas-func
             PTGAS laboral | otcsoc-otptgas-lab
-                PTGAS laboral fijo | otcsoc-otptgas-lab-fijo
-                PTGAS laboral indefinido no fijo | otcsoc-otptgas-lab-nofijo
-                PTGAS laboral temporal | otcsoc-otptgas-lab-temp
+                PTGAS laboral fijo | otcsoc-otptgas-labfijo
+                PTGAS laboral indefinido no fijo | otcsoc-otptgas-labnofijo
+                PTGAS laboral temporal | otcsoc-otptgas-labtemp
             Personal eventual | otcsoc-otptgas-ev
             Personal directivo | otcsoc-otptgas-dir
             Personal investigador en formación | otcsoc-otpif
@@ -508,9 +508,9 @@ Costes de personal | costes-personal
             Profesores/as Distinguidos/as | indemnizaciones-servicio-pdi-pd
         PTGAS funcionario | indemnizaciones-servicio-ptgas-func
         PTGAS laboral | indemnizaciones-servicio-ptgas-lab
-            PTGAS laboral fijo | indemnizaciones-servicio-ptgas-lab-fijo
-            PTGAS laboral indefinido no fijo | indemnizaciones-servicio-ptgas-lab-nofijo
-            PTGAS laboral temporal | indemnizaciones-servicio-ptgas-lab-temp
+            PTGAS laboral fijo | indemnizaciones-servicio-ptgas-labfijo
+            PTGAS laboral indefinido no fijo | indemnizaciones-servicio-ptgas-labnofijo
+            PTGAS laboral temporal | indemnizaciones-servicio-ptgas-labtemp
         Personal eventual | indemnizaciones-servicio-ptgas-ev
         Personal directivo | indemnizaciones-servicio-ptgas-dir
         Personal investigador en formación | indemnizaciones-servicio-pif
@@ -531,9 +531,9 @@ Costes de personal | costes-personal
             Profesores/as Distinguidos/as | otras-indemnizaciones-pdi-pd
         PTGAS funcionario | otras-indemnizaciones-ptgas-func
         PTGAS laboral | otras-indemnizaciones-ptgas-lab
-            PTGAS laboral fijo | otras-indemnizaciones-ptgas-lab-fijo
-            PTGAS laboral indefinido no fijo | otras-indemnizaciones-ptgas-lab-nofijo
-            PTGAS laboral temporal | otras-indemnizaciones-ptgas-lab-temp
+            PTGAS laboral fijo | otras-indemnizaciones-ptgas-labfijo
+            PTGAS laboral indefinido no fijo | otras-indemnizaciones-ptgas-labnofijo
+            PTGAS laboral temporal | otras-indemnizaciones-ptgas-labtemp
         Personal eventual | otras-indemnizaciones-ptgas-ev
         Personal directivo | otras-indemnizaciones-ptgas-dir
         Personal investigador en formación | otras-indemnizaciones-pif

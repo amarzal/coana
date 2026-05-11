@@ -307,13 +307,41 @@ class GruposLineasResponse(BaseModel):
 
 
 UC_GENERADAS_LABEL = "UC generadas"
+COSTES_CALCULADOS_LABEL = "Costes sociales calculados"
+
+
+def _per_id_de_expediente(expediente: int) -> int | None:
+    """Devuelve el `per_id` asociado al expediente (None si no se encuentra)."""
+    for path in _SECTOR_PATHS.values():
+        df = _safe_read(path)
+        if df is None or "expediente" not in df.columns:
+            continue
+        sub = df.filter(pl.col("expediente") == expediente)
+        if not sub.is_empty():
+            v = sub.get_column("per_id").drop_nulls()
+            if v.len():
+                return int(v[0])
+    return None
+
+
+def _costes_calculados_de_persona(per_id: int) -> pl.DataFrame:
+    """Fila de detalle del coste social calculado para una persona.
+
+    Devuelve un DataFrame vacío si la persona no está en clases pasivas.
+    """
+    df = _safe_read(PATH_COSTES_SOC_CALC)
+    if df is None or df.is_empty():
+        return pl.DataFrame()
+    return df.filter(pl.col("per_id") == per_id)
 
 
 def grupos_lineas_nomina(sector: str, expediente: int) -> GruposLineasResponse:
     """Metadatos (label, n, importe) de los grupos de un expediente.
 
-    Incluye además, como pestaña sintética «UC generadas», las
-    unidades de coste producidas por la fase 1 para ese expediente.
+    Incluye además, como pestañas sintéticas:
+    - «Costes sociales calculados», si la persona está en clases
+      pasivas (PDI funcionario sin SS cotizada).
+    - «UC generadas», con las UC producidas por la fase 1.
     """
     df = _nominas_raw()
     out: list[GrupoLineas] = []
@@ -326,6 +354,15 @@ def grupos_lineas_nomina(sector: str, expediente: int) -> GruposLineasResponse:
                 importe=(
                     float(g["importe"].sum() or 0) if "importe" in g.columns else 0.0
                 ),
+            ))
+    per_id = _per_id_de_expediente(expediente)
+    if per_id is not None:
+        calc = _costes_calculados_de_persona(per_id)
+        if not calc.is_empty():
+            out.append(GrupoLineas(
+                label=COSTES_CALCULADOS_LABEL,
+                n=calc.height,
+                importe=float(calc["importe_total"].sum() or 0),
             ))
     uc = _uc_de_expediente(sector, expediente)
     if not uc.is_empty():
@@ -413,6 +450,21 @@ def listar_uc_expediente(
     )
 
 
+_COLS_COSTES_SOC_CALC_EXP: list[ColumnSpec] = [
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="total_retribuido", label="Total retribuido", format="euro"),
+    ColumnSpec(name="base", label="Base cotización", format="euro"),
+    ColumnSpec(name="contingencias_comunes", label="Cont. comunes", format="euro"),
+    ColumnSpec(name="mei", label="MEI", format="euro"),
+    ColumnSpec(name="formación_profesional", label="Form. prof.", format="euro"),
+    ColumnSpec(name="cuota_solidaridad_tramo1", label="Solidaridad T1", format="euro"),
+    ColumnSpec(name="cuota_solidaridad_tramo2", label="Solidaridad T2", format="euro"),
+    ColumnSpec(name="cuota_solidaridad_tramo3", label="Solidaridad T3", format="euro"),
+    ColumnSpec(name="cuota_solidaridad", label="Cuota solidaridad", format="euro"),
+    ColumnSpec(name="importe_total", label="Importe total", format="euro"),
+]
+
+
 def listar_lineas_nomina(
     expediente: int,
     params: QueryParams,
@@ -424,7 +476,29 @@ def listar_lineas_nomina(
     Si ``sector`` y ``grupo`` están informados, devuelve solo las
     líneas pertenecientes a ese grupo (Costes sociales, Retribuciones
     ordinarias, etc.) según la clasificación del visor Streamlit.
+
+    Caso especial: si ``grupo`` es «Costes sociales calculados»,
+    devuelve la fila de detalle de cálculo de la persona (que es de
+    la persona, no del expediente, pero se muestra como pestaña de éste
+    para los PDI funcionarios en clases pasivas).
     """
+    if grupo == COSTES_CALCULADOS_LABEL:
+        per_id = _per_id_de_expediente(expediente)
+        if per_id is None:
+            return ListResponse(columns=_COLS_COSTES_SOC_CALC_EXP, rows=[], total=0)
+        df = _costes_calculados_de_persona(per_id)
+        if df.is_empty():
+            return ListResponse(columns=_COLS_COSTES_SOC_CALC_EXP, rows=[], total=0)
+        nombres = [c.name for c in _COLS_COSTES_SOC_CALC_EXP if c.name in df.columns]
+        df = df.select(nombres)
+        df, total, stats = apply_query(df, params)
+        return ListResponse(
+            columns=_COLS_COSTES_SOC_CALC_EXP,
+            rows=_serialize(df.to_dicts()),
+            total=total,
+            column_stats=stats,
+        )
+
     df = _nominas_raw()
     if df.is_empty() or "expediente" not in df.columns:
         return ListResponse(columns=_COLS_LINEAS_NOMINA, rows=[], total=0)
