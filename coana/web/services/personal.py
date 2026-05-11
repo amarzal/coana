@@ -40,6 +40,7 @@ PATH_MULTI = DIR_NOMINAS / "multiexpediente.parquet"
 PATH_UC = DIR_NOMINAS / "persona_uc.parquet"
 PATH_SS = DIR_NOMINAS / "persona_ss.parquet"
 PATH_ANOM_PDI = DIR_NOMINAS / "regla_23_asignaturas_sin_titulación.parquet"
+PATH_COSTES_SOC_CALC = DIR_NOMINAS / "costes_sociales_calculados.parquet"
 PATH_NOMINAS_RAW = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
 
 _SECTOR_PATHS = {
@@ -781,3 +782,40 @@ def listar_anomalias_pdi(params: QueryParams) -> ListResponse:
     df = df.select(nombres)
     df, total, stats = apply_query(df, params)
     return ListResponse(columns=_COLS_ANOM, rows=_serialize(df.to_dicts()), total=total, column_stats=stats)
+
+
+# ----------------------------------------------------------------------
+# Costes sociales calculados (PDI funcionario clases pasivas)
+# ----------------------------------------------------------------------
+
+_COLS_COSTES_SOC_CALC: list[ColumnSpec] = [
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="total_retribuido", label="Total retribuido", format="euro"),
+    ColumnSpec(name="base", label="Base cotización", format="euro"),
+    ColumnSpec(name="contingencias_comunes", label="Cont. comunes", format="euro"),
+    ColumnSpec(name="mei", label="MEI", format="euro"),
+    ColumnSpec(name="formación_profesional", label="Form. prof.", format="euro"),
+    ColumnSpec(name="cuota_solidaridad_tramo1", label="Solidaridad T1", format="euro"),
+    ColumnSpec(name="cuota_solidaridad_tramo2", label="Solidaridad T2", format="euro"),
+    ColumnSpec(name="cuota_solidaridad_tramo3", label="Solidaridad T3", format="euro"),
+    ColumnSpec(name="cuota_solidaridad", label="Cuota solidaridad", format="euro"),
+    ColumnSpec(name="importe_total", label="Importe total", format="euro"),
+]
+
+
+def listar_costes_sociales_calculados(params: QueryParams) -> ListResponse:
+    """Detalle por persona del coste social calculado (clases pasivas PDI)."""
+    df = _safe_read(PATH_COSTES_SOC_CALC)
+    if df is None:
+        return ListResponse(columns=_COLS_COSTES_SOC_CALC, rows=[], total=0)
+    df = _enriquecer_per_id(df)
+    nombres = [c.name for c in _COLS_COSTES_SOC_CALC if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(df, params, search_columns=["persona"])
+    return ListResponse(
+        columns=_COLS_COSTES_SOC_CALC,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )

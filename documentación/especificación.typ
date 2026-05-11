@@ -3378,7 +3378,7 @@ Cada una de las unidades generadas comparte el mismo #campo("origen_id") (el ide
 
 === Preprocesamiento nóminas
 
-En primer lugar, vamos a agrupar todas la entradas de #ruta("nóminas y seguridad social.xlsx") por #campo("expediente"). Los expedientes se van a clasificar en una lista (o tabla) de PDI y PVI (el PVI está codificado como sector PI) y otra de PTGAS.
+En primer lugar, vamos a agrupar todas la entradas de #ruta("nóminas y seguridad social.xlsx") por #campo("expediente"). Los expedientes se van a clasificar en una lista (o tabla) de PDI y PVI (el PVI está codificado como sector PI) y otra de PTGAS. Solo han de considerarse expedientes con alguna retribución en el ejercicio que estamos considerando.
 
 En la #app, quiero poder ver, por separado, los expedientes de cada uno de estos sectores. Si aparece algún expediente que no se pueda clasificar en ninguno de estos sectores, quiero poder verlo también para analizarlo.
 
@@ -3394,7 +3394,7 @@ Cada expediente del PTGAS tendrá varias tablas en las que se almacenan los regi
 
 - una, #campo("costes sociales"), con los registros asociados a la Seguridad Social (#campo("aplicación") que empieza por 12),
 - otra, #campo("retribuciones ordinarias") con lo que es nómina ordinaria (cuando #campo("proyecto") es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000")) exceptuando el concepto retributivo #val("48") (indemnización por asistencias), que se aborda en el siguiente punto.
-- otra, #campo("retribuciones ordinarias asistencias") co lo que está con concepto retributivo #val("48") cuando #campo("proyecto") es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000").
+- otra, #campo("retribuciones ordinarias asistencias") con lo que está con concepto retributivo #val("48") cuando #campo("proyecto") es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000").
 - otra, #campo("retribuciones extra"), con el resto.
 - otra, #campo("unidades de coste"), con una lista de unidades de coste asociadas a este expediente. Estas unidades se pueden crear desde el presupuesto o desde las nóminas.
 
@@ -3442,9 +3442,11 @@ Cada expediente del PDI/PVI tendrá varias tablas en las que se almacenan los re
 - Otra, #campo("retribuciones ordinarias de regla 23"), con las retribuciones incluidas en proyectos de TABLA-PROYECTOS-GENERALES-NÓMINA en todos los conceptos retributivos distintos a los anteriores.
 
 
-=== Tabla para determinar el elemento de coste a partir del concepto retributivo
+=== Decisión del elemento de coste a partir de los registros de la nómina
 
-Esta tabla se va a usar para determinar parte del elemento de coste de las unidades de coste que se van a generar a partir de los registros de nómina. Es común a todos (PDI+PVI y PTGAS) La tabla es la siguiente, teniendo en cuenta que el concepto retributivo #val("48") (indemnización por asistencias) va a tener reglas propias:
+==== Tabla para determinar el elemento de coste a partir del concepto retributivo
+
+Esta tabla, que llamamos TABLA-CONCEPTO-A-ELEMENTO, se va a usar para determinar parte del elemento de coste de las unidades de coste que se van a generar a partir de los registros de nómina. Es común a todos (PDI+PVI y PTGAS) La tabla es la siguiente, teniendo en cuenta que el concepto retributivo #val("48") (indemnización por asistencias) va a tener reglas propias:
 
 #table(
     columns: 3,
@@ -3506,9 +3508,9 @@ Esta tabla se va a usar para determinar parte del elemento de coste de las unida
     table.hline(),
 )
 
-==== Decisión del elemento de coste a partir de registros de nómina
+==== Reglas para determinar el elemento de coste
 
-Hay un reglea previa al resto, que son más complejas, para quitarnos de encima las indemnizaciones por asistencias:
+Hay un regla previa al resto, que son más complejas, para quitarnos de encima las indemnizaciones por asistencias:
 
 #reglas[
     - todas las retribuciones correspondientes al #campo("concepto retributivo") #val("48") (Indemnización por asistencias), tanto las correspondientes a PTGAS como a PDI o PVI se imputarán al elemento de coste #etqele("otras-indemnizaciones").
@@ -3642,6 +3644,28 @@ Si el #campo("proyecto") es #val("23G019"), la actividad es #val("otras-ait-fina
 Cuando el #campo("concepto_retributivo") es #val("48"), estamos antes indemnizaciones por asistencias a tribunales y similares. Estas indemnizaciones se van al elemento de coste #val("otras-indemnizaciones"). #nota[Podemos refinar esto en función de la figura.]
 
 El centro de coste y la actividad de estas indemnizaciones se han de obtener del mismo modo que hacemos con el presupuesto y nóminas. Aquí, el proyecto es importante, pero usa las tablas de información que han servido en otras ocasiones para decidir centro de coste y actividad.
+
+==== Tratamiento de costes sociales calculados
+
+Solo en el caso del PDI funcionario (categorías #val("CU"), #val("TU"), #val("TEU") o #val("CEU")) se da el caso de personas que no están en el régimen de Seguridad Social, es decir, en su nómina no aparece gasto de la aplicación presupuestaria empezando por #val("12"), y para ellos hay que calcular una unidad de coste que es el coste que tendríamos que asumir por este concepto (coste calculado).
+
+El cálculo de los coste sociales es un poco enrevesado. Te lo detallo:
+
+- Se toma el total percibido por la persona en el año (sumando todos sus expedientes). Hay un importe de referencia importante que llamaos `BASE_MÁXIMA` y que en 2025 era de #val("59094") euros (es la base máxima de cotización general, 4.909,50, por doce mensualidades).
+
+    Del total retribuido a la persona, a lo que denominamos `TOTAL`, nos quedamos con el mínimo entre `TOTAL` y `BASE_MÁXIMA` y  llamamos al resultado `BASE`. El cálculo paso a paso es:
+    - En principio `CONTINGENCIAS_COMUNES = 23,60% de BASE` (cotización por contingencias comunes)
+        - pero se calcula `REDUCCIÓN = 0,065 * CONTINGENCIAS_COMUNES` y se actualiza el valor `CONTINGENCIAS_COMUNES = CONTINGENCIAS_COMUNES - REDUCCIÓN` (reducción por la cotización a cargo de la persona trabajadora, que en el régimen de clases pasivas es del 6,5% de la cotización por contingencias comunes).
+    - `MEI = 0,67% de BASE` (Mecanismo de Equidad Intergeneracional)
+    - `FORMACIÓN_PROFESIONAL = 0,70% de BASE` (cotización por formación profesional)
+    - Para la cuota de solidaridad, que llamaremos `CUOTA_SOLIDARIDAD`, definimos las constantes `TRAMO1 = BASE_MÁXIMA * 1.1` y `TRAMO2 = BASE_MÁXIMA * 1.5` para sumar tres elementos:
+        - De lo que ha cobrado (`TOTAL`), el importe que caen entre `BASE_MÁXIMA` y `TRAMO1` se cotiza al #val("0,92%")
+        - De lo que ha cobrado (`TOTAL`), el importe que caen entre `TRAMO1` y `TRAMO2` se cotiza al #val("1%").
+        - De lo que ha cobrado (`TOTAL`), el importe que supera `TRAMO2` se cotiza al #val("1,17%").
+La unidad de coste que creamos tendrá como importe la suma de `CONTINGENCIAS_COMUNES`, `MEI`, `FORMACIÓN_PROFESIONAL` y `CUOTA_SOLIDARIDAD`. El elemento de coste es #etqele("prevsoc-funcs-pdi").
+
+En la #app hemos de poder ver todas las personas que tienen costes sociales calculados y, al pinchar en una fila, su detalle de cálculo (con el desglose de los conceptos que componen el coste social calculado), así como los datos de su relación funcionarial con la universidad.
+
 
 ==== Tratamiento de los cargos que se pueden asociar a un proyecto específico
 

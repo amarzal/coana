@@ -607,6 +607,156 @@ def _generar_uc_pvi(
     )
 
 
+# Constantes para costes sociales calculados (régimen de clases pasivas).
+# Valores para 2025. TODO: parametrizar por año mediante un xlsx de
+# configuración (también el % MEI, que varía con los años).
+_BASE_MÁXIMA_SS = 59_094.0
+_TIPO_CONTINGENCIAS_COMUNES = 0.236
+_TIPO_REDUCCIÓN_CC_TRABAJADOR = 0.065
+_TIPO_MEI = 0.0067
+_TIPO_FORMACIÓN_PROF = 0.0070
+_FACTOR_TRAMO1_SOL = 1.1
+_FACTOR_TRAMO2_SOL = 1.5
+_TIPO_SOL_TRAMO1 = 0.0092
+_TIPO_SOL_TRAMO2 = 0.0100
+_TIPO_SOL_TRAMO3 = 0.0117
+
+_CATEGORÍAS_PDI_FUNCIONARIO = ("CU", "TU", "TEU", "CEU")
+
+
+def _calcular_coste_social_persona(total: float) -> dict[str, float]:
+    """Aplica la fórmula de coste social calculado para clases pasivas."""
+    base = min(total, _BASE_MÁXIMA_SS)
+    cc_bruto = _TIPO_CONTINGENCIAS_COMUNES * base
+    reducción_cc = _TIPO_REDUCCIÓN_CC_TRABAJADOR * cc_bruto
+    cc = cc_bruto - reducción_cc
+    mei = _TIPO_MEI * base
+    fp = _TIPO_FORMACIÓN_PROF * base
+    t1 = _BASE_MÁXIMA_SS * _FACTOR_TRAMO1_SOL
+    t2 = _BASE_MÁXIMA_SS * _FACTOR_TRAMO2_SOL
+    sol1 = max(0.0, min(total, t1) - _BASE_MÁXIMA_SS) * _TIPO_SOL_TRAMO1
+    sol2 = max(0.0, min(total, t2) - t1) * _TIPO_SOL_TRAMO2
+    sol3 = max(0.0, total - t2) * _TIPO_SOL_TRAMO3
+    solidaridad = sol1 + sol2 + sol3
+    return {
+        "total_retribuido": total,
+        "base": base,
+        "contingencias_comunes": cc,
+        "mei": mei,
+        "formación_profesional": fp,
+        "cuota_solidaridad_tramo1": sol1,
+        "cuota_solidaridad_tramo2": sol2,
+        "cuota_solidaridad_tramo3": sol3,
+        "cuota_solidaridad": solidaridad,
+        "importe_total": cc + mei + fp + solidaridad,
+    }
+
+
+def _generar_costes_sociales_calculados(
+    nóminas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    dir_salida: Path,
+) -> pl.DataFrame:
+    """Coste social simulado para PDI funcionario en régimen de clases pasivas.
+
+    Detecta personas con al menos un expediente PDI en categoría CU/TU/TEU/CEU
+    sin ningún registro de nómina con #campo("aplicación") que empiece por
+    «12» y aplica la fórmula de cotización simulada sobre el TOTAL retribuido
+    (suma de todos sus expedientes — que por norma debe ser uno solo).
+    Persiste el detalle en `costes_sociales_calculados.parquet`.
+
+    Por spec, una persona en esta situación no debería tener otro expediente.
+    Si lo tiene, se reporta como error (sin detener el flujo).
+
+    Devuelve un DataFrame con (per_id, importe_total) listo para inyectar
+    en el reparto SS por persona.
+    """
+    exp_per = expedientes.select("expediente", "per_id")
+    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+    es_func = pl.col("categoría").cast(pl.Utf8).is_in(list(_CATEGORÍAS_PDI_FUNCIONARIO))
+
+    nóminas_per = nóminas.join(exp_per, on="expediente", how="inner")
+
+    # per_ids con cotización efectiva (aplicación 12*)
+    per_con_ss = set(
+        nóminas_per.filter(es_ss).get_column("per_id").drop_nulls().unique().to_list()
+    )
+
+    # per_ids con al menos una línea PDI funcionario (CU/TU/TEU/CEU)
+    exp_pdi = _mapear_sector(expedientes).filter(pl.col("sector_mapeado") == "PDI")
+    nóminas_pdi = nóminas_per.join(
+        exp_pdi.select("expediente").unique(), on="expediente", how="inner",
+    )
+    per_pdi_func = set(
+        nóminas_pdi.filter(es_func).get_column("per_id").drop_nulls().unique().to_list()
+    )
+
+    # Candidatos: PDI funcionario sin SS cotizada
+    per_clases_pasivas = sorted(per_pdi_func - per_con_ss)
+
+    if not per_clases_pasivas:
+        pl.DataFrame(schema={
+            "per_id": pl.Int64,
+            "total_retribuido": pl.Float64,
+            "base": pl.Float64,
+            "contingencias_comunes": pl.Float64,
+            "mei": pl.Float64,
+            "formación_profesional": pl.Float64,
+            "cuota_solidaridad_tramo1": pl.Float64,
+            "cuota_solidaridad_tramo2": pl.Float64,
+            "cuota_solidaridad_tramo3": pl.Float64,
+            "cuota_solidaridad": pl.Float64,
+            "importe_total": pl.Float64,
+        }).write_parquet(dir_salida / "costes_sociales_calculados.parquet")
+        return pl.DataFrame(schema={
+            "per_id": pl.Int64, "importe_total": pl.Float64,
+        })
+
+    # Validación: por spec, estas personas solo pueden tener un expediente
+    # en los sectores principales (PDI/PTGAS/PVI). Expedientes en sectores
+    # secundarios (BEC, etc., agrupados como «Otros») se ignoran: son
+    # típicamente vínculos históricos como becario que conviven con el
+    # expediente PDI funcionario y no rompen la spec.
+    exp_principales = _mapear_sector(expedientes).filter(
+        pl.col("sector_mapeado").is_in(list(_SECTORES_CONOCIDOS))
+    )
+    exp_múltiples = (
+        exp_principales.filter(pl.col("per_id").is_in(per_clases_pasivas))
+        .group_by("per_id")
+        .agg(pl.col("expediente").n_unique().alias("n_exp"))
+        .filter(pl.col("n_exp") > 1)
+    )
+    if not exp_múltiples.is_empty():
+        ids_err = exp_múltiples.get_column("per_id").to_list()
+        print(
+            f"    ⚠ ERROR: {len(ids_err):,} personas PDI funcionario en clases "
+            f"pasivas con más de un expediente principal (la spec dice que no "
+            f"puede pasar): {ids_err[:5]}…"
+        )
+
+    # TOTAL retribuido por persona: suma de líneas no-SS en TODOS sus expedientes
+    total_por_persona = (
+        nóminas_per
+        .filter(~es_ss & pl.col("per_id").is_in(per_clases_pasivas))
+        .group_by("per_id")
+        .agg(pl.col("importe").sum().alias("total_retribuido"))
+    )
+
+    filas = []
+    for row in total_por_persona.iter_rows(named=True):
+        fila = {"per_id": row["per_id"]}
+        fila.update(_calcular_coste_social_persona(float(row["total_retribuido"])))
+        filas.append(fila)
+
+    df = pl.DataFrame(filas).sort("importe_total", descending=True)
+    df.write_parquet(dir_salida / "costes_sociales_calculados.parquet")
+    print(
+        f"  Costes sociales calculados (PDI funcionario clases pasivas): "
+        f"{len(df):,} personas, {float(df['importe_total'].sum()):,.2f} €"
+    )
+    return df.select("per_id", "importe_total")
+
+
 def _generar_multiexpediente(
     agrupado: pl.DataFrame,
     nóminas: pl.DataFrame,
@@ -692,6 +842,7 @@ def _generar_reparto_ss_persona(
     uc_extra: list[pl.DataFrame],
     uc_por_expediente: dict[int, pl.DataFrame],
     dir_salida: Path,
+    ss_calculados_por_persona: pl.DataFrame | None = None,
 ) -> None:
     """Genera el reparto de SS por persona agrupando UC por (actividad, centro de coste).
 
@@ -762,6 +913,25 @@ def _generar_reparto_ss_persona(
         .group_by("per_id")
         .agg(pl.col("ss").sum().alias("ss_total"))
     )
+
+    # Inyectar costes sociales calculados (clases pasivas PDI funcionario):
+    # se suman al ss_total para repartirlos por (CC, actividad) igual que la
+    # SS cotizada.
+    if (
+        ss_calculados_por_persona is not None
+        and not ss_calculados_por_persona.is_empty()
+    ):
+        ss_por_persona = (
+            ss_por_persona.join(
+                ss_calculados_por_persona.rename({"importe_total": "ss_calc"}),
+                on="per_id", how="full", coalesce=True,
+            )
+            .with_columns(
+                (pl.col("ss_total").fill_null(0.0) + pl.col("ss_calc").fill_null(0.0))
+                .alias("ss_total")
+            )
+            .drop("ss_calc")
+        )
 
     # Agrupar UC retributivas por (per_id, actividad, centro_de_coste)
     agrup = (
@@ -1003,14 +1173,21 @@ def preprocesar_nóminas(
     )
     uc_cargos = generar_uc_cargos(nóminas, expedientes, dir_salida, **_clasif_kw)
 
-    # -- Reparto de SS por persona (incluye PTGAS + PVI + PDI + UC
-    #    definidas: despidos, indemnizaciones por asistencias, cargos) --
+    # -- Costes sociales calculados (clases pasivas PDI funcionario) --
+    ss_calculados = _generar_costes_sociales_calculados(
+        nóminas, expedientes, dir_salida,
+    )
+
+    # -- Reparto de SS por persona (cotizada + calculada): incluye
+    #    PTGAS + PVI + PDI + UC definidas (despidos, indemnizaciones
+    #    por asistencias, cargos) --
     _generar_reparto_ss_persona(
         nóminas, expedientes,
         uc_ptgas, uc_pvi, uc_pdi,
         [uc_despidos, uc_indemn, uc_cargos],
         {},
         dir_salida,
+        ss_calculados_por_persona=ss_calculados,
     )
 
     return ResultadoNóminas(

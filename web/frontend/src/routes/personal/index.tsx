@@ -307,6 +307,24 @@ export function PersonalAnomaliasPdi() {
                 endpoint="/api/personal/anomalias-pdi"
                 queryKey="personal:anomalias-pdi"
                 rowKey="asignatura"
+                showPopoverOnRowClick
+            />
+        </div>
+    );
+}
+
+export function PersonalCostesSocialesCalculados() {
+    return (
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title="Personal · Costes sociales calculados"
+                subtitle="PDI funcionario en régimen de clases pasivas: importe simulado de cotización social que se reparte como si fuera SS cotizada."
+            />
+            <DataTable
+                endpoint="/api/personal/costes-sociales-calculados"
+                queryKey="personal:costes-sociales-calculados"
+                rowKey="per_id"
+                showPopoverOnRowClick
             />
         </div>
     );

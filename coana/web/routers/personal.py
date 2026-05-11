@@ -119,3 +119,13 @@ def listar_uc_persona(
 @router.get("/anomalias-pdi", response_model=ListResponse)
 def anomalias_pdi(p: QueryParams = Depends(query_dependency)) -> ListResponse:
     return svc.listar_anomalias_pdi(p)
+
+
+# ---- Costes sociales calculados (clases pasivas PDI funcionario) ----
+
+@router.get("/costes-sociales-calculados", response_model=ListResponse)
+def costes_sociales_calculados(
+    p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Detalle por persona del coste social calculado (clases pasivas)."""
+    return svc.listar_costes_sociales_calculados(p)

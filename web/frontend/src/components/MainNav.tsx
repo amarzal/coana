@@ -81,6 +81,7 @@ const GROUPS: Group[] = [
             { label: "Expedientes otros", to: "/personal/otros" },
             { label: "Multiexpediente", to: "/personal/multiexpediente" },
             { label: "Persona", to: "/personal/persona" },
+            { label: "Costes sociales calculados", to: "/personal/costes-sociales-calculados" },
             { label: "Anomalías PDI", to: "/personal/anomalias" },
         ],
     },
