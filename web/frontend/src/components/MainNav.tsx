@@ -109,6 +109,8 @@ const GROUPS: Group[] = [
             { label: "Resumen", to: "/cargos/resumen" },
             { label: "Categoría PDI/PVI", to: "/cargos/categoria" },
             { label: "Departamentos", to: "/cargos/departamentos" },
+            { label: "Personas cargos", to: "/cargos/personas-cargos" },
+            { label: "Catálogo de cargos", to: "/cargos/cargos" },
         ],
     },
     {

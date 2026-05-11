@@ -68,6 +68,7 @@ function LineasExpedienteTabs({
                     rowKey="id"
                     extraParams={{ grupo: activoLabel }}
                     showPopoverOnRowClick
+                    reorderImportes={activoLabel !== "Cargos"}
                 />
             )}
         </div>

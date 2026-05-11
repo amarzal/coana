@@ -3612,46 +3612,46 @@ Para determinar el valor de `YYY`:
 
     Para cada par elemento-servicio, tomamos sus registros de #campo("retribuciones ordinarias") y hacemos la suma, porque de cada par elemento-servicio, para ese expediente, vamos a crear una unidad de coste.
 
-    A continuación, mapeamos cada servicio al centro de coste y a la actividad que le corresponden usando la tabla de la regla #nombre-regla[Por servicio existe servicio y el proyecto uno de la línea] (en la sección «Preparación de un módulo para clasificar centros de coste»). Esa tabla da, para cada #campo("servicio"), un par (#campo("centro_de_coste"), #campo("actividad")) que es la asignación más precisa que tenemos. Si para algún servicio la actividad de la tabla está vacía o no hay entrada en la tabla, se usa #etqact("dag-general-universidad") como atrapalotodo (es decir, el «sitio donde aparcar» el coste cuando no se ha conseguido mayor precisión).
+    // A continuación, mapeamos cada servicio al centro de coste y a la actividad que le corresponden usando la tabla de la regla #nombre-regla[Por servicio existe servicio y el proyecto uno de la línea] (en la sección «Preparación de un módulo para clasificar centros de coste»). Esa tabla da, para cada #campo("servicio"), un par (#campo("centro_de_coste"), #campo("actividad")) que es la asignación más precisa que tenemos. Si para algún servicio la actividad de la tabla está vacía o no hay entrada en la tabla, se usa #etqact("dag-general-universidad") como atrapalotodo (es decir, el «sitio donde aparcar» el coste cuando no se ha conseguido mayor precisión).
 
-    Caso especial: para el servicio #val("368") (personal de suport, conserjerías), la tabla anterior no es suficiente porque el coste se imputa físicamente al centro donde la persona presta el servicio, no al servicio nominal. En ese caso se usa el #campo("centro_plaza") del registro de nómina y una tabla análoga (TABLA-CENTROPLAZA→CC) que mapea cada #campo("centro_plaza") a su par (CC, actividad). Si ahí tampoco hay entrada, se aplica también #etqact("dag-general-universidad").
+    // Caso especial: para el servicio #val("368") (personal de suport, conserjerías), la tabla anterior no es suficiente porque el coste se imputa físicamente al centro donde la persona presta el servicio, no al servicio nominal. En ese caso se usa el #campo("centro_plaza") del registro de nómina y una tabla análoga (TABLA-CENTROPLAZA→CC) que mapea cada #campo("centro_plaza") a su par (CC, actividad). Si ahí tampoco hay entrada, se aplica también #etqact("dag-general-universidad").
 
-    El importe de la unidad de coste creada es el importe total de las retribuciones ordinarias del par elemento-servicio (o elemento-centro_plaza para el servicio #val("368")).
+    // El importe de la unidad de coste creada es el importe total de las retribuciones ordinarias del par elemento-servicio (o elemento-centro_plaza para el servicio #val("368")).
 
-    La granularidad efectiva de agrupación es (#campo("expediente"), elemento de coste, #campo("servicio") o #campo("centro_plaza"), centro de coste): si el clasificador asigna centros de coste distintos a filas distintas con el mismo servicio, se generan tantas UC como pares (CC, servicio) distintos. El #campo("origen_id") tiene la forma `PTGAS-exp-{N}-srv-{N}` para servicios distintos a 368, y `PTGAS-exp-{N}-srv-368-cp-{N}` para el servicio 368.
+    // La granularidad efectiva de agrupación es (#campo("expediente"), elemento de coste, #campo("servicio") o #campo("centro_plaza"), centro de coste): si el clasificador asigna centros de coste distintos a filas distintas con el mismo servicio, se generan tantas UC como pares (CC, servicio) distintos. El #campo("origen_id") tiene la forma `PTGAS-exp-{N}-srv-{N}` para servicios distintos a 368, y `PTGAS-exp-{N}-srv-368-cp-{N}` para el servicio 368.
 
-    Para las #campo("retribuciones extra") (las que NO están en proyecto general), tanto el centro de coste como la actividad se determinan con los módulos de clasificación de presupuesto (no con la tabla servicio→CC), igual que se hace en el traductor de presupuesto. El elemento de coste se construye con el mismo esquema `ZZZ-XXX-YYY` que las ordinarias. Se genera una unidad de coste por fila de retribución extra. El #campo("origen_id") tiene la forma `PTGAS-extra-exp-{N}-{proyecto}`.
+    // Para las #campo("retribuciones extra") (las que NO están en proyecto general), tanto el centro de coste como la actividad se determinan con los módulos de clasificación de presupuesto (no con la tabla servicio→CC), igual que se hace en el traductor de presupuesto. El elemento de coste se construye con el mismo esquema `ZZZ-XXX-YYY` que las ordinarias. Se genera una unidad de coste por fila de retribución extra. El #campo("origen_id") tiene la forma `PTGAS-extra-exp-{N}-{proyecto}`.
 
-    Si para alguna fila (ordinarias o extras) el clasificador no resuelve centro de coste o actividad, esa fila se descarta y se reporta en la #app como aviso (número de registros e importe agregado), análogamente a lo que se hace cuando no resuelven XXX o YYY.
+    // Si para alguna fila (ordinarias o extras) el clasificador no resuelve centro de coste o actividad, esa fila se descarta y se reporta en la #app como aviso (número de registros e importe agregado), análogamente a lo que se hace cuando no resuelven XXX o YYY.
 ]
 
-Las unidades de coste de seguridad social se crean *por persona* (no por expediente), agregando todos los expedientes que tenga la persona en el año. El detalle del cálculo se desarrolla en la sección «Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social». La idea es: para cada persona se conoce su coste social total cotizado en el año (suma de los registros con #campo("aplicación") que empieza por #val("12") en todos sus expedientes); y se conocen las unidades de coste retributivas que hemos generado para sus expedientes (con sus pares centro de coste, actividad). El coste social total se reparte proporcionalmente al peso retributivo de cada par (centro de coste, actividad).
+// Las unidades de coste de seguridad social se crean *por persona* (no por expediente), agregando todos los expedientes que tenga la persona en el año. El detalle del cálculo se desarrolla en la sección «Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social». La idea es: para cada persona se conoce su coste social total cotizado en el año (suma de los registros con #campo("aplicación") que empieza por #val("12") en todos sus expedientes); y se conocen las unidades de coste retributivas que hemos generado para sus expedientes (con sus pares centro de coste, actividad). El coste social total se reparte proporcionalmente al peso retributivo de cada par (centro de coste, actividad).
 
 
 
-=== Tratamiento del PVI y del PDI
+// === Tratamiento del PVI y del PDI
 
-El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»).
+// El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»).
 
-Vamos a generar unidades de costes con sus tres coordenadas: elemento de coste, centro de coste y actividad. Primero habrá unas unidades (de poco importe normalmente) que irán a unidades completamente definidas y luego nos quedara una masa económica normalmente grande que irá a unas reglas de reparto complejas: lo que denominamos #nombre-regla[Regla 23].
+// Vamos a generar unidades de costes con sus tres coordenadas: elemento de coste, centro de coste y actividad. Primero habrá unas unidades (de poco importe normalmente) que irán a unidades completamente definidas y luego nos quedara una masa económica normalmente grande que irá a unas reglas de reparto complejas: lo que denominamos #nombre-regla[Regla 23].
 
-==== Tratamiento de atrasos
+// ==== Tratamiento de atrasos
 
-Hay un problema con los atrasos (#campo("concepto_retributivo") igual a #val("30") o #val("87")). Puede ser una masa económica grande y su reparto no dependen, para cada expediente, de la actividad que haya desarrollado el profesor en ese año, sino de la actividad que haya desarrollado en años anteriores. Lo que haremos es agrupar todos esos pagos de atrasos en una bolsa común y apartarlos de la regla 23. Más adelante repartiremos todo lo que hay en esa bolsa con una distribución similar a la que se aplica en promedio a todo el PDI + PVI. De momento, por tanto, gestiona esa bolsa y en la #app muestra el total que hay en esa bolsa común de atrasos y que podamos ver el detalle.
+// Hay un problema con los atrasos (#campo("concepto_retributivo") igual a #val("30") o #val("87")). Puede ser una masa económica grande y su reparto no dependen, para cada expediente, de la actividad que haya desarrollado el profesor en ese año, sino de la actividad que haya desarrollado en años anteriores. Lo que haremos es agrupar todos esos pagos de atrasos en una bolsa común y apartarlos de la regla 23. Más adelante repartiremos todo lo que hay en esa bolsa con una distribución similar a la que se aplica en promedio a todo el PDI + PVI. De momento, por tanto, gestiona esa bolsa y en la #app muestra el total que hay en esa bolsa común de atrasos y que podamos ver el detalle.
 
-Después de esto, si algún expediente no ha tenido ingresos en el año, apártalo y, con la #app permiteme saber cuántos y cuáles has apartado. Además, destaca de algún modo expedientes que solo han tenido retribución por atrasos.
+// Después de esto, si algún expediente no ha tenido ingresos en el año, apártalo y, con la #app permiteme saber cuántos y cuáles has apartado. Además, destaca de algún modo expedientes que solo han tenido retribución por atrasos.
 
-==== Tratamiento de despidos
+// ==== Tratamiento de despidos
 
-Cuando el #campo("concepto_retributivo") es #val("47"), estamos antes despidos que pueden financiarse con cargo a un proyecto específico o con cargo a fondos generales.
+// Cuando el #campo("concepto_retributivo") es #val("47"), estamos antes despidos que pueden financiarse con cargo a un proyecto específico o con cargo a fondos generales.
 
-Si el #campo("proyecto") es #val("23G019"), la actividad es #val("otras-ait-financiación-propia") y el centro de coste es #val("vi"). En otro caso, el centro de coste y la actividad se decide de acuerdo a los módulos que hemos usado en presupuesto y nóminas para decidir estos valores.
+// Si el #campo("proyecto") es #val("23G019"), la actividad es #val("otras-ait-financiación-propia") y el centro de coste es #val("vi"). En otro caso, el centro de coste y la actividad se decide de acuerdo a los módulos que hemos usado en presupuesto y nóminas para decidir estos valores.
 
-==== Tratamiento de indemnizaciones por asistencias (tribunales y otros)
+// ==== Tratamiento de indemnizaciones por asistencias (tribunales y otros)
 
-Cuando el #campo("concepto_retributivo") es #val("48"), estamos antes indemnizaciones por asistencias a tribunales y similares. Estas indemnizaciones se van al elemento de coste #val("otras-indemnizaciones"). #nota[Podemos refinar esto en función de la figura.]
+// Cuando el #campo("concepto_retributivo") es #val("48"), estamos antes indemnizaciones por asistencias a tribunales y similares. Estas indemnizaciones se van al elemento de coste #val("otras-indemnizaciones"). #nota[Podemos refinar esto en función de la figura.]
 
-El centro de coste y la actividad de estas indemnizaciones se han de obtener del mismo modo que hacemos con el presupuesto y nóminas. Aquí, el proyecto es importante, pero usa las tablas de información que han servido en otras ocasiones para decidir centro de coste y actividad.
+// El centro de coste y la actividad de estas indemnizaciones se han de obtener del mismo modo que hacemos con el presupuesto y nóminas. Aquí, el proyecto es importante, pero usa las tablas de información que han servido en otras ocasiones para decidir centro de coste y actividad.
 
 ==== Tratamiento de costes sociales calculados
 
@@ -3675,82 +3675,126 @@ La unidad de coste que creamos tendrá como importe la suma de `CONTINGENCIAS_CO
 En la #app hemos de poder ver todas las personas que tienen costes sociales calculados y, al pinchar en una fila, su detalle de cálculo (con el desglose de los conceptos que componen el coste social calculado), así como los datos de su relación funcionarial con la universidad.
 
 
-==== Tratamiento de los cargos que se pueden asociar a un proyecto específico
+// ==== Tratamiento de los cargos que se pueden asociar a un proyecto específico
 
-Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics (Docents)) o es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), y el #campo("proyecto") no está en TABLA-PROYECTOS-GENERALES, estamos ante el ejercicio de «cargos» que se pueden asociar a un proyecto específico. Son coste del proyecto, sin más.
+// Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics (Docents)) o es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), y el #campo("proyecto") no está en TABLA-PROYECTOS-GENERALES, estamos ante el ejercicio de «cargos» que se pueden asociar a un proyecto específico. Son coste del proyecto, sin más.
 
-La TABLA-PROYECTOS-GENERALES recoge los proyectos que, a efectos de esta regla, NO se consideran «proyecto específico» (son proyectos de carácter general donde el complemento por cargo no debe imputarse al proyecto, sino tratarse como retribución ordinaria):
+// La TABLA-PROYECTOS-GENERALES recoge los proyectos que, a efectos de esta regla, NO se consideran «proyecto específico» (son proyectos de carácter general donde el complemento por cargo no debe imputarse al proyecto, sino tratarse como retribución ordinaria):
 
-#align(center, table(
-    columns: 1,
-    align: left,
-    table.header(table.hline(), [#campo("proyecto")], table.hline()),
-    val("23G019"),
-    val("00000"),
-    val("1G019"),
-    val("02G041"),
-    val("1G046"),
-    val("11G006"),
-    val("07G011"),
-    val("1I235"),
-    val("22G010"),
-    val("11G003"),
-    table.hline(),
-))
-#nota[Completar tabla con la descripción de cada proyecto general.]
+// #align(center, table(
+//     columns: 1,
+//     align: left,
+//     table.header(table.hline(), [#campo("proyecto")], table.hline()),
+//     val("23G019"),
+//     val("00000"),
+//     val("1G019"),
+//     val("02G041"),
+//     val("1G046"),
+//     val("11G006"),
+//     val("07G011"),
+//     val("1I235"),
+//     val("22G010"),
+//     val("11G003"),
+//     table.hline(),
+// ))
+// #nota[Completar tabla con la descripción de cada proyecto general.]
 
-En el código, la constante análoga es `_PROYECTOS_GENERALES` en #ruta("coana/fase1/nóminas/regla_23.py").
+// En el código, la constante análoga es `_PROYECTOS_GENERALES` en #ruta("coana/fase1/nóminas/regla_23.py").
 
-Todos estos importes se van a descartar porque son necesariamente de cargos "oficiales" y vamos a seguir una aproximación diferente: los vamos a calcular. Es decir, si departamento necesita un director y una secretario para funcionar, para cada departamento crearmos la unidad de coste pertinente. Lo mismo con titulaciones, centros, etcétera.
-
-// #reglas[
-// - #regla-nombre("Para cada departamento, crea el coste de sus cargos")
-//   Para cada departamento crea dos unidades de coste, una para la dirección del departamento y otra la secretaria del departamento. Sus coordenadas son:
-//     - Importe: 14
-
-==== Generación de unidades de coste calculadas a partir de actividades con cargos
-
-#figure(
-    align(center, etapa-cargos()),
-    caption: [Etapa de cargos académicos: ficheros de entrada y salidas que produce.],
-)
-
-Esta etapa cubre las unidades de coste asociadas a personas que ocupan _cargos académicos_ (dirección de departamento, vicerrectorados, decanatos, etc.). En la #app, todo lo que aquí se describe vive bajo el menú raíz «Cargos académicos», con dos sub-secciones:
-
-- *Categoría PDI/PVI*: visualiza el cálculo previo (descrito a continuación, antes de la sub-sección «Departamentos») que asocia cada persona con su categoría última de PDI/PVI. Se materializa en #ruta("data", "fase1", "auxiliares", "categoría_última_pdi_pvi.parquet").
-- *Departamentos*: visualiza el resultado de la sub-sección #emph[Departamentos] de abajo, listando los cargos que tiene cada departamento y la categoría de cada persona. Se materializa en #ruta("data", "fase1", "auxiliares", "cargos_departamentos.parquet").
-
-#nota[Pendiente: construir tabla con relación de titulaciones y otras actividades. De momento solo tenemos departamentos.]
-
-Nos interesa, para cualquier persona que haya aparecido en la nómina del año y tenga expediente de PDI o PVI, asociar su #campo("per_id") con la categoría de PDI o PVI que tenía en la última nómina en la que cobró algun #campo("concepto retributivo") de valor #val("19") o #val("64").
-
-Quisiera que la #app mostrara la relación de esas personas (pon su nombre) y la categoría última junto con la información de ese último cobro por concepto 19 o 64 (fecha, importe, concepto retributivo, proyecto, centro, aplicación, programa). Esto es para comprobar que la información que tenemos es correcta y que el proceso de asociación de personas con categorías de PDI o PVI es correcto.
-
-Hay una previa y es dejar en la carga de #ruta("personas cargos.xlsx") solo las filas en las que haya al menos un día de ejercicio de la actividad en el año analizado, para evitar ruido. Para eso, hay que eliminar las filas en las que no haya ningún día de ejercicio en el año analizado, lo que se puede hacer con la información de las columnas de #campo("fecha_inicio") y #campo("fecha_fin") de cada actividad.
-
-Otra fase de filtrado previa hace que solo se carguen las filas #ruta("cargos.xlsx") cuya #campo("cuantía") sea mayor que cero.
-
-===== Departamentos
-
-Vamos a crear unidades de coste calculadas para los cargos que van asociados a los departamentos de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS. Para cada departamento, conocido el código de centro de coste por ser segunda columna de esa tabla, has de buscar su número de servicio. Para eso, busca en la tabla #ruta("inventario", "servicios"). Con ese número, mira en #ruta("personas cargos.xlsx") quién ha ocupado algún cargo de ese servicio en al menos un día. Averigua qué categoría tiene esa persona el último día que cobró por el concepto 19 o el 64 (se ha precalculado).
-
-En la #app, muestra, para cada departamento las personas que han ocupado algún cargo y los períodos en los que lo han hecho.
-
-// Ahora, para cada Departamento, vamos a crear, en principio, dos unidades de coste:
-
-// - Una para la dirección del departanento (código de cargo #val("")), que tiene:
-//     - elemento de coste: #etqele("pdi-XXX-cargos"), donde XXX es la categoría de la persona que ocupa el cargo. Si hay dos o más personas ocupándolo
-//     - actividad: #etqact("dag-YYY"), donde YYY es el código del departamento, que es la segunda columna de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS
-//     - centro de coste: el que corresponda al departamento, según la segunda columna de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS
+// Todos estos importes se van a descartar porque son necesariamente de cargos "oficiales" y vamos a seguir una aproximación diferente: los vamos a calcular. Es decir, si departamento necesita un director y una secretario para funcionar, para cada departamento crearmos la unidad de coste pertinente. Lo mismo con titulaciones, centros, etcétera.
 
 
+// ==== Generación de unidades de coste calculadas a partir de actividades con cargos
 
-==== Elementos de coste
+// #figure(
+//     align(center, etapa-cargos()),
+//     caption: [Etapa de cargos académicos: ficheros de entrada y salidas que produce.],
+// )
 
-La generación de elementos de coste para PVI y PDI sigue la misma estructura `ZZZ-XXX-YYY` descrita en el apartado anterior, con `ZZZ` = #val("piyotper") para PVI y #val("pdi") para PDI, y las reglas específicas de `XXX` de la tabla anterior.
+// Esta etapa cubre las unidades de coste asociadas a personas que ocupan _cargos académicos_ (dirección de departamento, vicerrectorados, decanatos, etc.). En la #app, todo lo que aquí se describe vive bajo el menú raíz «Cargos académicos», con dos sub-secciones:
 
-#nota[Los detalles de la generación de unidades de coste para PVI y PDI (agrupación, cálculo de actividad y centro de coste) para conceptos especiales se definirán en un siguiente paso. De momento, vamos a ir fijando la regla 23.]
+// - *Categoría PDI/PVI*: visualiza el cálculo previo (descrito a continuación, antes de la sub-sección «Departamentos») que asocia cada persona con su categoría última de PDI/PVI. Se materializa en #ruta("data", "fase1", "auxiliares", "categoría_última_pdi_pvi.parquet").
+// - *Departamentos*: visualiza el resultado de la sub-sección #emph[Departamentos] de abajo, listando los cargos que tiene cada departamento y la categoría de cada persona. Se materializa en #ruta("data", "fase1", "auxiliares", "cargos_departamentos.parquet").
 
+// #nota[Pendiente: construir tabla con relación de titulaciones y otras actividades. De momento solo tenemos departamentos.]
+
+// Nos interesa, para cualquier persona que haya aparecido en la nómina del año y tenga expediente de PDI o PVI, asociar su #campo("per_id") con la categoría de PDI o PVI que tenía en la última nómina en la que cobró algun #campo("concepto retributivo") de valor #val("19") o #val("64").
+
+// Quisiera que la #app mostrara la relación de esas personas (pon su nombre) y la categoría última junto con la información de ese último cobro por concepto 19 o 64 (fecha, importe, concepto retributivo, proyecto, centro, aplicación, programa). Esto es para comprobar que la información que tenemos es correcta y que el proceso de asociación de personas con categorías de PDI o PVI es correcto.
+
+// Hay una previa y es dejar en la carga de #ruta("personas cargos.xlsx") solo las filas en las que haya al menos un día de ejercicio de la actividad en el año analizado, para evitar ruido. Para eso, hay que eliminar las filas en las que no haya ningún día de ejercicio en el año analizado, lo que se puede hacer con la información de las columnas de #campo("fecha_inicio") y #campo("fecha_fin") de cada actividad.
+
+// Otra fase de filtrado previa hace que solo se carguen las filas #ruta("cargos.xlsx") cuya #campo("cuantía") sea mayor que cero.
+
+// ===== Departamentos
+
+// Vamos a crear unidades de coste calculadas para los cargos que van asociados a los departamentos de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS. Para cada departamento, conocido el código de centro de coste por ser segunda columna de esa tabla, has de buscar su número de servicio. Para eso, busca en la tabla #ruta("inventario", "servicios"). Con ese número, mira en #ruta("personas cargos.xlsx") quién ha ocupado algún cargo de ese servicio en al menos un día. Averigua qué categoría tiene esa persona el último día que cobró por el concepto 19 o el 64 (se ha precalculado).
+
+// En la #app, muestra, para cada departamento las personas que han ocupado algún cargo y los períodos en los que lo han hecho.
+
+// ==== Elementos de coste
+
+// La generación de elementos de coste para PVI y PDI sigue la misma estructura `ZZZ-XXX-YYY` descrita en el apartado anterior, con `ZZZ` = #val("piyotper") para PVI y #val("pdi") para PDI, y las reglas específicas de `XXX` de la tabla anterior.
+
+// #nota[Los detalles de la generación de unidades de coste para PVI y PDI (agrupación, cálculo de actividad y centro de coste) para conceptos especiales se definirán en un siguiente paso. De momento, vamos a ir fijando la regla 23.]
+
+// ---- XXXX ----
+
+=== Decisión de centro de coste y de la actividad a partir de registros de nómina
+
+==== Reglas para el tratamiento de los costes del PTGAS
+
+/ Primero.- Retribuciones extras: :
+
+    En primer lugar, para todos los conceptos retributivos de las retribuciones extras (cuando el proyecto es distinto a 1G019, 23G019, 02G041, 11G006, 1G046 o 00000), el centro de coste y la actividad se han de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
+
+/ Segundo.- Retribuciones ordinarias: :
+
+    + *Tratamiento de indemnizaciones por asistencias (tribunales y otros)*: Cuando el concepto_retributivo es #val("48"), estamos ante indemnizaciones por asistencias a tribunales y similares. La actividad a la que se han de aplicar estas retribuciones es la #etqact("dag-sgc-indemnizaciones-asistencias"). Podemos refinar esto en función de la figura. El centro de coste ha de ser el que corresponda al Servicio indicado en la tabla de la regla «Por servicio existe servicio y el proyecto uno de la línea» (en la sección «Preparación de un módulo para clasificar centros de coste»). Esa tabla da, para cada servicio, un par (centro_de_coste, actividad) que es la asignación más precisa que tenemos. Si para algún servicio la actividad de la tabla está vacía o no hay entrada en la tabla, se usa #etqact("dag-general-universidad") como atrapalotodo (es decir, el «sitio donde aparcar» el coste cuando no se ha conseguido mayor precisión).
+
+    + *Resto de retribuciones ordinarias*: Para el resto de conceptos retributivos de las retribuciones ordinarias, mapeamos cada servicio al centro de coste y a la actividad que le corresponden usando la tabla de la regla «Por servicio existe servicio y el proyecto uno de la línea»(en la sección «Preparación de un módulo para clasificar centros de coste»).
+
+        / Caso especial: :  para el servicio #val("368") (personal de suport, conserjerías), la tabla anterior no es suficiente porque el coste se imputa físicamente al centro donde la persona presta el servicio, no al servicio nominal. En ese caso se usa el centro_plaza del registro de nómina, que es un código de servicio que hemos de mapear al centro de coste correspondiente para formar el par (centro de coste, actividad). Si ahí tampoco hay entrada de actividad, se aplica también #etqact("dag-general-universidad").
+
+            El importe de la unidad de coste creada es el importe total de las retribuciones ordinarias del par elemento-servicio (o elemento-centro_plaza para el servicio #val("368"))).
+
+/ Tercero.- Costes sociales: :
+
+    Tras ejecutar los pasos primero y segundo, cada trabajador tendra un importe de coste aplicado a uno/a ó varios/as centros y actividades. Pues bien, el importe de seguridad social de cada trabajador se ha de imputar de forma proporcional a dichos centros y actividades.
+
+==== Reglas para el tratamiento de los costes del PDI/PVI
+
+El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»).
+Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y actividades. Primero habrá unas unidades (de poco importe normalmente) que irán a unidades completamente definidas y luego nos quedará una masa económica normalmente grande que irá a unas reglas de reparto complejas: lo que denominamos Regla 23.
+
+/ Primero.- Retribuciones extras: : En primer lugar, para todos los conceptos retributivos de las retribuciones extras en las que el proyecto es distinto al #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), salvo los conceptos #val("19") y #val("64") de los proyectos #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003"), el centro de coste y la actividad se han de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
+
+/ Segundo.- Retribuciones ordinarias, es decir, todos los gastos de cualquier concepto retributivo de los proyectos #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), y los gastos de los conceptos #val("19") y #val("64") en los proyectos #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003"). Hay que seguir los siguientes pasos: :
+
+    - *Tratamiento de atrasos*: Hay un problema con los atrasos (concepto_retributivo igual a #val("30") u #val("87")). Puede ser una masa económica grande y su reparto no depende, para cada expediente, de la actividad que haya desarrollado el profesor en ese año, sino de la actividad que haya desarrollado en años anteriores. Lo que haremos es agrupar todos esos pagos de atrasos en una bolsa común y apartarlos de la regla 23. Más adelante repartiremos todo lo que hay en esa bolsa con una distribución similar a la que se aplica en promedio a todo el PDI + PVI. De momento, por tanto, gestiona esa bolsa y en la #app muestra el total que hay en esa bolsa común de atrasos y que podamos ver el detalle.
+
+        Después de esto, si algún expediente no ha tenido ingresos en el año, apártalo y, con la #app permíteme saber cuántos y cuáles has apartado. Además, destaca de algún modo expedientes que solo han tenido retribución por atrasos.
+
+    - *Tratamiento de despidos*: Cuando el concepto_retributivo es #val("47"), estamos ante despidos que pueden financiarse con cargo a un proyecto específico o con cargo a fondos generales.
+
+        Si el proyecto es #val("23G019"), la actividad es #etqact("otras-ait-financiación-propia") y el centro de coste es #val("vi"). En otro caso, el centro de coste y la actividad se decide de acuerdo a los módulos que hemos usado en presupuesto y nóminas para decidir estos valores.
+
+    - *Tratamiento de indemnizaciones por asistencias (tribunales y otros)*: Cuando el concepto_retributivo es #val("48"), estamos ante indemnizaciones por asistencias a tribunales y similares. La actividad a las que se han de aplicar estas retribuciones es la etiqueta #etqact("dag-sgc-indemnizaciones-asistencias"). Podemos refinar esto en función de la figura. El centro de coste ha de ser el que corresponda al Servicio indicado en la tabla de la regla Por servicio existe servicio y el proyecto uno de la línea (en la sección «Preparación de un módulo para clasificar centros de coste»).
+
+    - Tratamiento de los cargos académicos:
+
+        Cuando el concepto_retributivo es #val("19") (Complement específic per càrrecs acadèmics (Docents)) o es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), estamos ante el ejercicio de «cargos».
+
+        El centro de coste y la actividad de estos cargos se va a determinar de la siguiente forma:
+
+        #nota[Pendiente de indicar]
+
+    - *REGLA 23*: El resto de retribuciones ordinarias de cada PDI/PVI serán costes Regla 23, que habrán de ser repartidos posteriormente entre todas las actividades realizadas por cada trabajador. Dicho reparto se habrá de efectuar atendiendo al porcentaje de horas de dedicación del PDI/PVI en cuestión a cada una de estas actividades.
+
+    Para el cálculo de dichos porcentajes de dedicación se utilizará el procedimiento establecido en el apartado siguiente:
+
+
+// ---- XXXX ----
 
 ==== Regla 23
 

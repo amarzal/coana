@@ -42,3 +42,28 @@ def obtener_cargo(idx: int) -> RecordResponse:
     if rec is None:
         raise HTTPException(status_code=404, detail=f"índice {idx} fuera de rango")
     return rec
+
+
+@router.get("/personas-cargos", response_model=ListResponse)
+def listar_personas_cargos(
+    params: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Vista bruta de `personas cargos.xlsx`, enriquecida con el nombre."""
+    return svc.listar_personas_cargos(params)
+
+
+@router.get("/cargos", response_model=ListResponse)
+def listar_cargos(
+    params: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Catálogo de cargos (`cargos.xlsx`)."""
+    return svc.listar_cargos(params)
+
+
+@router.get("/cargos/{cargo}/personas", response_model=ListResponse)
+def listar_personas_de_cargo(
+    cargo: str,
+    params: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Personas y expedientes que han ocupado el cargo en el año analizado."""
+    return svc.listar_personas_de_cargo(cargo, params)

@@ -32,6 +32,9 @@ from coana.web.services.query import QueryParams, apply_query
 PATH_CATEGORIA = DIR_AUX / "categoría_última_pdi_pvi.parquet"
 PATH_DEPARTAMENTOS = DIR_AUX / "cargos_departamentos.parquet"
 PATH_PERSONAS = DIR_ENTRADA / "nóminas" / "personas.xlsx"
+PATH_PERSONAS_CARGOS = DIR_ENTRADA / "nóminas" / "personas cargos.xlsx"
+PATH_EXPEDIENTES_RH = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+PATH_CARGOS = DIR_ENTRADA / "nóminas" / "cargos.xlsx"
 
 
 # ----------------------------------------------------------------------
@@ -208,6 +211,264 @@ def obtener_cargo(idx: int) -> RecordResponse | None:
             ],
         ))
     return RecordResponse(main=main, sections=sections)
+
+
+# ----------------------------------------------------------------------
+# Personas cargos (fichero de entrada bruto, enriquecido)
+# ----------------------------------------------------------------------
+
+_COLUMNS_PC: list[ColumnSpec] = [
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="cargo", label="Cargo", format="text"),
+    ColumnSpec(name="servicio", label="Servicio", format="id"),
+    ColumnSpec(name="titulación", label="Titulación", format="text"),
+    ColumnSpec(name="fecha_inicio", label="Inicio", format="date"),
+    ColumnSpec(name="fecha_fin", label="Fin", format="date"),
+    ColumnSpec(name="fecha_inicio_cobra", label="Inicio cobra", format="date"),
+    ColumnSpec(name="fecha_fin_cobra", label="Fin cobra", format="date"),
+]
+_SEARCH_PC = ["persona", "cargo"]
+
+
+@lru_cache(maxsize=2)
+def _personas_cargos_cached(path: str, mtime_ns: int) -> pl.DataFrame:
+    del mtime_ns
+    p = Path(path)
+    if not p.exists():
+        return pl.DataFrame()
+    return read_excel(p)
+
+
+def _personas_cargos() -> pl.DataFrame:
+    return _personas_cargos_cached(str(PATH_PERSONAS_CARGOS), _mtime_ns(PATH_PERSONAS_CARGOS))
+
+
+@lru_cache(maxsize=2)
+def _per_ids_pdi_pvi_cached(path: str, mtime_ns: int) -> set[int]:
+    """per_ids con al menos un expediente de sector PDI o PVI (codificado como PI)."""
+    del mtime_ns
+    p = Path(path)
+    if not p.exists():
+        return set()
+    df = read_excel(p)
+    return set(
+        df.filter(pl.col("sector").is_in(["PDI", "PI"]))
+        .get_column("per_id")
+        .drop_nulls()
+        .unique()
+        .to_list()
+    )
+
+
+def _per_ids_pdi_pvi() -> set[int]:
+    return _per_ids_pdi_pvi_cached(str(PATH_EXPEDIENTES_RH), _mtime_ns(PATH_EXPEDIENTES_RH))
+
+
+# Año analizado. TODO: parametrizar (mismo TODO que en otros sitios).
+_AÑO_ANALIZADO = 2025
+
+
+def listar_personas_cargos(params: QueryParams) -> ListResponse:
+    df = _personas_cargos()
+    if df.is_empty():
+        return ListResponse(columns=_COLUMNS_PC, rows=[], total=0)
+    # Filtro: solo filas con al menos un día de actividad en el año
+    # analizado (fecha_inicio ≤ 31-dic-AÑO y (fecha_fin es null o
+    # fecha_fin ≥ 1-ene-AÑO)).
+    fin_año = pl.date(_AÑO_ANALIZADO, 12, 31)
+    inicio_año = pl.date(_AÑO_ANALIZADO, 1, 1)
+    activo = (
+        pl.col("fecha_inicio").cast(pl.Date) <= fin_año
+    ) & (
+        pl.col("fecha_fin").is_null()
+        | (pl.col("fecha_fin").cast(pl.Date) >= inicio_año)
+    )
+    df = df.filter(activo)
+    # Filtro de sector: la persona ha de tener al menos un expediente
+    # PDI o PVI (codificado como PI). Las personas con expedientes solo
+    # de PTGAS u otros sectores quedan fuera.
+    pdi_pvi = _per_ids_pdi_pvi()
+    if pdi_pvi:
+        df = df.filter(pl.col("per_id").is_in(list(pdi_pvi)))
+    df = _enriquecer_per_id(df)
+    nombres = [c.name for c in _COLUMNS_PC if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_PC)
+    rows = [_serialize_dates(r) for r in df.to_dicts()]
+    return ListResponse(columns=_COLUMNS_PC, rows=rows, total=total, column_stats=stats)
+
+
+# ----------------------------------------------------------------------
+# Catálogo de cargos (cargos.xlsx)
+# ----------------------------------------------------------------------
+
+_COLUMNS_CARGOS: list[ColumnSpec] = [
+    ColumnSpec(name="cargo", label="Cargo", format="text"),
+    ColumnSpec(name="nombre", label="Nombre", format="text"),
+    ColumnSpec(name="cuantía", label="Cuantía", format="euro"),
+    ColumnSpec(name="tipo_cargo", label="Tipo cargo", format="text"),
+    ColumnSpec(name="n_pdi", label="PDI", format="int"),
+    ColumnSpec(name="n_pvi", label="PVI", format="int"),
+    ColumnSpec(name="n_ptgas", label="PTGAS", format="int"),
+    ColumnSpec(name="n_otros", label="Otros", format="int"),
+    ColumnSpec(name="n_total", label="TOTAL", format="int"),
+]
+_SEARCH_CARGOS = ["cargo", "nombre"]
+
+
+@lru_cache(maxsize=2)
+def _cargos_xlsx_cached(path: str, mtime_ns: int) -> pl.DataFrame:
+    del mtime_ns
+    p = Path(path)
+    if not p.exists():
+        return pl.DataFrame()
+    return read_excel(p)
+
+
+# Año analizado (ya definido más arriba como _AÑO_ANALIZADO).
+_PRELACIÓN_SECTOR_CARGOS = ["PTGAS", "PVI", "PDI", "Otros"]
+
+
+@lru_cache(maxsize=2)
+def _sector_principal_por_persona_cached(path_rh: str, mtime_rh: int) -> pl.DataFrame:
+    """Para cada per_id, sector principal (prelación PTGAS > PVI > PDI > Otros)."""
+    del mtime_rh
+    p = Path(path_rh)
+    if not p.exists():
+        return pl.DataFrame(schema={"per_id": pl.Int64, "sector_principal": pl.Utf8})
+    df = read_excel(p)
+    mapeo = {"PAS": "PTGAS", "PI": "PVI"}
+    df = df.with_columns(
+        pl.col("sector").replace(mapeo).fill_null("Otros").alias("_s"),
+    ).with_columns(
+        pl.when(pl.col("_s").is_in(["PDI", "PTGAS", "PVI"]))
+        .then(pl.col("_s"))
+        .otherwise(pl.lit("Otros"))
+        .alias("_s"),
+    )
+    prio = {s: i for i, s in enumerate(_PRELACIÓN_SECTOR_CARGOS)}
+    df = df.with_columns(
+        pl.col("_s").replace({k: str(v) for k, v in prio.items()}).alias("_p"),
+    )
+    return (
+        df.sort("_p")
+        .group_by("per_id")
+        .first()
+        .select("per_id", pl.col("_s").alias("sector_principal"))
+    )
+
+
+def _sector_principal_por_persona() -> pl.DataFrame:
+    return _sector_principal_por_persona_cached(
+        str(PATH_EXPEDIENTES_RH), _mtime_ns(PATH_EXPEDIENTES_RH),
+    )
+
+
+def _personas_por_cargo_en_año() -> pl.DataFrame:
+    """Cuenta personas distintas por (cargo, sector) que han ocupado el cargo
+    al menos un día en el año analizado, agregadas en columnas n_pdi, n_pvi,
+    n_ptgas, n_total."""
+    pc = _personas_cargos()
+    if pc.is_empty():
+        return pl.DataFrame(schema={
+            "cargo": pl.Utf8,
+            "n_pdi": pl.UInt32, "n_pvi": pl.UInt32,
+            "n_ptgas": pl.UInt32, "n_total": pl.UInt32,
+        })
+    fin_año = pl.date(_AÑO_ANALIZADO, 12, 31)
+    inicio_año = pl.date(_AÑO_ANALIZADO, 1, 1)
+    activo = (
+        pl.col("fecha_inicio").cast(pl.Date) <= fin_año
+    ) & (
+        pl.col("fecha_fin").is_null()
+        | (pl.col("fecha_fin").cast(pl.Date) >= inicio_año)
+    )
+    sub = pc.filter(activo).select("per_id", pl.col("cargo").cast(pl.Utf8))
+    sub = sub.join(
+        _sector_principal_por_persona(), on="per_id", how="left",
+    ).with_columns(pl.col("sector_principal").fill_null("Otros"))
+    by_sector = (
+        sub.group_by("cargo", "sector_principal")
+        .agg(pl.col("per_id").n_unique().alias("n"))
+        .pivot(on="sector_principal", index="cargo", values="n")
+        .fill_null(0)
+    )
+    # Garantizar las columnas PDI/PVI/PTGAS/Otros (si no aparecen, ponerlas a 0).
+    for sec in ["PDI", "PVI", "PTGAS", "Otros"]:
+        if sec not in by_sector.columns:
+            by_sector = by_sector.with_columns(pl.lit(0).cast(pl.UInt32).alias(sec))
+    total = (
+        sub.group_by("cargo")
+        .agg(pl.col("per_id").n_unique().alias("n_total"))
+    )
+    out = by_sector.join(total, on="cargo", how="left").rename({
+        "PDI": "n_pdi", "PVI": "n_pvi", "PTGAS": "n_ptgas", "Otros": "n_otros",
+    })
+    cols_final = ["cargo", "n_pdi", "n_pvi", "n_ptgas", "n_otros", "n_total"]
+    return out.select(*cols_final)
+
+
+_COLUMNS_CARGO_PERSONAS: list[ColumnSpec] = [
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="sector", label="Sector", format="text"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="fecha_inicio", label="Inicio", format="date"),
+    ColumnSpec(name="fecha_fin", label="Fin", format="date"),
+    ColumnSpec(name="fecha_inicio_cobra", label="Inicio cobra", format="date"),
+    ColumnSpec(name="fecha_fin_cobra", label="Fin cobra", format="date"),
+]
+
+
+def listar_personas_de_cargo(cargo: str, params: QueryParams) -> ListResponse:
+    """Personas/expedientes que han ocupado el cargo dado en el año analizado."""
+    pc = _personas_cargos()
+    if pc.is_empty():
+        return ListResponse(columns=_COLUMNS_CARGO_PERSONAS, rows=[], total=0)
+    fin_año = pl.date(_AÑO_ANALIZADO, 12, 31)
+    inicio_año = pl.date(_AÑO_ANALIZADO, 1, 1)
+    activo = (
+        pl.col("fecha_inicio").cast(pl.Date) <= fin_año
+    ) & (
+        pl.col("fecha_fin").is_null()
+        | (pl.col("fecha_fin").cast(pl.Date) >= inicio_año)
+    )
+    df = pc.filter((pl.col("cargo").cast(pl.Utf8) == str(cargo)) & activo)
+    if df.is_empty():
+        return ListResponse(columns=_COLUMNS_CARGO_PERSONAS, rows=[], total=0)
+    df = df.join(_sector_principal_por_persona(), on="per_id", how="left").with_columns(
+        pl.col("sector_principal").fill_null("Otros").alias("sector"),
+    )
+    df = _enriquecer_per_id(df)
+    nombres = [c.name for c in _COLUMNS_CARGO_PERSONAS if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(
+        df, params, search_columns=["persona", "sector"],
+    )
+    rows = [_serialize_dates(r) for r in df.to_dicts()]
+    return ListResponse(
+        columns=_COLUMNS_CARGO_PERSONAS, rows=rows,
+        total=total, column_stats=stats,
+    )
+
+
+def listar_cargos(params: QueryParams) -> ListResponse:
+    df = _cargos_xlsx_cached(str(PATH_CARGOS), _mtime_ns(PATH_CARGOS))
+    if df.is_empty():
+        return ListResponse(columns=_COLUMNS_CARGOS, rows=[], total=0)
+    df = df.with_columns(pl.col("cargo").cast(pl.Utf8))
+    df = df.join(_personas_por_cargo_en_año(), on="cargo", how="left")
+    for col in ["n_pdi", "n_pvi", "n_ptgas", "n_otros", "n_total"]:
+        df = df.with_columns(pl.col(col).fill_null(0).cast(pl.Int64))
+    nombres = [c.name for c in _COLUMNS_CARGOS if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_CARGOS)
+    return ListResponse(
+        columns=_COLUMNS_CARGOS, rows=df.to_dicts(),
+        total=total, column_stats=stats,
+    )
 
 
 # ----------------------------------------------------------------------

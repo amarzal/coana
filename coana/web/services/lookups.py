@@ -300,6 +300,68 @@ def lookup_tipo_cargo(valor) -> dict[str, str]:
     return _lookup_simple(_tipos_cargo(), "tipo_cargo", valor)
 
 
+@lru_cache(maxsize=2)
+def _expedientes_rh() -> pl.DataFrame | None:
+    return _safe_read(DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx")
+
+
+@lru_cache(maxsize=2)
+def _expediente_resumen_año() -> pl.DataFrame:
+    """Pre-agrega importe total y nº de líneas por expediente en el año."""
+    p = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+    if not p.exists():
+        return pl.DataFrame()
+    df = read_excel(p)
+    if "fecha" not in df.columns:
+        return pl.DataFrame()
+    año = 2026 if False else 2025  # TODO: parametrizar año analizado
+    return (
+        df.filter(pl.col("fecha").dt.year() == año)
+        .group_by("expediente")
+        .agg(
+            pl.col("importe").sum().alias("importe"),
+            pl.len().alias("n"),
+        )
+    )
+
+
+_SECTOR_NOMBRE = {
+    "PDI": "PDI",
+    "PI": "PVI",
+    "PAS": "PTGAS",
+    "BEC": "Becario",
+}
+
+
+def lookup_expediente(valor) -> dict[str, str]:
+    if valor in (None, ""):
+        return {}
+    try:
+        exp = int(valor)
+    except (ValueError, TypeError):
+        return {}
+    rh = _expedientes_rh()
+    out: dict[str, str] = {}
+    if rh is not None and "expediente" in rh.columns:
+        fila = rh.filter(pl.col("expediente") == exp)
+        if not fila.is_empty():
+            r = fila.row(0, named=True)
+            sector = str(r.get("sector") or "")
+            out["sector"] = _SECTOR_NOMBRE.get(sector, sector)
+    resumen = _expediente_resumen_año()
+    if resumen is not None and not resumen.is_empty():
+        sub = resumen.filter(pl.col("expediente") == exp)
+        if not sub.is_empty():
+            r = sub.row(0, named=True)
+            imp = float(r.get("importe") or 0)
+            n = int(r.get("n") or 0)
+            out["importe 2025"] = (
+                f"{imp:,.2f} €".replace(",", "·").replace(".", ",").replace("·", ".")
+            )
+            out["líneas 2025"] = str(n)
+    return out
+
+
 def lookup_ubicacion(valor) -> dict[str, str]:
     """Lookup por id_ubicación: devuelve área/edificio/planta/etc."""
     if valor is None:
@@ -452,7 +514,75 @@ _LOOKUP_BY_COL = {
     "actividad": lookup_actividad,
     "centro_de_coste": lookup_centro_de_coste,
     "elemento_de_coste": lookup_elemento_de_coste,
+    "expediente": lookup_expediente,
 }
+
+
+# Actividad mensual de cargos académicos (CR 19/64, excluye atrasos
+# 30/87): para una persona en un año dado, importe percibido por mes.
+# Se precalcula al primer uso y se cachea por mtime del xlsx.
+
+_MESES_ABREV = [
+    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic",
+]
+_PATH_NOMINAS_RAW = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+_AÑO_ANALIZADO = 2025  # TODO: parametrizar
+
+
+@lru_cache(maxsize=2)
+def _actividad_cargos_por_persona_mes(path_str: str, mtime_ns: int) -> dict:
+    """Pre-agrega importes por (per_id, mes) de CR 19/64 en el año analizado.
+
+    Devuelve un dict {per_id: {mes(1..12): importe_total}}.
+    """
+    del mtime_ns
+    p = Path(path_str)
+    if not p.exists():
+        return {}
+    nóminas = read_excel(p)
+    # Necesitamos `expediente` (clave de join con expedientes para sacar
+    # per_id), `fecha`, `concepto_retributivo` e `importe`.
+    exp_path = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+    if not exp_path.exists():
+        return {}
+    expedientes = read_excel(exp_path)
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    df = (
+        nóminas.join(
+            expedientes.select("expediente", "per_id"), on="expediente", how="inner",
+        )
+        .filter(cr.is_in(["19", "64"]))
+        .filter(pl.col("fecha").dt.year() == _AÑO_ANALIZADO)
+        .with_columns(pl.col("fecha").dt.month().alias("mes"))
+        .group_by("per_id", "mes")
+        .agg(pl.col("importe").sum().alias("importe"))
+    )
+    out: dict[int, dict[int, float]] = {}
+    for row in df.iter_rows(named=True):
+        out.setdefault(int(row["per_id"]), {})[int(row["mes"])] = float(row["importe"])
+    return out
+
+
+def _actividad_cargo(per_id) -> dict[str, str]:
+    """Devuelve un dict {Ene: «N,NN €», …} solo con meses con importe > 0."""
+    if per_id in (None, ""):
+        return {}
+    try:
+        pid = int(per_id)
+    except (ValueError, TypeError):
+        return {}
+    mapa = _actividad_cargos_por_persona_mes(
+        str(_PATH_NOMINAS_RAW), _mtime_ns(_PATH_NOMINAS_RAW),
+    )
+    meses = mapa.get(pid, {})
+    if not meses:
+        return {}
+    return {
+        _MESES_ABREV[m - 1]: f"{imp:,.2f} €".replace(",", "·").replace(".", ",").replace("·", ".")
+        for m, imp in sorted(meses.items())
+        if imp and imp > 0
+    }
 
 
 def enrich_row(row: dict) -> dict[str, dict[str, str]]:
@@ -468,6 +598,17 @@ def enrich_row(row: dict) -> dict[str, dict[str, str]]:
             data = fn(row[col])
             if data:
                 result[col] = data
+    # Enriquecimiento sintético: actividad mensual del cargo en el año
+    # analizado (sumando líneas con CR 19/64 del per_id, excluye atrasos
+    # CR 30/87). Solo aplica si la fila tiene per_id y cargo.
+    if (
+        "per_id" in row and row["per_id"] not in (None, "")
+        and "cargo" in row and row["cargo"] not in (None, "")
+    ):
+        meses = _actividad_cargo(row["per_id"])
+        if meses:
+            previo = result.get("cargo", {})
+            result["cargo"] = {**previo, **{f"{_AÑO_ANALIZADO} {k}": v for k, v in meses.items()}}
     return result
 
 

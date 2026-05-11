@@ -17,8 +17,10 @@ import {
     PresupuestoArbolCentros,
     PresupuestoArbolElementos,
 } from "@/routes/presupuesto";
+import { CargosCargos } from "@/routes/cargos/Cargos";
 import { CargosCategoria } from "@/routes/cargos/CategoriaPdiPvi";
 import { CargosDepartamentos } from "@/routes/cargos/Departamentos";
+import { CargosPersonasCargos } from "@/routes/cargos/PersonasCargos";
 import { CargosResumen } from "@/routes/cargos/Resumen";
 import { SuperficiesResumen } from "@/routes/superficies/Resumen";
 import { SuperficiesTotales } from "@/routes/superficies/Totales";
@@ -124,6 +126,8 @@ export function App() {
                         <Route path="cargos/resumen" element={<CargosResumen />} />
                         <Route path="cargos/categoria" element={<CargosCategoria />} />
                         <Route path="cargos/departamentos" element={<CargosDepartamentos />} />
+                        <Route path="cargos/personas-cargos" element={<CargosPersonasCargos />} />
+                        <Route path="cargos/cargos" element={<CargosCargos />} />
                         <Route path="superficies/resumen" element={<SuperficiesResumen />} />
                         <Route path="superficies/totales" element={<SuperficiesTotales />} />
                         <Route path="superficies/presencia" element={<SuperficiesPresencia />} />
