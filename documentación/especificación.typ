@@ -3406,7 +3406,25 @@ En la #app se han de mostrar también las unidad de coste que ya se han creado p
 
 ===== PDI + PVI
 
-Sea TABLA-PROYECTOS-GENERALES-NÓMINA esta serie de proyectos: #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") y #val("00000").
+Sea TABLA-PROYECTOS-GENERALES-NÓMINA esta serie de proyectos:
+
+#table(
+    columns: 2,
+    stroke: none,
+    table.header(
+        table.hline(),
+        [*Proyecto*],
+        [*Descripción*],
+        table.hline(),
+    ),
+    val("00000"), [Proyecto general],
+    val("02G041"), [Retribución a profesarado por gestión de intercambios],
+    val("11G006"), [Plan de acciones de gobierno],
+    val("1G019"), [Plantilla universidad],
+    val("1G046"), [Incentivos PDI],
+    val("23G019"), [Fondo de contingencia para despidos],
+    table.hline(),
+)
 
 Cada expediente del PDI/PVI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
 
@@ -3414,7 +3432,7 @@ Cada expediente del PDI/PVI tendrá varias tablas en las que se almacenan los re
 - Otra, #campo("costes sociales calculados"). Para los trabajadores en el régimen de clases pasivas (los que no tienen ningún elemento con aplicación presupuestaria que empiece por #val("12")), se han de calcular los costes de Seguridad Social simulados. Más adelante se explica cómo.
 - Otra, #campo("retribuciones extra")  con los registros (primera regla aplica):
     #reglas[
-        - cuyo #campo("concepto retributivo") no es #val("19") o #val("64") y cuyo proyecto es  #val("07G011"), #val("1I235"), #val("22G010") o #val("11G003"). #nota[Poner nombre proyectos]
+        - cuyo #campo("concepto retributivo") no es #val("19") o #val("64") y cuyo proyecto es  #val("07G011") (Armonización europea), #val("1I235") (Cátedras - Cátedras UNESCO), #val("22G010") (Objetivos de Desarrollo Sostenible, ODS) o #val("11G003") (Prácticas internacionales).
         - cuyo proyecto no es uno de TABLA-PROYECTOS-GENERALES-NÓMINA).
     ]
 - Otra, #campo("retribuciones ordinarias de atrasos") (cuando el proyecto es uno de TABLA-PROYECTOS-GENERALES-NÓMINA), con aquéllas incluidas en los conceptos retributivos #val("30") u #val("87").
@@ -3507,7 +3525,7 @@ Y ahora vamos con una forma de construcción del elemento de coste que los consi
     - e `YYY` depende del tipo de retribución.
 ]
 
-Para deterinar `ZZZ` hemos de prestar atención al sector:
+Para determinar `ZZZ` hemos de prestar atención al sector:
 
 #reglas[
     - el sector PTGAS se corresponde con `ptgas`
