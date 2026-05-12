@@ -186,6 +186,8 @@ _COLS_DETALLE: list[ColumnSpec] = [
     ColumnSpec(name="semanas", label="Semanas", format="int"),
     ColumnSpec(name="horas", label="Horas", format="float"),
     ColumnSpec(name="origen", label="Origen", format="text"),
+    ColumnSpec(name="fecha_inicio", label="Fecha inicio", format="date"),
+    ColumnSpec(name="fecha_fin", label="Fecha fin", format="date"),
 ]
 
 

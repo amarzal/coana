@@ -65,6 +65,7 @@ _SCHEMA_TESIS: dict[str, type] = {
 _SCHEMA_PROYECTOS: dict[str, type] = {
     "per_id": pl.Int64,
     "contrato": pl.Utf8,
+    "proyecto": pl.Utf8,
     "anexo": pl.Utf8,
     "semanas": pl.Int32,
     "horas": pl.Float64,
@@ -443,11 +444,10 @@ def _ocupacion_kalendas(
 
 
 def _proyectos_fechas(ruta_base: Path) -> pl.DataFrame | None:
-    """Devuelve (contrato, fecha_inicio_proy, fecha_fin_proy) para
-    poder enriquecer cada (per_id, contrato) que no traiga fechas
+    """Devuelve (contrato, proyecto, fecha_inicio_proy, fecha_fin_proy)
+    para enriquecer cada (per_id, contrato) que no traiga fechas
     propias. Si el mismo contrato aparece varias veces (una por línea),
-    cogemos la primera ocurrencia — basta con que el rango sea
-    representativo del proyecto.
+    cogemos la primera ocurrencia.
     """
     path = ruta_base / "entrada" / "investigación" / "proyectos en contratos investigación.xlsx"
     if not path.exists():
@@ -460,14 +460,21 @@ def _proyectos_fechas(ruta_base: Path) -> pl.DataFrame | None:
     if "fecha_inicio" not in df.columns or "fecha_fin" not in df.columns:
         return None
 
+    proyecto_expr = (
+        pl.col("proyecto").cast(pl.Utf8)
+        if "proyecto" in df.columns
+        else pl.lit(None, dtype=pl.Utf8).alias("proyecto")
+    )
     return (
         df.select(
             pl.col("contrato").cast(pl.Utf8),
+            proyecto_expr.alias("proyecto"),
             pl.col("fecha_inicio").alias("fecha_inicio_proy"),
             pl.col("fecha_fin").alias("fecha_fin_proy"),
         )
         .group_by("contrato")
         .agg(
+            pl.col("proyecto").first(),
             pl.col("fecha_inicio_proy").first(),
             pl.col("fecha_fin_proy").first(),
         )
@@ -654,6 +661,7 @@ def calcular_horas_proyectos(
         df = df.join(proy_fechas, on="contrato", how="left")
     else:
         df = df.with_columns(
+            pl.lit(None, dtype=pl.Utf8).alias("proyecto"),
             pl.lit(None, dtype=pl.Date).alias("fecha_inicio_proy"),
             pl.lit(None, dtype=pl.Date).alias("fecha_fin_proy"),
         )
@@ -842,9 +850,9 @@ def calcular_horas_proyectos(
     horas = df.select(
         pl.col("per_id"),
         pl.col("contrato"),
+        pl.col("proyecto") if "proyecto" in df.columns
+            else pl.lit(None, dtype=pl.Utf8).alias("proyecto"),
         pl.col("anexo"),
-        # Las filas con horas de Kalendas no tienen "semanas" en
-        # sentido estricto: se deja null para no inducir a error.
         pl.when(pl.col("origen") == "Kalendas")
         .then(pl.lit(None, dtype=pl.Int32))
         .otherwise(pl.col("semanas"))
@@ -916,11 +924,20 @@ def consolidar_dedicacion_investigacion(
         ))
 
     if not proyectos.is_empty():
+        proyecto_id = (
+            pl.col("proyecto")
+            if "proyecto" in proyectos.columns
+            else pl.col("contrato")
+        )
+        desc_expr = pl.concat_str(
+            [pl.col("contrato"), pl.col("anexo").fill_null(pl.lit(""))],
+            separator=" · ",
+        ).str.strip_chars()
         partes_detalle.append(proyectos.select(
             pl.col("per_id"),
             pl.lit("proyectos").alias("tipo"),
-            pl.col("contrato").alias("identificador"),
-            pl.col("anexo").alias("descripción"),
+            proyecto_id.alias("identificador"),
+            desc_expr.alias("descripción"),
             pl.col("semanas"),
             pl.col("horas"),
             pl.col("origen"),
