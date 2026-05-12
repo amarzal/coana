@@ -3787,85 +3787,212 @@ En la #app se ha de mostrar también esta información, para tenerla controlada 
 
 ==== Información de dedicación a investigación
 
-Para cada persona (A partir del  #campo("per_id") del expediente) vamos a agrupar en un diccionario sus horas de investigación
+Para cada persona (a partir del #campo("per_id") del expediente) se agregan sus horas de investigación, que pueden proceder de tres fuentes:
 
-Las entradas de estas horas dependerán de la persona pero pueden venir de 3 fuentes las cuales te especificaremos en adelante.
-Coordinación de grupos de investigación
-Tesis doctorales
-Proyectos de investigación
+#lista-plana[
+    - Coordinación de grupos de investigación.
+    - Dirección, codirección o tutoría de tesis doctorales.
+    - Participación en proyectos o contratos de investigación.
+]
 
-En todos los casos tendremos que mirar cuantas horas se dedican a la semana para inferir las horas totales.
-En la #app quiero un listado de las personas con el tipo (tesis, grupos, proyectos), las semanas del año de 2025, las horas totales de investigación y al pulsar en una persona,
-visualizar estas horas con los registros delimitados de donde proceden.
+Para cada fuente, primero se determinan las *semanas* en las que cada actividad está vigente dentro del año analizado (intersección del intervalo de la actividad con #val("[01/01/año, 31/12/año]"), redondeando hacia arriba al dividir los días entre 7); después se multiplican esas semanas por las horas/semana que correspondan a la actividad.
 
+La salida del módulo son tres ficheros parquet auxiliares: el *resumen* por persona, el *detalle* (un registro por actividad imputada) y la lista de *proyectos descartados sin fechas resolubles* — esta última solo para trazabilidad, no produce horas. Ver §«Apéndice: Investigación».
 
-===== Información de dedicación a investigación segun la coordinación de los grupos de investigación.
-
-A partir del  #campo("per_id") del expediente hemos de ir a la #ruta("data","entrada","investigación","investigadores en grupos.xlsx")
-y vamos a mirar unicamente las personas que en 2025 esten vigentes (en función de sus fechas de alta y baja) y cuyo campo #campo("coordinador") sea "S".
- En la #app al detallar un registro querremos ver como campo adicional el grupo (identificador y nombre), las semanas vigentes en el año sacadas de las fechas y las propias fechas
- el método para estimar las horas será simplemente multiplicar por dos las semanas del año 2025 en que haya sido coordinador.
-Resaltame si una persona supera las 106 horas en naranja.
+En la #app, la sección *Investigación* muestra el listado de personas con sus horas totales (desglosadas por tipo: grupos, tesis, proyectos); al seleccionar a una persona se muestra el detalle por registro, con #campo("identificador"), #campo("descripción"), #campo("semanas"), #campo("horas"), #campo("origen"), #campo("fecha_inicio") y #campo("fecha_fin") de la actividad.
 
 
+===== Coordinación de grupos de investigación
 
-===== Información de dedicación a investigación segun la lectura de tesis.
+A partir del #campo("per_id") del expediente se busca en #ruta("data", "entrada", "investigación", "investigadores en grupos.xlsx") las personas vigentes en el año (en función de #campo("fecha_alta") y #campo("fecha_baja")) cuyo campo #campo("coordinador") sea #val("S"). Si #campo("fecha_baja") es nula, se asume el #val("31/12/año").
 
-A partir del  #campo("per_id") del expediente hemos de acudir a la #ruta("data","entrada","investigación","tesis.xlsx")
+Antes del filtro de coordinación se deduplican filas por #campo("per_id") + #campo("grupo") para evitar contar dos veces a la misma persona en el mismo grupo.
 
-Haremos un filtro para eliminar aquellas tesis que se hayan dado de baja (estado=="B")
+El método de estimación es *2 horas por semana* vigente como coordinador. En el detalle de la #app se muestra como #campo("identificador") el #campo("grupo") y como #campo("descripción") el nombre del grupo (si está disponible).
 
-El #campo("per_id") del expediente puede figurar en cualquiera de los siguientes campos de tesis: #campo("per_id_director"), #campo("per_id_codirector"), #campo("per_id_codirector2") o #campo("per_id_tutor")
-para cada persona y doctorando {#campo("per_id_alumno")} vamos a estimar las semanas que haya estado activa la tesis con #campo("fecha_inicio_tiempo") y #campo("fecha_fin_tiempo")
-
-
-Estas horas se multiplicarán por 2 en caso de que sea el tutor y por 2 / el numero de participantes entre director y codirectores.
-
-En la #app al pulsar en la persona querremos ver como campo adicional el #campo("per_id_alumno"), las semanas vigentes en el año sacadas de las fechas, las propias fechas
- y el rol que ha tenido para cada alumno, pudiendo tener varios roles una misma persona (por ejemplo tutor y director).
+#nota[Si una persona supera las 106 horas en grupos, conviene resaltarla en naranja en la #app.]
 
 
 
-===== Información de dedicación a investigación segun las horas en el proyecto o contrato.
-A partir del  #campo("per_id") del expediente hemos de acudir a la #ruta("data","entrada","investigación","investigadores en contratos.xlsx")
+===== Dirección, codirección o tutoría de tesis doctorales
+
+A partir del #campo("per_id") del expediente se busca en #ruta("data", "entrada", "investigación", "tesis.xlsx"). Se filtran las tesis dadas de baja (#campo("estado") = #val("B")).
+
+El #campo("per_id") puede aparecer en cualquiera de estas columnas: #campo("per_id_director"), #campo("per_id_codirector"), #campo("per_id_codirector2") o #campo("per_id_tutor"). Para cada coincidencia se crea un registro distinto (una persona puede ser, por ejemplo, simultáneamente tutor y director de la misma tesis: se cuentan los dos roles).
+
+Las semanas activas se calculan con #campo("fecha_inicio_tiempo") y #campo("fecha_fin_tiempo"). Si #campo("fecha_fin_tiempo") es nula, se asume el #val("31/12/año").
+
+El cálculo de horas por rol es:
+
+#lista-plana[
+    - *Tutor*: 2 horas por semana.
+    - *Director / codirector / codirector2*: 2 horas por semana repartidas entre el número de directores y codirectores de la tesis (de modo que el conjunto de directores aporta 2 h/sem en total, independientemente de cuántos sean).
+]
+
+En el detalle de la #app se muestra como #campo("identificador") el #campo("per_id_alumno") y como #campo("descripción") el rol.
 
 
-Vamos a querer mirar en que proyectos han estado implicados durante el año 2025. Para ello te doy la jerarquía siguiente:
 
-    Por si hay horas registradas en Kalendas
- Hemos de sumar las horas del año 2025 del investigador en el proyecto en #ruta("horas kalendas.xlsx") para ello unicamente miraremos que la #campo("fecha_validación") este en el año 
+===== Participación en proyectos o contratos de investigación
 
-    Para el resto de casos miramos los valores no declarados
- Miramos que el investigador-proyecto no esté en los registros anteriores en ese intervalo de fechas
- En caso de que haya alguna fecha en #campo("fecha_inicio_solicitud_alternativa") son estas fechas las que primarán, son muy pocos escenarios .
- Luego miraremos la #campo("fecha_inicio_solicitud") como posible escenario de intervalo, en caso de que este nulo significa que el personal investigador ha trabajado durante la duración del proyecto que figura en #ruta("proyectos en contratos investigación")
+A partir del #campo("per_id") del expediente se itera sobre #ruta("data", "entrada", "investigación", "investigadores en contratos.xlsx"). Cada fila representa la participación de un investigador en un contrato.
+
+Para enriquecer cada fila se cruza con:
+
+#lista-plana[
+    - #ruta("horas kalendas.xlsx") — pre-agregado por (#campo("per_id"), #campo("contrato")) sumando #campo("horas_declaradas") de registros con #campo("fecha_validación") dentro del año.
+    - #ruta("proyectos en contratos investigación.xlsx") — por #campo("contrato") aporta #campo("proyecto"), #campo("fecha_inicio") y #campo("fecha_fin") del proyecto (primera ocurrencia si hay varias líneas).
+    - #ruta("anexos proyectos.xlsx") — por #campo("contrato") aporta el #campo("anexo") (concatenación de #campo("tipo_anexo") + #campo("subtipo_anexo") + #campo("microtipo_anexo")) y el #campo("tipo_anexo") numérico.
+    - #ruta("Tipos Anexo.xlsx") — por #campo("anexo") aporta las horas/semana de referencia (si la tabla tiene columna numérica explícita) o se aplica la tabla por defecto interna (ver más abajo).
+]
 
 
-En caso de que las horas sean nulas en los valores no declarados, hemos de ir a esta tabla para mulitplicar por el número de semanas, la información la puedes encontrar navegando hasta la ruta #ruta("tipos_anexos.xlsx")
-En la primera columna tienes la concatenación de tipo,subtipo y microtipo de anexo.
+====== Resolución de las fechas de participación
+
+Las fechas de la participación de la persona en el contrato se determinan por *prelación* con #campo("coalesce"):
+
+#lista-plana[
+    + #campo("fecha_inicio_solicitud_alternativa") / #campo("fecha_fin_solicitud_alternativa") (si están informadas).
+    + #campo("fecha_inicio_solicitud") / #campo("fecha_fin_solicitud") (entradas y salidas estándar del investigador en el proyecto).
+    + #campo("fecha_inicio") / #campo("fecha_fin") del propio proyecto (de #ruta("proyectos en contratos investigación.xlsx")).
+]
+
+Si tras esta cadena la fecha de inicio sigue siendo nula y la fila no tiene horas Kalendas, la fila se considera *sin fechas resolubles* y se descarta (ver §«Filtros de descarte»). Si la fecha de fin sigue siendo nula, se asume el #val("31/12/año").
+
+
+====== Cálculo de horas
+
+Para cada fila (#campo("per_id"), #campo("contrato")) con fechas resueltas:
+
+#lista-plana[
+    + Si la suma de #campo("horas_declaradas") de Kalendas para esa (#campo("per_id"), #campo("contrato")) en el año es mayor que cero → las *horas son esa suma* y el #campo("origen") es #val("Kalendas"). Las #campo("semanas") quedan #val("null") (no aplica) y las #campo("fecha_inicio") / #campo("fecha_fin") del detalle también quedan #val("null") (las horas vienen agregadas de los partes diarios).
+    + En caso contrario, se calculan las *semanas vigentes en el año* (ver §«Regla cross-project con Kalendas», que reduce los días si la persona tiene actividad Kalendas en otros contratos) y se multiplican por las horas/semana siguientes (prelación):
+        - #campo("horas_contratadas_semana") del propio #ruta("investigadores en contratos.xlsx"), si está informada → #campo("origen") = #val("Horas contratadas").
+        - Horas/semana de la tabla de tipos de anexo correspondiente al #campo("anexo") → #campo("origen") = #val("Tabla tipos anexo").
+        - Valor por defecto de #val("6") h/sem → #campo("origen") = #val("Estimación").
+]
+
+Las horas/semana por defecto según anexo (tabla interna, aplicada por la primera columna concatenada de #ruta("Tipos Anexo.xlsx")):
+
 #align(center, table(
     columns: 3,
-    align: (left, left,left),
+    align: (left, left, center),
 
-    table.header(table.hline(),[anexo] ,[#campo("Tipo actividad")], [Horas],  table.hline()),
+    table.header(table.hline(), [anexo], [#campo("Tipo actividad")], [Horas / semana], table.hline()),
 
-    val(" 2PI"),#val("Proyectos internacionales"), 10,
-    val(" 2PE"), #val("Proyectos europeos"), 10,
-    val(" 2PN/2PA") ,#val("Proyectos Nacionales"), 10,
-    val("2PV"), #val("Proyectos Regionales"), 10,
-    val(" 2PU"), #val("Proyectos Propios"), 6,
-    val("1CI/1CV") ,#val("Proyectos con entidades"), 6,
-    val("1CE"),#val("Cátedras"), 2,
-    val("1CA,1CS/1CT") ,#val("Actividades de transferencia"), 8,
-   
+    val("2PI"), [Proyectos internacionales], [10],
+    val("2PE"), [Proyectos europeos], [10],
+    val("2PN / 2PA"), [Proyectos nacionales], [10],
+    val("2PV"), [Proyectos regionales], [10],
+    val("2PU"), [Proyectos propios], [6],
+    val("1CI / 1CV"), [Proyectos con entidades], [6],
+    val("1CE"), [Cátedras], [2],
+    val("1CA / 1CS / 1CT"), [Actividades de transferencia], [8],
+    [(otros)], [Valor por defecto], [6],
     table.hline(),
 ))
 
 
+====== Regla cross-project de no-superposición con Kalendas
+
+Cuando una persona tiene horas Kalendas validadas en un mes, esos días *no deben volver a imputarse* en otros contratos no-Kalendas de la misma persona. La regla se aplica únicamente al cálculo de semanas en la rama no-Kalendas (la rama Kalendas usa sus horas declaradas y no participa).
+
+Determinación de los días ocupados por Kalendas para cada persona:
+
+#lista-plana[
+    + Se toman los registros Kalendas con #campo("fecha_validación") en el año y cuyo (#campo("per_id"), #campo("contrato")) también aparezca en #ruta("investigadores en contratos.xlsx") — los contratos Kalendas ajenos al fichero de investigadores no bloquean nada.
+    + Para cada (#campo("per_id"), mes) con actividad Kalendas se calcula el día máximo de #campo("fecha_validación") en ese mes:
+        - Si el día máximo es ≤ 7 → se ocupan únicamente los días 1 a 7 del mes (la actividad fue solo en la primera semana).
+        - Si el día máximo es > 7 → se ocupa el mes entero.
+]
+
+Para cada fila no-Kalendas: se calculan los días brutos del intervalo (intersección con el año), se restan los días ocupados que solapen con ese intervalo, y la diferencia se convierte a semanas con redondeo hacia arriba.
 
 
+====== Filtros de descarte
 
-#en la app quiero ver el per_id, el anexo o tipo de proyecto, el número de contrato ,las semanas que ha estado en vigor durante el año y el número de horas, al desglosar quiero ver como se han calculado las horas (detallando el origen de la información).
+Una fila de #ruta("investigadores en contratos.xlsx") se *descarta* (no se imputan horas, se lista en #ruta("auxiliares", "investigación", "proyectos_sin_fechas.parquet") con la razón) si se cumple cualquiera de:
+
+#lista-plana[
+    + *Sin fechas resolubles*: la #campo("fecha_inicio_efectiva") es null tras la prelación (ninguna de las tres candidatas tiene valor) Y no tiene horas Kalendas en el contrato.
+    + *Anexo no investigador*: #campo("tipo_anexo") está en #val("{3, 4}") (anexos que no son de investigación stricto sensu), no tiene horas Kalendas y no tiene #campo("horas_contratadas_semana") explícitas.
+]
+
+Las filas que sobreviven los filtros pero acaban con #val("0") horas (porque la regla cross-project ha consumido todos los días) se omiten silenciosamente del detalle.
+
+
+====== Salida en la #app
+
+En el detalle de proyectos se muestra:
+
+#lista-plana[
+    - #campo("identificador"): el código de #campo("proyecto") (no el #campo("contrato")) — útil para reconocer el proyecto sin tener que cruzar con los ficheros auxiliares.
+    - #campo("descripción"): #campo("contrato") + #val(" · ") + #campo("anexo"), p. ej. #val("32657 · 2PE").
+    - #campo("semanas"), #campo("horas"), #campo("origen"), #campo("fecha_inicio") y #campo("fecha_fin").
+]
+
+
+==== Generación de unidades de coste a partir de la dedicación a investigación
+
+A partir del detalle de dedicación a investigación de cada persona (registros del parquet #ruta("auxiliares", "investigación", "detalle_investigacion.parquet")) se construyen las unidades de coste de investigación. La intención última es repartir el coste retributivo de la persona (PDI/PVI) entre las actividades a las que ha dedicado horas reales o estimadas.
+
+*En esta anualidad solo se calcula el reparto porcentual* — es decir, para cada (#campo("per_id"), #campo("actividad")) qué fracción de las horas totales de investigación de la persona corresponde a esa actividad. Los campos #campo("centro_de_coste"), #campo("elemento_de_coste") e #campo("importe") en euros se completarán más adelante cuando se ajuste el reparto con el tope personalizado de la *regla 23* y se enlace con los datos salariales del expediente PDI/PVI (ver §«Regla 23»).
+
+
+===== Resolución de la actividad por tipo de registro
+
+La actividad se determina de forma distinta según el #campo("tipo") del registro:
+
+====== Proyectos
+
+El #campo("identificador") del registro de detalle es el código de #campo("proyecto") (p. ej. #val("24I052")). La #campo("actividad") se obtiene aplicando las reglas ya descritas en §«Costes en proyectos de Investigación y transferencia»: según el tipo de proyecto y el programa, el código de proyecto determina un nodo de #etq("actividades", clave-color: "act") creado dinámicamente con el patrón #etqact("...") + #campo("proyecto"). De este modo las UC de investigación caen en el mismo árbol de actividades que las UC de presupuesto o nóminas asociadas al mismo proyecto.
+
+====== Tesis doctorales
+
+La actividad se imputa al *programa de doctorado* de la tesis. El programa se obtiene de #ruta("data", "entrada", "investigación", "tesis.xlsx") (campo del programa correspondiente al alumno) y se mapea al nodo del árbol de actividades que represente ese programa de doctorado.
+
+#nota[Pendiente: confirmar el campo exacto de #ruta("tesis.xlsx") que identifica el programa de doctorado y la convención del nodo en el árbol de actividades para enlazarlos.]
+
+====== Coordinación de grupos de investigación
+
+#nota[Esta anualidad la coordinación de grupos no se puede imputar al grupo concreto porque el árbol de actividades no contempla todavía nodos específicos por grupo de investigación. Como solución transitoria se imputa a un nodo genérico de coordinación de grupos (a definir). Idealmente, en próximas anualidades se creará un nodo por grupo (siguiendo el patrón de cátedras o proyectos) y se imputará al grupo concreto del registro.]
+
+
+===== Cálculo del porcentaje por (persona, actividad)
+
+Para cada persona:
+
+#lista-plana[
+    + Se resuelve la #campo("actividad") de cada registro del detalle (según las reglas del apartado anterior). Registros que no resuelvan a una actividad válida se omiten silenciosamente, con traza.
+    + Se agrupa por (#campo("per_id"), #campo("actividad")) sumando las horas de los registros — varios registros pueden imputar a la misma actividad (p. ej. dos tesis del mismo programa de doctorado) y sus horas se acumulan.
+    + Se calcula el *total de horas de investigación de la persona* (suma de horas de todos sus registros, incluidos los que sí han resuelto actividad).
+    + El #campo("porcentaje") es #val("horas_actividad / horas_totales_persona"). Por construcción, los porcentajes de una persona suman 100% (salvo redondeo y posibles registros sin actividad).
+]
+
+#nota[Pendiente: cuando se aplique el tope de la regla 23, el porcentaje obtenido aquí se reescalará. Si la persona supera el tope de horas de investigación que le corresponde por su sector PDI/PVI, los porcentajes se mantendrán proporcionales pero referidos al tope, no al total real declarado. Esta lógica entrará cuando se conecten los datos retributivos y la regla 23.]
+
+
+===== Salida
+
+La salida se persiste en #ruta("auxiliares", "investigación", "uc_investigacion.parquet") con, al menos, las columnas: #campo("per_id"), #campo("actividad"), #campo("horas") (acumuladas por actividad), #campo("horas_totales") (de la persona, para trazabilidad) y #campo("porcentaje").
+
+En la #app, dentro de la sección *Investigación*, se añade una nueva pestaña *Unidades de coste* (paralela a las existentes de resumen y de personas/detalle) que muestra:
+
+#lista-plana[
+    - Listado por persona y actividad con #campo("horas") imputadas y su #campo("porcentaje") sobre el total de horas de investigación de la persona.
+    - Al pulsar en una fila, modal con los registros de detalle (semanas, horas, fechas, contrato/proyecto/grupo) que han contribuido a esa actividad, para rastrear de dónde sale cada porcentaje.
+    - Filtros por #campo("per_id") y por #campo("actividad"), reaprovechando los componentes existentes.
+]
+
+
+===== Notas de implementación
+
+#lista-plana[
+    - *Backend*: se añade una función `generar_distribución_investigación(ruta_base, año)` en #ruta("coana", "fase1", "investigacion.py") (o un módulo aparte si crece) que consume #ruta("detalle_investigacion.parquet") ya producido, resuelve la actividad por #campo("tipo") (reaprovechando las reglas de actividad de proyectos en transferencia/investigación), agrupa y calcula porcentajes. El resultado se persiste en #ruta("auxiliares", "investigación", "uc_investigacion.parquet"). Mientras solo haya porcentaje (sin #campo("importe")), no se concatena al combinado #ruta("unidades de coste.xlsx") — entrará cuando se resuelva el importe en euros.
+    - *Frontend*: se añade una pestaña *Unidades de coste* dentro de #ruta("web", "frontend", "src", "routes", "investigacion", "index.tsx") (`InvestigacionUC`), con su `DataTable` y modal de detalle. Los endpoints se sirven desde #ruta("coana", "web", "routers", "investigacion.py") (p. ej. `/api/investigacion/uc`, `/api/investigacion/uc/{per_id}/{actividad}/detalle`).
+    - *Apéndice*: añadir #ruta("auxiliares", "investigación", "uc_investigacion.parquet") al apéndice de artefactos generados por la fase 1, indicando que en esta anualidad solo contiene porcentajes (sin importe).
+]
+
 
 == Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social
 
@@ -4004,6 +4131,15 @@ Convenciones del apéndice:
 / #ruta("auxiliares", "nóminas", "regla_23_anomalías_resolución.parquet"): filas de pod sin titulación efectiva resoluble. Solo se genera si hay anomalías.
 
 / #ruta("auxiliares", "nóminas", "regla_23_múltiples_con_grado.parquet"): asignaturas con varias titulaciones donde alguna no es máster (incumple la regla del catálogo de pod de másteres). Solo se genera si hay anomalías.
+
+== Investigación
+
+/ #ruta("auxiliares", "investigación", "resumen_investigacion.parquet"): por #campo("per_id"), totales agregados de horas y semanas separados por origen (grupos, tesis, proyectos). Columnas: #campo("per_id"), #campo("horas_totales"), #campo("semanas_grupos"), #campo("semanas_tesis"), #campo("semanas_proyectos"), #campo("horas_grupos"), #campo("horas_tesis"), #campo("horas_proyectos"). Es el insumo del listado de personas en la sección *Investigación* de la #app.
+
+/ #ruta("auxiliares", "investigación", "detalle_investigacion.parquet"): un registro por actividad imputada (coordinación de grupo, rol en tesis, contrato no descartado). Columnas: #campo("per_id"), #campo("tipo") (#val("grupos") / #val("tesis") / #val("proyectos")), #campo("identificador") (grupo, alumno o proyecto según tipo), #campo("descripción") (nombre de grupo, rol en tesis, o #campo("contrato") + #val(" · ") + #campo("anexo") para proyectos), #campo("semanas"), #campo("horas"), #campo("origen") (#val("Coordinación grupo") / #val("Dirección/tutoría tesis") / #val("Kalendas") / #val("Horas contratadas") / #val("Tabla tipos anexo") / #val("Estimación")), #campo("fecha_inicio") y #campo("fecha_fin"). Origen: §«Información de dedicación a investigación».
+
+/ #ruta("auxiliares", "investigación", "proyectos_sin_fechas.parquet"): filas de #ruta("investigadores en contratos.xlsx") descartadas por los filtros (sin fechas resolubles, o anexo tipo 3/4 sin Kalendas ni #campo("horas_contratadas_semana")). Columnas: #campo("per_id"), #campo("contrato"), #campo("anexo"), #campo("tipo_anexo"), #campo("horas_contratadas_semana"), #campo("principal"), #campo("interlocutor"), #campo("tiene_kalendas") y #campo("razon"). Solo se genera si hay descartados — sirve para trazabilidad.
+
 
 == Cargos académicos
 
