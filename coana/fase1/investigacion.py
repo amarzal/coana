@@ -376,11 +376,18 @@ def _kalendas_agregado(
 
 
 def _ocupacion_kalendas(
-    ruta_base: Path, año: int,
+    ruta_base: Path,
+    año: int,
+    contratos_válidos: pl.DataFrame | None = None,
 ) -> pl.DataFrame | None:
     """Devuelve ``(per_id, oc_inicio, oc_fin)``: intervalos del año en
-    los que cada persona tiene actividad Kalendas validada (en cualquier
-    contrato).
+    los que cada persona tiene actividad Kalendas validada en contratos
+    que forman parte del cálculo actual (``investigadores en contratos``).
+
+    Si se pasa *contratos_válidos* (con columnas ``per_id``, ``contrato``),
+    solo se consideran los registros Kalendas cuyo ``(per_id, contrato)``
+    aparezca en ese DataFrame. Así, contratos Kalendas ajenos al fichero
+    de investigadores no bloquean la imputación de otros proyectos.
 
     Regla por mes:
     - Si el día máximo de ``fecha_validación`` en el mes es ≤ 7
@@ -388,12 +395,6 @@ def _ocupacion_kalendas(
       días 1-7.
     - Si es > 7 (la actividad se extiende más allá de la primera
       semana), se ocupa el mes entero.
-
-    El propósito es la regla cross-project: cuando una persona ya tiene
-    horas Kalendas en un mes, los proyectos NO-Kalendas de esa misma
-    persona no deben imputar horas por solapamiento con ese mes (o
-    primera semana, según la regla). El descuento se aplica en
-    ``calcular_horas_proyectos`` antes de convertir días a semanas.
     """
     path = ruta_base / "entrada" / "investigación" / "horas kalendas.xlsx"
     if not path.exists():
@@ -404,6 +405,7 @@ def _ocupacion_kalendas(
         df.is_empty()
         or "per_id" not in df.columns
         or "fecha_validación" not in df.columns
+        or "contrato" not in df.columns
     ):
         return None
     df = df.filter(
@@ -412,6 +414,16 @@ def _ocupacion_kalendas(
     )
     if df.is_empty():
         return None
+
+    if contratos_válidos is not None:
+        df = df.with_columns(pl.col("contrato").cast(pl.Utf8))
+        df = df.join(
+            contratos_válidos.select("per_id", "contrato").unique(),
+            on=["per_id", "contrato"],
+            how="inner",
+        )
+        if df.is_empty():
+            return None
 
     agg = (
         df.with_columns(
@@ -693,7 +705,10 @@ def calcular_horas_proyectos(
         pl.when(rango_valido).then(dias_raw).otherwise(0).alias("_dias_brutos"),
     )
 
-    ocupacion = _ocupacion_kalendas(ruta_base, año)
+    ocupacion = _ocupacion_kalendas(
+        ruta_base, año,
+        contratos_válidos=df.select("per_id", "contrato"),
+    )
     if ocupacion is not None and not ocupacion.is_empty():
         df = df.with_row_index("_row_id")
         overlap = (
