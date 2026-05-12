@@ -339,28 +339,38 @@ def _costes_calculados_de_persona(per_id: int) -> pl.DataFrame:
 # --- Cargos de un expediente / persona --------------------------------
 
 _AÑO_PERSONAL = 2025  # TODO: parametrizar
-_MESES_ABREV = [
-    "ene", "feb", "mar", "abr", "may", "jun",
-    "jul", "ago", "sep", "oct", "nov", "dic",
-]
 
 PATH_PERSONAS_CARGOS = DIR_ENTRADA / "nóminas" / "personas cargos.xlsx"
 PATH_CARGOS_CAT = DIR_ENTRADA / "nóminas" / "cargos.xlsx"
-PATH_CATEGORIA_ÚLTIMA = DIR_AUX / "categoría_última_pdi_pvi.parquet"
+PATH_CARGOS_RD = DIR_ENTRADA / "nóminas" / "cargos real decreto.xlsx"
 PATH_EXP_RH_PERSONAL = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
 
 
 @lru_cache(maxsize=2)
-def _categoría_última_cached(path: str, mtime_ns: int) -> dict[int, str]:
-    del mtime_ns
-    p = Path(path)
-    if not p.exists():
+def _categoría_última_cached(_mt_nom: int, _mt_exp: int) -> dict[int, str]:
+    """Categoría última por per_id (PDI/PVI) según CR 19/64 más reciente.
+
+    Antes leía de `categoría_última_pdi_pvi.parquet`; ahora se calcula
+    al vuelo desde las nóminas crudas y se cachea por mtime.
+    """
+    del _mt_nom, _mt_exp
+    nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+    exp_path = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+    if not nom_path.exists() or not exp_path.exists():
         return {}
-    df = pl.read_parquet(p)
+    nom = read_excel(nom_path)
+    exp = read_excel(exp_path)
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    df = (
+        nom.join(exp.select("expediente", "per_id"), on="expediente", how="inner")
+        .filter(cr.is_in(["19", "64"]))
+        .sort("fecha", descending=True)
+        .group_by("per_id")
+        .agg(pl.col("categoría").first().alias("categoría"))
+    )
     return {
         int(r["per_id"]): str(r["categoría"])
-        for r in df.select("per_id", "categoría").iter_rows(named=True)
-        if r.get("categoría")
+        for r in df.iter_rows(named=True) if r.get("categoría")
     }
 
 
@@ -398,52 +408,27 @@ def _sector_principal_personal_cached(_mtime_pdi: int, _mtime_pvi: int) -> dict[
     return {int(r["per_id"]): str(r["sector"]) for r in df.iter_rows(named=True)}
 
 
-def _propuesta_uc(per_id: int, servicio) -> tuple[str | None, str | None, str | None]:
-    """Devuelve (elemento_de_coste, centro_de_coste, actividad) tentativos para
-    un cargo, como si su importe fuera a generar una UC retributiva.
-
-    - CC y actividad: del mapping servicio→(CC, actividad) del clasificador de
-      centros de coste; si no hay entrada, actividad atrapalotodo
-      `dag-general-universidad` y CC vacío.
-    - Elemento: ZZZ-XXX-cargos con ZZZ según sector principal (pdi o piyotper)
-      y XXX según la categoría última de la persona en CR 19/64
-      (data/fase1/auxiliares/categoría_última_pdi_pvi.parquet).
+def _elemento_de_coste_cargos(per_id: int) -> str | None:
+    """ZZZ-XXX-cargos para una persona, según sector con más actividad
+    en el año y categoría última en CR 19/64.
     """
-    from coana.fase1.clasificador_centros_coste import _SERVICIO_CC
     from coana.fase1.nóminas import _elemento_coste_pdi, _elemento_coste_pvi
-
-    cc: str | None = None
-    act: str | None = None
-    if servicio is not None:
-        try:
-            srv_key = str(int(servicio))
-        except (ValueError, TypeError):
-            srv_key = str(servicio)
-        mapping = _SERVICIO_CC.get(srv_key)
-        if mapping is not None:
-            cc = mapping[0]
-            act_raw = mapping[1]
-            act = act_raw if act_raw else "dag-general-universidad"
-        else:
-            act = "dag-general-universidad"
-    else:
-        act = "dag-general-universidad"
-
     sectores = _sector_principal_personal_cached(
         _mtime_ns(PATH_PDI), _mtime_ns(PATH_PVI),
     )
+    nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
     cats = _categoría_última_cached(
-        str(PATH_CATEGORIA_ÚLTIMA), _mtime_ns(PATH_CATEGORIA_ÚLTIMA),
+        _mtime_ns(nom_path), _mtime_ns(PATH_EXP_RH_PERSONAL),
     )
     sec = sectores.get(int(per_id))
     cat = cats.get(int(per_id))
-    ec: str | None = None
-    if cat:
-        if sec == "PDI":
-            ec = _elemento_coste_pdi(cat, "19")
-        elif sec == "PVI":
-            ec = _elemento_coste_pvi(cat, None, None, "19", None, None)
-    return ec, cc, act
+    if not cat:
+        return None
+    if sec == "PDI":
+        return _elemento_coste_pdi(cat, "19")
+    if sec == "PVI":
+        return _elemento_coste_pvi(cat, None, None, "19", None, None)
+    return None
 
 
 @lru_cache(maxsize=2)
@@ -466,8 +451,11 @@ def _cargos_catálogo_cached(path: str, mtime_ns: int) -> pl.DataFrame:
 
 @lru_cache(maxsize=2)
 def _proyectos_cr19_64_por_persona_cached(path: str, mtime_ns: int) -> dict[int, list[str]]:
-    """{per_id: [proyectos ordenados por importe desc]} para líneas con
-    concepto retributivo 19 o 64 en el año analizado."""
+    """{per_id: [proyectos generales ordenados por importe desc]} para líneas
+    con concepto retributivo 19 o 64 en el año analizado y proyecto general.
+    Los cargos en proyecto específico ya están imputados a su proyecto y
+    no se cuentan aquí."""
+    from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
     del mtime_ns
     p = Path(path)
     if not p.exists():
@@ -478,9 +466,11 @@ def _proyectos_cr19_64_por_persona_cached(path: str, mtime_ns: int) -> dict[int,
         return {}
     exp = read_excel(exp_rh_path)
     cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    proy = pl.col("proyecto").cast(pl.Utf8)
     agg = (
         nóminas.join(exp.select("expediente", "per_id"), on="expediente", how="inner")
         .filter(cr.is_in(["19", "64"]))
+        .filter(proy.is_in(list(_PROYECTOS_GENERALES)))
         .filter(pl.col("fecha").dt.year() == _AÑO_PERSONAL)
         .group_by("per_id", "proyecto")
         .agg(pl.col("importe").sum().alias("imp"))
@@ -500,21 +490,36 @@ def _proyectos_cr19_64_persona(per_id: int) -> str:
     return ", ".join(mapa.get(int(per_id), []))
 
 
-def _cargos_de_persona(per_id: int) -> pl.DataFrame:
-    """Tabla cargo × meses para una persona en el año analizado.
+@lru_cache(maxsize=2)
+def _cargos_rd_cached(path: str, mtime_ns: int) -> dict[int, float]:
+    """{cargo_real_decreto: importe_mensual} del RD 1086/1989."""
+    del mtime_ns
+    p = Path(path)
+    if not p.exists():
+        return {}
+    df = read_excel(p)
+    return {
+        int(r["cargo_real_decreto"]): float(r["importe_mensual"])
+        for r in df.iter_rows(named=True)
+    }
 
-    Para cada cargo activo en algún mes de 2025: cuantía mensual estipulada,
-    periodo de actividad y los 12 importes mensuales. El importe mensual se
-    obtiene repartiendo el total que la persona ha percibido ese mes por
-    concepto retributivo 19 o 64 (cargos académicos, excluyendo atrasos)
-    proporcionalmente a la cuantía estipulada de cada cargo activo en el
-    mes. Si solo hay un cargo activo, todo el importe va a él. Si no hay
-    cuantías (todas 0), se reparte por igual.
+
+def _cargos_de_persona(per_id: int) -> pl.DataFrame:
+    """Cargos de una persona en el año analizado con el importe imputado
+    como UC anual.
+
+    Reparte el total CR 19/64 percibido por la persona en el año entre
+    los cargos ocupados, proporcionalmente al producto
+    `días_en_año × importe_mensual_RD`, donde el importe RD viene de
+    asimilar el cargo UJI a uno de los 8 tipos del RD 1086/1989
+    (vía `cargo_asimilado` en `cargos.xlsx`).
+
+    Anomalías marcadas con `_anomalía`:
+    - Cargo sin `cargo_asimilado`: ignorado del reparto (peso 0).
+    - Persona con cobro CR 19/64 > 0 pero sin cargos asimilados:
+      la masa no imputable se reporta como anomalía global.
     """
-    import calendar
     from datetime import date
-    from coana.web.services.lookups import _actividad_cargos_por_persona_mes
-    from coana.web.deps import _mtime_ns as _mtime
 
     pc = _personas_cargos_personal_cached(
         str(PATH_PERSONAS_CARGOS), _mtime_ns(PATH_PERSONAS_CARGOS),
@@ -522,6 +527,7 @@ def _cargos_de_persona(per_id: int) -> pl.DataFrame:
     cat = _cargos_catálogo_cached(
         str(PATH_CARGOS_CAT), _mtime_ns(PATH_CARGOS_CAT),
     )
+    rd = _cargos_rd_cached(str(PATH_CARGOS_RD), _mtime_ns(PATH_CARGOS_RD))
     if pc.is_empty():
         return pl.DataFrame()
 
@@ -541,111 +547,134 @@ def _cargos_de_persona(per_id: int) -> pl.DataFrame:
     sub = sub.filter(activo).with_columns(pl.col("cargo").cast(pl.Utf8))
     if sub.is_empty():
         return pl.DataFrame()
+
+    # Catálogo: añade nombre, cargo_asimilado, dedicación, actividad y centro.
     if not cat.is_empty():
         cat_min = cat.with_columns(pl.col("cargo").cast(pl.Utf8)).select(
-            "cargo", "nombre", "cuantía",
+            "cargo", "nombre", "cargo_asimilado",
+            "dedicación", "actividad", "centro",
         )
         sub = sub.join(cat_min, on="cargo", how="left")
 
-    # Total CR 19/64 por mes para esta persona.
-    nominas_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
-    mapa = _actividad_cargos_por_persona_mes(str(nominas_path), _mtime(nominas_path))
-    importe_mes = mapa.get(int(per_id), {})  # {mes: importe}
-
     rows = sub.to_dicts()
 
-    def _días_en_mes(r, m: int) -> int:
-        """Días de solape entre el rango del cargo y el mes m del año."""
-        fi = r.get("fecha_inicio")
-        ff = r.get("fecha_fin")
+    def _días_en_año(r) -> int:
+        """Días en 2025 efectivamente *cobrados* del cargo.
+
+        Se usan `fecha_inicio_cobra` y `fecha_fin_cobra` (NO las fechas de
+        nombramiento/cese). Si no hay periodo de cobro, el cargo no
+        genera reparto (días = 0) aunque siga vigente — por ejemplo, la
+        dirección de una cátedra no remunerada.
+        """
+        fi = r.get("fecha_inicio_cobra")
+        ff = r.get("fecha_fin_cobra")
         if fi is None:
             return 0
         fi_d = fi.date() if hasattr(fi, "date") else fi
         ff_d = ff.date() if (ff is not None and hasattr(ff, "date")) else ff
-        primero = date(año, m, 1)
-        ultimo = date(año, m, calendar.monthrange(año, m)[1])
-        inicio_ef = max(fi_d, primero)
-        fin_ef = min(ff_d, ultimo) if ff_d is not None else ultimo
+        inicio_ef = max(fi_d, inicio_año)
+        fin_ef = min(ff_d, fin_año) if ff_d is not None else fin_año
         if fin_ef < inicio_ef:
             return 0
         return (fin_ef - inicio_ef).days + 1
 
-    # Inicializa los 12 valores por fila.
+    # Total CR 19/64 anual para la persona.
+    proyectos_lista = _proyectos_cr19_64_por_persona_cached(
+        str(DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"),
+        _mtime_ns(DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"),
+    ).get(int(per_id), [])
+    total_persona = _total_cr19_64_persona(per_id)
+
+    # Calcula días e importe RD por fila; marca anomalías.
+    # Anomalía = la persona cobra por este cargo (días > 0) pero no
+    # tenemos asimilación a RD. Cargo sin periodo de cobro (días = 0)
+    # NO es anomalía: simplemente no es remunerado.
+    pesos: list[float] = []
     for r in rows:
-        for mes in _MESES_ABREV:
-            r[mes] = 0.0
-
-    # Reparte el importe mensual entre los cargos activos cada mes,
-    # ponderando por (cuantía × días efectivamente ejercidos en el mes).
-    # Si todas las cuantías son 0, se reparte solo por días. Si tampoco
-    # hay días, no se reparte nada en el mes.
-    for m in range(1, 13):
-        días = [(r, _días_en_mes(r, m)) for r in rows]
-        activos = [(r, d) for r, d in días if d > 0]
-        if not activos:
-            continue
-        total_imp = float(importe_mes.get(m, 0.0))
-        # Peso primario: cuantía × días; fallback: solo días.
-        pesos = [(float(r.get("cuantía") or 0) * d) for r, d in activos]
-        suma = sum(pesos)
-        if suma == 0:
-            pesos = [float(d) for _, d in activos]
-            suma = sum(pesos)
-        if suma == 0:
-            continue
-        for (r, _d), w in zip(activos, pesos):
-            r[_MESES_ABREV[m - 1]] = round((w / suma) * total_imp, 2)
-
-    # Identificador sintético para rowKey y propuesta tentativa de UC
-    # (solo si la fila suma algo en el año; si total_2025 == 0 no tiene
-    # sentido proponer EC/CC/actividad). Los 0,00 € se dejan como None
-    # para que el frontend los muestre como casilla vacía.
-    proyectos_str = _proyectos_cr19_64_persona(per_id)
-    for i, r in enumerate(rows, start=1):
-        r["id"] = f"C-{i:03d}"
-        total = round(sum(r[mes] for mes in _MESES_ABREV), 2)
-        r["total_2025"] = total if total > 0 else None
-        r["proyectos"] = proyectos_str
-        if total > 0:
-            ec, cc, act = _propuesta_uc(per_id, r.get("servicio"))
+        r["días_2025"] = _días_en_año(r)
+        tipo_rd = r.get("cargo_asimilado")
+        try:
+            tipo_rd = int(tipo_rd) if tipo_rd is not None else None
+        except (TypeError, ValueError):
+            tipo_rd = None
+        if tipo_rd is None or tipo_rd not in rd:
+            r["importe_rd"] = None
+            r["_anomalía"] = "sin asimilación a RD" if r["días_2025"] > 0 else "no remunerado"
+            pesos.append(0.0)
         else:
-            ec, cc, act = None, None, None
-        r["uc_elemento_de_coste"] = ec or ""
-        r["uc_centro_de_coste"] = cc or ""
-        r["uc_actividad"] = act or ""
-        if (r.get("cuantía") or 0) == 0:
-            r["cuantía"] = None
-        for mes in _MESES_ABREV:
-            if r[mes] == 0:
-                r[mes] = None
+            r["importe_rd"] = rd[tipo_rd]
+            r["_anomalía"] = "" if r["días_2025"] > 0 else "no remunerado"
+            pesos.append(r["días_2025"] * rd[tipo_rd])
 
-    return pl.DataFrame(rows).sort("total_2025", descending=True, nulls_last=True)
+    suma_pesos = sum(pesos)
+    elemento = _elemento_de_coste_cargos(per_id)
+    proyectos_str = ", ".join(proyectos_lista)
+
+    for i, (r, w) in enumerate(zip(rows, pesos), start=1):
+        r["id"] = f"C-{i:03d}"
+        if suma_pesos > 0:
+            r["peso"] = round(w, 2) if w > 0 else None
+            r["importe_uc"] = round((w / suma_pesos) * total_persona, 2) if w > 0 else None
+        else:
+            r["peso"] = None
+            r["importe_uc"] = None
+        r["uc_elemento_de_coste"] = elemento or ""
+        # CC y actividad: del propio catálogo de cargos (o vacío si patrón
+        # pendiente de resolver — la lógica de patrones la añadiremos
+        # cuando esté definida).
+        r["uc_centro_de_coste"] = str(r.get("centro") or "")
+        r["uc_actividad"] = str(r.get("actividad") or "")
+        r["proyectos"] = proyectos_str
+        if r["días_2025"] == 0:
+            r["días_2025"] = None
+
+    return pl.DataFrame(rows).sort("importe_uc", descending=True, nulls_last=True)
+
+
+def _total_cr19_64_persona(per_id: int) -> float:
+    """Suma de importes de líneas con CR 19/64 en el año analizado y
+    proyecto general (los cargos en proyecto específico ya generaron su
+    UC en `generar_uc_cargos` y no se reparten aquí).
+    """
+    from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
+    p = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+    if not p.exists():
+        return 0.0
+    nóminas = read_excel(p)
+    exp_rh_path = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+    if not exp_rh_path.exists():
+        return 0.0
+    exp = read_excel(exp_rh_path)
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    proy = pl.col("proyecto").cast(pl.Utf8)
+    total = (
+        nóminas.join(exp.select("expediente", "per_id"), on="expediente", how="inner")
+        .filter(cr.is_in(["19", "64"]))
+        .filter(proy.is_in(list(_PROYECTOS_GENERALES)))
+        .filter(pl.col("fecha").dt.year() == _AÑO_PERSONAL)
+        .filter(pl.col("per_id") == per_id)
+        .get_column("importe").sum()
+    )
+    return float(total or 0.0)
 
 
 _COLS_CARGOS_EXP: list[ColumnSpec] = [
     ColumnSpec(name="id", label="ID", format="text"),
     ColumnSpec(name="cargo", label="Cargo", format="text"),
     ColumnSpec(name="nombre", label="Nombre", format="text"),
-    ColumnSpec(name="cuantía", label="Cuantía/mes", format="euro"),
+    ColumnSpec(name="cargo_asimilado", label="Tipo RD", format="id"),
+    ColumnSpec(name="importe_rd", label="Importe RD/mes", format="euro"),
+    ColumnSpec(name="dedicación", label="Dedicación", format="float"),
     ColumnSpec(name="fecha_inicio", label="Inicio", format="date"),
     ColumnSpec(name="fecha_fin", label="Fin", format="date"),
-    ColumnSpec(name="total_2025", label="Total 2025", format="euro"),
-    ColumnSpec(name="proyectos", label="Proyectos CR 19/64", format="text"),
+    ColumnSpec(name="días_2025", label="Días en año", format="int"),
+    ColumnSpec(name="peso", label="Peso (días × RD)", format="euro"),
+    ColumnSpec(name="importe_uc", label="Importe UC", format="euro"),
     ColumnSpec(name="uc_elemento_de_coste", label="UC · elemento", format="text"),
     ColumnSpec(name="uc_centro_de_coste", label="UC · centro", format="text"),
     ColumnSpec(name="uc_actividad", label="UC · actividad", format="text"),
-    ColumnSpec(name="ene", label="Ene", format="euro"),
-    ColumnSpec(name="feb", label="Feb", format="euro"),
-    ColumnSpec(name="mar", label="Mar", format="euro"),
-    ColumnSpec(name="abr", label="Abr", format="euro"),
-    ColumnSpec(name="may", label="May", format="euro"),
-    ColumnSpec(name="jun", label="Jun", format="euro"),
-    ColumnSpec(name="jul", label="Jul", format="euro"),
-    ColumnSpec(name="ago", label="Ago", format="euro"),
-    ColumnSpec(name="sep", label="Sep", format="euro"),
-    ColumnSpec(name="oct", label="Oct", format="euro"),
-    ColumnSpec(name="nov", label="Nov", format="euro"),
-    ColumnSpec(name="dic", label="Dic", format="euro"),
+    ColumnSpec(name="proyectos", label="Proyectos CR 19/64", format="text"),
+    ColumnSpec(name="_anomalía", label="Anomalía", format="text"),
 ]
 
 
@@ -683,7 +712,7 @@ def grupos_lineas_nomina(sector: str, expediente: int) -> GruposLineasResponse:
             out.append(GrupoLineas(
                 label=CARGOS_LABEL,
                 n=cargos_df.height,
-                importe=float(cargos_df["total_2025"].sum() or 0),
+                importe=float(cargos_df["importe_uc"].sum() or 0),
             ))
     uc = _uc_de_expediente(sector, expediente)
     if not uc.is_empty():

@@ -18,8 +18,8 @@ import polars as pl
 
 from coana.fase1.amortizaciones import generar_uc_amortizaciones
 from coana.fase1.cargos import (
-    generar_cargos_departamentos,
-    generar_categoría_última_pdi_pvi,
+    calcular_extras_cargos_por_persona,
+    generar_cargos_uc,
 )
 from coana.fase1.inventario import ContextoInventario, procesar_inventario
 from coana.fase1.nóminas import ContextoNóminas, preprocesar_nóminas
@@ -166,6 +166,14 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
     if not sin_amort.is_empty():
         sin_amort.write_parquet(dir_amort / "sin_uc.parquet")
 
+    # -- Cargos académicos: pre-cálculo de extras del cargo (CR 68) --
+    # Antes de preprocesar nóminas calculamos la extra estimada por
+    # persona para descontarla del CR 68 en proyecto general dentro del
+    # preprocesamiento (evita duplicación con la UC del cargo).
+    extras_cargos_por_persona = calcular_extras_cargos_por_persona(
+        ruta_base, año=año,
+    )
+
     # -- Nóminas --
     print("Preprocesando nóminas…")
     ctx_nom = ContextoNóminas(ruta_base)
@@ -179,6 +187,7 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
         distribución_costes=resultado_inv.distribución_costes,
         obtener_descripciones=traductor._obtener_descripciones,
         ruta_base=ruta_base,
+        extras_cargos_por_persona=extras_cargos_por_persona,
     )
     for sector, n_exp in resultado_nom.expedientes_por_sector.items():
         importe = resultado_nom.importe_por_sector.get(sector, 0)
@@ -198,10 +207,21 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
     if not resultado_nom.uc_cargos.is_empty():
         todas_uc.append(resultado_nom.uc_cargos)
 
-    # -- Cargos académicos en departamentos --
+    # -- Cargos académicos: reparto CR 19/64 proyecto general entre cargos --
     print("Procesando cargos académicos…")
-    generar_cargos_departamentos(ruta_base, dir_stats, año=año)
-    generar_categoría_última_pdi_pvi(ruta_base, dir_stats)
+    dir_cargos = dir_salida / "auxiliares" / "nóminas"
+    cargos_uc = generar_cargos_uc(
+        ruta_base, dir_cargos, año=año,
+        extras_aplicadas_por_persona=getattr(
+            ctx_nom, "_extras_aplicadas_por_persona", {},
+        ),
+    )
+    if not cargos_uc.is_empty():
+        todas_uc.append(cargos_uc.select(
+            "id", "elemento_de_coste", "centro_de_coste", "actividad",
+            pl.col("importe_uc").alias("importe"),
+            "origen", "origen_id", "origen_porción",
+        ))
 
     # -- Fichero combinado --
     if todas_uc:

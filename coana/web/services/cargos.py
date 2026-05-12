@@ -1,12 +1,11 @@
 """Servicio del bloque Cargos académicos.
 
-Dos vistas:
-- ``categoria_pdi_pvi``: por persona PDI/PVI, su categoría tras el último
-  cobro de los conceptos retributivos 19/64.
-- ``departamentos``: cargos académicos asociados a cada departamento.
-
-Las dos enriquecen el ``per_id`` con el nombre de la persona en el
-listado para evitar al frontend hacer N llamadas.
+Vistas:
+- ``Por persona`` (master-detail): personas con cargos remunerados activos
+  en el año, con detalle de sus cargos y UC tentativas.
+- ``Personas cargos``: vista bruta de ``personas cargos.xlsx``.
+- ``Catálogo de cargos``: catálogo (`cargos.xlsx`) con conteos sintéticos por
+  sector y `importe_rd` resuelto vía `cargos real decreto.xlsx`.
 """
 
 from __future__ import annotations
@@ -20,21 +19,17 @@ from coana.util import read_excel
 from coana.web.deps import DIR_AUX, DIR_ENTRADA, _mtime_ns, read_parquet
 from coana.web.schemas.common import (
     ColumnSpec,
-    FieldValue,
     Kpi,
     KpiPanel,
     ListResponse,
-    RecordResponse,
-    RecordSection,
 )
 from coana.web.services.query import QueryParams, apply_query
 
-PATH_CATEGORIA = DIR_AUX / "categoría_última_pdi_pvi.parquet"
-PATH_DEPARTAMENTOS = DIR_AUX / "cargos_departamentos.parquet"
 PATH_PERSONAS = DIR_ENTRADA / "nóminas" / "personas.xlsx"
 PATH_PERSONAS_CARGOS = DIR_ENTRADA / "nóminas" / "personas cargos.xlsx"
 PATH_EXPEDIENTES_RH = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
 PATH_CARGOS = DIR_ENTRADA / "nóminas" / "cargos.xlsx"
+PATH_CARGOS_UC = DIR_AUX / "nóminas" / "cargos_uc.parquet"
 
 
 # ----------------------------------------------------------------------
@@ -71,71 +66,19 @@ def _enriquecer_per_id(df: pl.DataFrame) -> pl.DataFrame:
 
 
 # ----------------------------------------------------------------------
-# Categoría PDI/PVI
-# ----------------------------------------------------------------------
-
-_COLUMNS_CAT: list[ColumnSpec] = [
-    ColumnSpec(name="per_id", label="per_id", format="id"),
-    ColumnSpec(name="persona", label="Persona", format="text"),
-    ColumnSpec(name="categoría", label="Categoría", format="text"),
-    ColumnSpec(name="fecha", label="Fecha último cobro", format="date"),
-    ColumnSpec(name="importe", label="Importe", format="euro"),
-    ColumnSpec(name="concepto_retributivo", label="Concepto", format="text"),
-    ColumnSpec(name="proyecto", label="Proyecto", format="text"),
-    ColumnSpec(name="centro", label="Centro presupuestario", format="text"),
-    ColumnSpec(name="aplicación", label="Aplicación", format="text"),
-    ColumnSpec(name="programa", label="Programa", format="text"),
-]
-_SEARCH_CAT = [
-    "persona", "categoría", "concepto_retributivo", "proyecto",
-    "centro", "aplicación", "programa",
-]
-
-
-# ----------------------------------------------------------------------
-# Departamentos
-# ----------------------------------------------------------------------
-
-_COLUMNS_DEPT: list[ColumnSpec] = [
-    ColumnSpec(name="idx", label="#", format="id", sortable=False),
-    ColumnSpec(name="centro_cc", label="Centro de coste", format="text"),
-    ColumnSpec(name="per_id", label="per_id", format="id"),
-    ColumnSpec(name="persona", label="Persona", format="text"),
-    ColumnSpec(name="cargo", label="Cargo", format="text"),
-    ColumnSpec(name="servicio", label="Servicio", format="id"),
-    ColumnSpec(name="fecha_inicio", label="Inicio", format="date"),
-    ColumnSpec(name="fecha_fin", label="Fin", format="date"),
-    ColumnSpec(name="fecha_inicio_cobra", label="Inicio cobra", format="date"),
-    ColumnSpec(name="fecha_fin_cobra", label="Fin cobra", format="date"),
-]
-_SEARCH_DEPT = ["centro_cc", "persona", "cargo"]
-
-
-def _con_idx(df: pl.DataFrame) -> pl.DataFrame:
-    """Añade una columna ``idx`` con el índice global de la fila."""
-    return df.with_row_index("idx")
-
-
-# ----------------------------------------------------------------------
 # Resumen
 # ----------------------------------------------------------------------
 
 def resumen() -> KpiPanel:
-    cat = _safe_read(PATH_CATEGORIA)
-    dept = _safe_read(PATH_DEPARTAMENTOS)
-
-    n_personas_cat = 0 if cat is None else cat["per_id"].n_unique()
-    n_categorías = 0 if cat is None else cat["categoría"].n_unique()
-    n_cargos = 0 if dept is None else dept.height
-    n_dpts = 0 if dept is None else dept["centro_cc"].n_unique()
-    n_personas_cargo = 0 if dept is None else dept["per_id"].n_unique()
-
+    cargos_uc = _safe_read(PATH_CARGOS_UC)
+    if cargos_uc is None or cargos_uc.is_empty():
+        return KpiPanel(kpis=[
+            Kpi(label="UC de cargos académicos", value=0, format="int"),
+        ])
     return KpiPanel(kpis=[
-        Kpi(label="Personas con categoría última", value=n_personas_cat, format="int"),
-        Kpi(label="Categorías distintas", value=n_categorías, format="int"),
-        Kpi(label="Cargos en departamentos", value=n_cargos, format="int"),
-        Kpi(label="Departamentos con cargos", value=n_dpts, format="int"),
-        Kpi(label="Personas con cargo", value=n_personas_cargo, format="int"),
+        Kpi(label="Personas con UC de cargos", value=cargos_uc["per_id"].n_unique(), format="int"),
+        Kpi(label="UC de cargos académicos", value=cargos_uc.height, format="int"),
+        Kpi(label="Importe imputado", value=float(cargos_uc["importe_uc"].sum() or 0), format="euro"),
     ])
 
 
@@ -144,73 +87,6 @@ def _safe_read(path: Path) -> pl.DataFrame | None:
         return read_parquet(path)
     except FileNotFoundError:
         return None
-
-
-def listar_categoria(params: QueryParams) -> ListResponse:
-    df = _safe_read(PATH_CATEGORIA)
-    if df is None:
-        return ListResponse(columns=_COLUMNS_CAT, rows=[], total=0)
-    df = _enriquecer_per_id(df)
-    df, total, stats = apply_query(df, params, search_columns=_SEARCH_CAT)
-    rows = df.to_dicts()
-    # Las fechas Date salen como objetos date(); FastAPI las serializa OK,
-    # pero las pasamos a string ISO para uniformidad con el resto.
-    rows = [_serialize_dates(r) for r in rows]
-    return ListResponse(columns=_COLUMNS_CAT, rows=rows, total=total, column_stats=stats)
-
-
-def listar_departamentos(params: QueryParams) -> ListResponse:
-    df = _safe_read(PATH_DEPARTAMENTOS)
-    if df is None:
-        return ListResponse(columns=_COLUMNS_DEPT, rows=[], total=0)
-    df = _con_idx(_enriquecer_per_id(df))
-    df, total, stats = apply_query(df, params, search_columns=_SEARCH_DEPT)
-    rows = df.to_dicts()
-    rows = [_serialize_dates(r) for r in rows]
-    return ListResponse(columns=_COLUMNS_DEPT, rows=rows, total=total, column_stats=stats)
-
-
-def obtener_categoria(per_id: int) -> RecordResponse | None:
-    df = _safe_read(PATH_CATEGORIA)
-    if df is None:
-        return None
-    fila = df.filter(pl.col("per_id") == per_id)
-    if fila.is_empty():
-        return None
-    fila = _enriquecer_per_id(fila)
-    row = _serialize_dates(fila.row(0, named=True))
-    main = [
-        FieldValue(name=c.name, label=c.label, value=row.get(c.name), format=c.format)
-        for c in _COLUMNS_CAT if c.name in row
-    ]
-    return RecordResponse(main=main, sections=[])
-
-
-def obtener_cargo(idx: int) -> RecordResponse | None:
-    """La tabla de departamentos no tiene PK natural; usamos el índice de fila."""
-    df = _safe_read(PATH_DEPARTAMENTOS)
-    if df is None or idx < 0 or idx >= df.height:
-        return None
-    fila = _enriquecer_per_id(df.slice(idx, 1))
-    row = _serialize_dates(fila.row(0, named=True))
-    main = [
-        FieldValue(name=c.name, label=c.label, value=row.get(c.name), format=c.format)
-        for c in _COLUMNS_DEPT if c.name in row
-    ]
-
-    # Sección con resto de cargos del mismo departamento
-    sections: list[RecordSection] = []
-    centro = row.get("centro_cc")
-    if centro:
-        otros = df.filter(pl.col("centro_cc") == centro).height
-        sections.append(RecordSection(
-            label="Departamento",
-            fields=[
-                FieldValue(name="centro_cc", label="Centro", value=centro, format="text"),
-                FieldValue(name="n_cargos", label="Total cargos en este dpto.", value=otros, format="int"),
-            ],
-        ))
-    return RecordResponse(main=main, sections=sections)
 
 
 # ----------------------------------------------------------------------
@@ -307,15 +183,19 @@ def listar_personas_cargos(params: QueryParams) -> ListResponse:
 _COLUMNS_CARGOS: list[ColumnSpec] = [
     ColumnSpec(name="cargo", label="Cargo", format="text"),
     ColumnSpec(name="nombre", label="Nombre", format="text"),
-    ColumnSpec(name="cuantía", label="Cuantía", format="euro"),
-    ColumnSpec(name="tipo_cargo", label="Tipo cargo", format="text"),
+    ColumnSpec(name="cargo_asimilado", label="Tipo RD", format="id"),
+    ColumnSpec(name="importe_rd", label="Cuantía RD/mes", format="euro"),
+    ColumnSpec(name="dedicación", label="Dedicación", format="float"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="centro", label="Centro", format="text"),
     ColumnSpec(name="n_pdi", label="PDI", format="int"),
     ColumnSpec(name="n_pvi", label="PVI", format="int"),
     ColumnSpec(name="n_ptgas", label="PTGAS", format="int"),
     ColumnSpec(name="n_otros", label="Otros", format="int"),
     ColumnSpec(name="n_total", label="TOTAL", format="int"),
 ]
-_SEARCH_CARGOS = ["cargo", "nombre"]
+_SEARCH_CARGOS = ["cargo", "nombre", "actividad", "centro"]
+PATH_CARGOS_RD = DIR_ENTRADA / "nóminas" / "cargos real decreto.xlsx"
 
 
 @lru_cache(maxsize=2)
@@ -462,6 +342,15 @@ def listar_cargos(params: QueryParams) -> ListResponse:
     df = df.join(_personas_por_cargo_en_año(), on="cargo", how="left")
     for col in ["n_pdi", "n_pvi", "n_ptgas", "n_otros", "n_total"]:
         df = df.with_columns(pl.col(col).fill_null(0).cast(pl.Int64))
+    # Enriquecer con importe mensual del RD vía cargo_asimilado.
+    if PATH_CARGOS_RD.exists():
+        rd = read_excel(PATH_CARGOS_RD).select(
+            pl.col("cargo_real_decreto").alias("cargo_asimilado"),
+            pl.col("importe_mensual").alias("importe_rd"),
+        )
+        df = df.join(rd, on="cargo_asimilado", how="left")
+    else:
+        df = df.with_columns(pl.lit(None).cast(pl.Float64).alias("importe_rd"))
     nombres = [c.name for c in _COLUMNS_CARGOS if c.name in df.columns]
     df = df.select(nombres)
     df, total, stats = apply_query(df, params, search_columns=_SEARCH_CARGOS)
@@ -469,6 +358,128 @@ def listar_cargos(params: QueryParams) -> ListResponse:
         columns=_COLUMNS_CARGOS, rows=df.to_dicts(),
         total=total, column_stats=stats,
     )
+
+
+# ----------------------------------------------------------------------
+# Personas con cargos remunerados (master-detail por persona)
+# ----------------------------------------------------------------------
+
+_COLUMNS_PERSONAS_REMUN: list[ColumnSpec] = [
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="sector", label="Sector", format="text"),
+    ColumnSpec(name="n_cargos", label="Cargos remunerados", format="int"),
+    ColumnSpec(name="importe_ord", label="Ordinaria CR 19/64", format="euro"),
+    ColumnSpec(name="importe_extra", label="Extra (de CR 68)", format="euro"),
+    ColumnSpec(name="importe_uc", label="Importe UC total", format="euro"),
+    ColumnSpec(name="extra_no_aplicada", label="Extra no aplicada", format="euro"),
+]
+_SEARCH_PERSONAS_REMUN = ["persona"]
+
+
+@lru_cache(maxsize=4)
+def _resumen_personas_cargos_remunerados_cached(
+    _mt_uc: int, _mt_extras: int,
+) -> pl.DataFrame:
+    """Resumen por persona leyendo de `cargos_uc.parquet` y
+    `cargos_extras_aplicadas.parquet`. Caché por mtime."""
+    del _mt_uc, _mt_extras
+    if not PATH_CARGOS_UC.exists():
+        return pl.DataFrame()
+    uc = pl.read_parquet(PATH_CARGOS_UC)
+    if uc.is_empty():
+        return pl.DataFrame()
+    agg = (
+        uc.group_by("per_id")
+        .agg(
+            pl.len().alias("n_cargos"),
+            pl.col("importe_uc_ord").sum().alias("importe_ord"),
+            pl.col("importe_uc_extra").sum().alias("importe_extra"),
+            pl.col("importe_uc").sum().alias("importe_uc"),
+            pl.col("extra_no_aplicada").first().alias("extra_no_aplicada"),
+        )
+        .with_columns(
+            pl.col("importe_ord").round(2),
+            pl.col("importe_extra").round(2),
+            pl.col("importe_uc").round(2),
+            pl.col("extra_no_aplicada").round(2),
+        )
+    )
+    return agg
+
+
+def listar_personas_con_cargos_remunerados(params: QueryParams) -> ListResponse:
+    """Personas con al menos un cargo remunerado en el año analizado.
+    Lee de `cargos_uc.parquet` (fuente de verdad generada en fase 1)."""
+    from coana.web.services.personal import (
+        _sector_principal_personal_cached, PATH_PDI, PATH_PVI,
+    )
+    path_extras = DIR_AUX / "nóminas" / "cargos_extras_aplicadas.parquet"
+    df = _resumen_personas_cargos_remunerados_cached(
+        _mtime_ns(PATH_CARGOS_UC), _mtime_ns(path_extras),
+    )
+    if df.is_empty():
+        return ListResponse(columns=_COLUMNS_PERSONAS_REMUN, rows=[], total=0)
+
+    df = _enriquecer_per_id(df)
+    sectores = _sector_principal_personal_cached(
+        _mtime_ns(PATH_PDI), _mtime_ns(PATH_PVI),
+    )
+    df = df.with_columns(
+        pl.col("per_id").map_elements(
+            lambda v: sectores.get(int(v), ""), return_dtype=pl.Utf8,
+        ).alias("sector")
+    )
+    nombres = [c.name for c in _COLUMNS_PERSONAS_REMUN if c.name in df.columns]
+    df = df.select(nombres).sort("importe_uc", descending=True, nulls_last=True)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_PERSONAS_REMUN)
+    return ListResponse(
+        columns=_COLUMNS_PERSONAS_REMUN, rows=df.to_dicts(),
+        total=total, column_stats=stats,
+    )
+
+
+_COLS_CARGOS_UC: list[ColumnSpec] = [
+    ColumnSpec(name="id", label="ID", format="text"),
+    ColumnSpec(name="cargo", label="Cargo", format="text"),
+    ColumnSpec(name="nombre_cargo", label="Nombre", format="text"),
+    ColumnSpec(name="cargo_asimilado", label="Tipo RD", format="id"),
+    ColumnSpec(name="importe_rd", label="Cuantía RD/mes", format="euro"),
+    ColumnSpec(name="fecha_inicio_cobra", label="Inicio cobra", format="date"),
+    ColumnSpec(name="fecha_fin_cobra", label="Fin cobra", format="date"),
+    ColumnSpec(name="días", label="Días en año", format="int"),
+    ColumnSpec(name="peso", label="Peso (días × RD)", format="float"),
+    ColumnSpec(name="importe_uc_ord", label="Importe ord.", format="euro"),
+    ColumnSpec(name="extra_estimada", label="Extra estimada", format="euro"),
+    ColumnSpec(name="importe_uc_extra", label="Extra aplicada", format="euro"),
+    ColumnSpec(name="importe_uc", label="Importe UC", format="euro"),
+    ColumnSpec(name="extra_no_aplicada", label="Extra no aplicada", format="euro"),
+    ColumnSpec(name="elemento_de_coste", label="UC · elemento", format="text"),
+    ColumnSpec(name="centro_de_coste", label="UC · centro", format="text"),
+    ColumnSpec(name="actividad", label="UC · actividad", format="text"),
+]
+
+
+def listar_cargos_de_persona(per_id: int, params: QueryParams) -> ListResponse:
+    """Detalle de cargos de la persona dada (lectura de `cargos_uc.parquet`)."""
+    if not PATH_CARGOS_UC.exists():
+        return ListResponse(columns=_COLS_CARGOS_UC, rows=[], total=0)
+    df = pl.read_parquet(PATH_CARGOS_UC).filter(pl.col("per_id") == per_id)
+    if df.is_empty():
+        return ListResponse(columns=_COLS_CARGOS_UC, rows=[], total=0)
+    nombres = [c.name for c in _COLS_CARGOS_UC if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(
+        df, params, search_columns=["nombre_cargo", "cargo"],
+    )
+    return ListResponse(
+        columns=_COLS_CARGOS_UC, rows=_serialize_dates_list(df.to_dicts()),
+        total=total, column_stats=stats,
+    )
+
+
+def _serialize_dates_list(rows: list[dict]) -> list[dict]:
+    return [_serialize_dates(r) for r in rows]
 
 
 # ----------------------------------------------------------------------

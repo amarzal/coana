@@ -107,8 +107,7 @@ const GROUPS: Group[] = [
         icon: GraduationCap,
         items: [
             { label: "Resumen", to: "/cargos/resumen" },
-            { label: "Categoría PDI/PVI", to: "/cargos/categoria" },
-            { label: "Departamentos", to: "/cargos/departamentos" },
+            { label: "Por persona", to: "/cargos/personas-remuneradas" },
             { label: "Personas cargos", to: "/cargos/personas-cargos" },
             { label: "Catálogo de cargos", to: "/cargos/cargos" },
         ],

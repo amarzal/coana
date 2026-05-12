@@ -1132,6 +1132,147 @@ def _generar_reparto_ss_persona(
     )
 
 
+def _aplicar_extras_cargos_al_cr68(
+    nóminas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    extras_por_persona: dict[int, float],
+    dir_salida: Path,
+) -> tuple[pl.DataFrame, dict[int, float]]:
+    """Resta la extra de cargos del CR 68 (paga adicional CE PDI) en proyecto general.
+
+    Para cada per_id con `extras_por_persona[pid] > 0`:
+    - Suma sus líneas CR 68 + proyecto general → `disponible`.
+    - Si `disponible >= extra`: resta proporcionalmente entre las líneas.
+    - Si `disponible < extra`: pone esas líneas a 0 y reporta anomalía
+      («extra estimada > CR 68 disponible»).
+
+    Devuelve `(nóminas_modificadas, extras_realmente_aplicadas_por_persona)`.
+    Persiste el detalle en `cargos_extras_aplicadas.parquet`.
+    """
+    from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
+
+    if not extras_por_persona:
+        return nóminas, {}
+
+    # Asegurar columna `_idx` para reasignar luego importes por fila.
+    nóminas = nóminas.with_row_index("_idx")
+
+    exp_per = expedientes.select("expediente", "per_id")
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    proy = pl.col("proyecto").cast(pl.Utf8)
+
+    # Solo aplicamos la resta a personas que efectivamente tienen cobro
+    # CR 19/64 en proyecto general (las que entran al reparto). Personas
+    # con cargos asimilados pero sin CR 19/64 son una anomalía aparte
+    # (no se les imputa nada porque no hay masa ordinaria).
+    per_ids_con_1964 = set(
+        nóminas.join(exp_per, on="expediente", how="inner")
+        .filter(cr.is_in(["19", "64"]))
+        .filter(proy.is_in(list(_PROYECTOS_GENERALES)))
+        .get_column("per_id").drop_nulls().unique().to_list()
+    )
+    extras_por_persona = {
+        pid: e for pid, e in extras_por_persona.items() if pid in per_ids_con_1964
+    }
+    if not extras_por_persona:
+        nóminas = nóminas.drop("_idx")
+        return nóminas, {}
+
+    cr68_gen = (
+        nóminas.join(exp_per, on="expediente", how="inner")
+        .filter(cr == "68")
+        .filter(proy.is_in(list(_PROYECTOS_GENERALES)))
+        .filter(pl.col("per_id").is_in(list(extras_por_persona.keys())))
+        .select("_idx", "per_id", "importe")
+    )
+    if cr68_gen.is_empty():
+        nóminas = nóminas.drop("_idx")
+        return nóminas, {}
+
+    # Totales disponibles por persona.
+    disponibles = (
+        cr68_gen.group_by("per_id")
+        .agg(pl.col("importe").sum().alias("disponible"))
+    )
+
+    extras_df = pl.DataFrame(
+        {
+            "per_id": list(extras_por_persona.keys()),
+            "extra": list(extras_por_persona.values()),
+        },
+        schema={"per_id": pl.Int64, "extra": pl.Float64},
+    )
+    join = (
+        disponibles.join(extras_df, on="per_id", how="inner")
+        .with_columns(
+            pl.min_horizontal(pl.col("disponible"), pl.col("extra")).alias("aplicada"),
+        )
+        .with_columns(
+            (pl.col("aplicada") / pl.col("disponible")).alias("ratio_resta"),
+        )
+    )
+    if join.is_empty():
+        nóminas = nóminas.drop("_idx")
+        return nóminas, {}
+
+    extras_aplicadas = {
+        int(r["per_id"]): float(r["aplicada"])
+        for r in join.iter_rows(named=True)
+    }
+
+    # Anomalías: extra > disponible.
+    anomalías = join.filter(pl.col("extra") > pl.col("disponible") + 0.01)
+    if not anomalías.is_empty():
+        n = anomalías.height
+        no_imp = float((anomalías["extra"] - anomalías["disponible"]).sum())
+        print(
+            f"  ⚠ {n:,} personas con extra de cargos estimada > CR 68 disponible "
+            f"({no_imp:,.2f} € sin imputar)"
+        )
+
+    # Para cada línea CR 68 en proyecto general: importe_nuevo = importe × (1 − ratio_resta).
+    ratios = join.select("per_id", "ratio_resta")
+    cr68_ajustados = (
+        cr68_gen.join(ratios, on="per_id", how="inner")
+        .with_columns(
+            (pl.col("importe") * (1.0 - pl.col("ratio_resta")))
+            .round(2)
+            .alias("importe_nuevo")
+        )
+        .select("_idx", "importe_nuevo")
+    )
+
+    # Reemplazar en nóminas.
+    nóminas = (
+        nóminas.join(cr68_ajustados, on="_idx", how="left")
+        .with_columns(
+            pl.when(pl.col("importe_nuevo").is_not_null())
+            .then(pl.col("importe_nuevo"))
+            .otherwise(pl.col("importe"))
+            .alias("importe")
+        )
+        .drop("importe_nuevo", "_idx")
+    )
+
+    # Persistir detalle.
+    detalle = join.select(
+        "per_id",
+        pl.col("extra").alias("extra_estimada"),
+        "disponible",
+        pl.col("aplicada").alias("extra_aplicada"),
+        (pl.col("extra") - pl.col("aplicada")).round(2).alias("extra_no_aplicada"),
+    )
+    detalle.write_parquet(dir_salida / "cargos_extras_aplicadas.parquet")
+    n_ok = detalle.height - anomalías.height
+    total_aplicado = float(detalle["extra_aplicada"].sum() or 0)
+    print(
+        f"  Extras de cargo aplicadas al CR 68 (proyecto general): "
+        f"{n_ok:,} personas OK, {anomalías.height:,} anomalías, "
+        f"{total_aplicado:,.2f} € restados"
+    )
+    return nóminas, extras_aplicadas
+
+
 def preprocesar_nóminas(
     ctx: ContextoNóminas,
     dir_salida: Path,
@@ -1142,10 +1283,17 @@ def preprocesar_nóminas(
     distribución_costes=None,
     obtener_descripciones=None,
     ruta_base: Path = Path("data"),
+    extras_cargos_por_persona: dict[int, float] | None = None,
 ) -> ResultadoNóminas:
     """Agrupa nóminas por expediente, clasifica por sector y guarda parquets.
 
     Genera un parquet por sector (PDI, PTGAS, PVI, Otros) en *dir_salida*.
+
+    Si se pasa `extras_cargos_por_persona`, se resta de las líneas CR 68
+    en proyecto general de cada persona la extra estimada de sus cargos
+    (ver §«Tratamiento de los cargos académicos»). El método guarda en
+    `dir_salida / cargos_extras_aplicadas.parquet` el detalle por persona
+    de la extra estimada, la aplicada y la no aplicada (anomalía).
     """
     dir_salida.mkdir(parents=True, exist_ok=True)
 
@@ -1159,6 +1307,15 @@ def preprocesar_nóminas(
         )
 
     print(f"  Registros de nómina: {len(nóminas):,}")
+
+    # Resta de la extra de cargos al CR 68 (paga adicional CE PDI) en
+    # proyecto general. Devuelve el dict de extras realmente aplicadas.
+    extras_aplicadas: dict[int, float] = {}
+    if extras_cargos_por_persona:
+        nóminas, extras_aplicadas = _aplicar_extras_cargos_al_cr68(
+            nóminas, expedientes, extras_cargos_por_persona, dir_salida,
+        )
+    ctx._extras_aplicadas_por_persona = extras_aplicadas  # type: ignore[attr-defined]
 
     _reset_etiquetas_ec_faltantes()
 

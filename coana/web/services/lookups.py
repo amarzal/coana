@@ -532,27 +532,30 @@ _AÑO_ANALIZADO = 2025  # TODO: parametrizar
 
 @lru_cache(maxsize=2)
 def _actividad_cargos_por_persona_mes(path_str: str, mtime_ns: int) -> dict:
-    """Pre-agrega importes por (per_id, mes) de CR 19/64 en el año analizado.
+    """Pre-agrega importes por (per_id, mes) de CR 19/64 en el año analizado
+    y proyecto general (los CR 19/64 en proyecto específico ya generaron su
+    UC y no se computan aquí).
 
     Devuelve un dict {per_id: {mes(1..12): importe_total}}.
     """
+    from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
     del mtime_ns
     p = Path(path_str)
     if not p.exists():
         return {}
     nóminas = read_excel(p)
-    # Necesitamos `expediente` (clave de join con expedientes para sacar
-    # per_id), `fecha`, `concepto_retributivo` e `importe`.
     exp_path = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
     if not exp_path.exists():
         return {}
     expedientes = read_excel(exp_path)
     cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    proy = pl.col("proyecto").cast(pl.Utf8)
     df = (
         nóminas.join(
             expedientes.select("expediente", "per_id"), on="expediente", how="inner",
         )
         .filter(cr.is_in(["19", "64"]))
+        .filter(proy.is_in(list(_PROYECTOS_GENERALES)))
         .filter(pl.col("fecha").dt.year() == _AÑO_ANALIZADO)
         .with_columns(pl.col("fecha").dt.month().alias("mes"))
         .group_by("per_id", "mes")

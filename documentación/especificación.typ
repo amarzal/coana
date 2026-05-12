@@ -564,8 +564,18 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
         campos: (
             cargo: [Identificador (entero).],
             nombre: [],
-            tipo_cargo: [Identificador en #ruta("tipos cargo")],
-            cuantía: [Es la cuantía mensual que debería percibir quien ostenta el cargo.],
+            cargo_asimilado: [Es el cargo del RD 1086/1989 al que se asimila este a efectos retributivos. Ver #ruta("cargos real decreto.xlsx").],
+            dedicación: [Dedicación del cargo en tanto por uno. Útil para la regla 23.],
+            actividad: [Actividad a la que se asocia el cargo. Puede ser una concreta del árbol de actividaes o un patrón para su cálculo.],
+            centro: [Etiqueta del centro de coste al que se asigna el cargo. Puede ser uno concreta del árbol de centros de coste o un patrón para su cálculo.],
+        ),
+    ),
+    "cargos real decreto.xlsx": (
+        descripción: [Cargos del Real Decreto 1086/1989 para asimilación de cargos UJI y determinación del importe mensual con el que se retribuye.],
+        campos: (
+            cargo_real_decreto: [Código del cargo en el Real Decreto 1086/1989.],
+            nombre: [Nombre del cargo],
+            importe_mensual: [Cuantía mensual que se retribuye por ese cargo.],
         ),
     ),
     "personas cargos.xlsx": (
@@ -580,13 +590,6 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
             fecha_fin: [Fecha de cese],
             fecha_inicio_cobra: [Fecha de efectos económicos],
             fecha_fin_cobra: [Fecha fin de efectos económicos],
-        ),
-    ),
-    "tipos cargo.xlsx": (
-        descripción: [Fichero con los tipos de cargo de recursos humanos],
-        campos: (
-            tipo_cargo: [Identificador (entero)],
-            nombre: [Descripción del tipo de cargo],
         ),
     ),
     "tipos coste plantilla.xlsx": (
@@ -1018,7 +1021,7 @@ La #app se organiza en un panel lateral con un árbol de navegación y un área 
     [Resumen, Expedientes PDI, Expedientes PTGAS, Expedientes PVI, Expedientes otros, Multiexpediente, Persona, Anomalías PDI],
     [Regla 23],
     [Dedicación docente, Docencia no oficial, Estructura estudios, Bolsa de atrasos, Despidos, Indemnizaciones asistencias, Cargos, Expedientes apartados, Asignaturas sin titulación, Anomalías],
-    [Cargos académicos], [Categoría PDI/PVI, Departamentos],
+    [Cargos académicos], [Resumen, Por persona, Personas cargos, Catálogo de cargos],
     [Superficies], [Resumen, Totales, Presencia centros],
     [Resultados Fase 1], [Resumen, Todas las UC, Actividades, Centros de coste, Elementos de coste, Anomalías UC],
     table.hline(),
@@ -3675,78 +3678,13 @@ La unidad de coste que creamos tendrá como importe la suma de `CONTINGENCIAS_CO
 En la #app hemos de poder ver todas las personas que tienen costes sociales calculados y, al pinchar en una fila, su detalle de cálculo (con el desglose de los conceptos que componen el coste social calculado), así como los datos de su relación funcionarial con la universidad.
 
 
-// ==== Tratamiento de los cargos que se pueden asociar a un proyecto específico
-
-// Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics (Docents)) o es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), y el #campo("proyecto") no está en TABLA-PROYECTOS-GENERALES, estamos ante el ejercicio de «cargos» que se pueden asociar a un proyecto específico. Son coste del proyecto, sin más.
-
-// La TABLA-PROYECTOS-GENERALES recoge los proyectos que, a efectos de esta regla, NO se consideran «proyecto específico» (son proyectos de carácter general donde el complemento por cargo no debe imputarse al proyecto, sino tratarse como retribución ordinaria):
-
-// #align(center, table(
-//     columns: 1,
-//     align: left,
-//     table.header(table.hline(), [#campo("proyecto")], table.hline()),
-//     val("23G019"),
-//     val("00000"),
-//     val("1G019"),
-//     val("02G041"),
-//     val("1G046"),
-//     val("11G006"),
-//     val("07G011"),
-//     val("1I235"),
-//     val("22G010"),
-//     val("11G003"),
-//     table.hline(),
-// ))
-// #nota[Completar tabla con la descripción de cada proyecto general.]
-
-// En el código, la constante análoga es `_PROYECTOS_GENERALES` en #ruta("coana/fase1/nóminas/regla_23.py").
-
-// Todos estos importes se van a descartar porque son necesariamente de cargos "oficiales" y vamos a seguir una aproximación diferente: los vamos a calcular. Es decir, si departamento necesita un director y una secretario para funcionar, para cada departamento crearmos la unidad de coste pertinente. Lo mismo con titulaciones, centros, etcétera.
-
-
-// ==== Generación de unidades de coste calculadas a partir de actividades con cargos
-
-// #figure(
-//     align(center, etapa-cargos()),
-//     caption: [Etapa de cargos académicos: ficheros de entrada y salidas que produce.],
-// )
-
-// Esta etapa cubre las unidades de coste asociadas a personas que ocupan _cargos académicos_ (dirección de departamento, vicerrectorados, decanatos, etc.). En la #app, todo lo que aquí se describe vive bajo el menú raíz «Cargos académicos», con dos sub-secciones:
-
-// - *Categoría PDI/PVI*: visualiza el cálculo previo (descrito a continuación, antes de la sub-sección «Departamentos») que asocia cada persona con su categoría última de PDI/PVI. Se materializa en #ruta("data", "fase1", "auxiliares", "categoría_última_pdi_pvi.parquet").
-// - *Departamentos*: visualiza el resultado de la sub-sección #emph[Departamentos] de abajo, listando los cargos que tiene cada departamento y la categoría de cada persona. Se materializa en #ruta("data", "fase1", "auxiliares", "cargos_departamentos.parquet").
-
-// #nota[Pendiente: construir tabla con relación de titulaciones y otras actividades. De momento solo tenemos departamentos.]
-
-// Nos interesa, para cualquier persona que haya aparecido en la nómina del año y tenga expediente de PDI o PVI, asociar su #campo("per_id") con la categoría de PDI o PVI que tenía en la última nómina en la que cobró algun #campo("concepto retributivo") de valor #val("19") o #val("64").
-
-// Quisiera que la #app mostrara la relación de esas personas (pon su nombre) y la categoría última junto con la información de ese último cobro por concepto 19 o 64 (fecha, importe, concepto retributivo, proyecto, centro, aplicación, programa). Esto es para comprobar que la información que tenemos es correcta y que el proceso de asociación de personas con categorías de PDI o PVI es correcto.
-
-// Hay una previa y es dejar en la carga de #ruta("personas cargos.xlsx") solo las filas en las que haya al menos un día de ejercicio de la actividad en el año analizado, para evitar ruido. Para eso, hay que eliminar las filas en las que no haya ningún día de ejercicio en el año analizado, lo que se puede hacer con la información de las columnas de #campo("fecha_inicio") y #campo("fecha_fin") de cada actividad.
-
-// Otra fase de filtrado previa hace que solo se carguen las filas #ruta("cargos.xlsx") cuya #campo("cuantía") sea mayor que cero.
-
-// ===== Departamentos
-
-// Vamos a crear unidades de coste calculadas para los cargos que van asociados a los departamentos de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS. Para cada departamento, conocido el código de centro de coste por ser segunda columna de esa tabla, has de buscar su número de servicio. Para eso, busca en la tabla #ruta("inventario", "servicios"). Con ese número, mira en #ruta("personas cargos.xlsx") quién ha ocupado algún cargo de ese servicio en al menos un día. Averigua qué categoría tiene esa persona el último día que cobró por el concepto 19 o el 64 (se ha precalculado).
-
-// En la #app, muestra, para cada departamento las personas que han ocupado algún cargo y los períodos en los que lo han hecho.
-
-// ==== Elementos de coste
-
-// La generación de elementos de coste para PVI y PDI sigue la misma estructura `ZZZ-XXX-YYY` descrita en el apartado anterior, con `ZZZ` = #val("piyotper") para PVI y #val("pdi") para PDI, y las reglas específicas de `XXX` de la tabla anterior.
-
-// #nota[Los detalles de la generación de unidades de coste para PVI y PDI (agrupación, cálculo de actividad y centro de coste) para conceptos especiales se definirán en un siguiente paso. De momento, vamos a ir fijando la regla 23.]
-
-// ---- XXXX ----
-
 === Decisión de centro de coste y de la actividad a partir de registros de nómina
 
 ==== Reglas para el tratamiento de los costes del PTGAS
 
 / Primero.- Retribuciones extras: :
 
-    En primer lugar, para todos los conceptos retributivos de las retribuciones extras (cuando el proyecto es distinto a 1G019, 23G019, 02G041, 11G006, 1G046 o 00000), el centro de coste y la actividad se han de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
+    En primer lugar, para todos los conceptos retributivos de las retribuciones extras (cuando el proyecto es distinto a #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000")), el centro de coste y la actividad se han de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
 
 / Segundo.- Retribuciones ordinarias: :
 
@@ -3769,7 +3707,7 @@ Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y a
 
 / Primero.- Retribuciones extras: : En primer lugar, para todos los conceptos retributivos de las retribuciones extras en las que el proyecto es distinto al #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), salvo los conceptos #val("19") y #val("64") de los proyectos #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003"), el centro de coste y la actividad se han de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
 
-/ Segundo.- Retribuciones ordinarias, es decir, todos los gastos de cualquier concepto retributivo de los proyectos #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), y los gastos de los conceptos #val("19") y #val("64") en los proyectos #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003"). Hay que seguir los siguientes pasos: :
+/ Segundo.- Retribuciones ordinarias, es decir, todos los gastos de cualquier concepto retributivo de los proyectos #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), y los gastos de los conceptos #val("19") y #val("64") en los proyectos #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003").: Hay que seguir los siguientes pasos:
 
     - *Tratamiento de atrasos*: Hay un problema con los atrasos (concepto_retributivo igual a #val("30") u #val("87")). Puede ser una masa económica grande y su reparto no depende, para cada expediente, de la actividad que haya desarrollado el profesor en ese año, sino de la actividad que haya desarrollado en años anteriores. Lo que haremos es agrupar todos esos pagos de atrasos en una bolsa común y apartarlos de la regla 23. Más adelante repartiremos todo lo que hay en esa bolsa con una distribución similar a la que se aplica en promedio a todo el PDI + PVI. De momento, por tanto, gestiona esa bolsa y en la #app muestra el total que hay en esa bolsa común de atrasos y que podamos ver el detalle.
 
@@ -3781,13 +3719,49 @@ Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y a
 
     - *Tratamiento de indemnizaciones por asistencias (tribunales y otros)*: Cuando el concepto_retributivo es #val("48"), estamos ante indemnizaciones por asistencias a tribunales y similares. La actividad a las que se han de aplicar estas retribuciones es la etiqueta #etqact("dag-sgc-indemnizaciones-asistencias"). Podemos refinar esto en función de la figura. El centro de coste ha de ser el que corresponda al Servicio indicado en la tabla de la regla Por servicio existe servicio y el proyecto uno de la línea (en la sección «Preparación de un módulo para clasificar centros de coste»).
 
-    - Tratamiento de los cargos académicos:
+    - *Tratamiento de los cargos académicos*: Cuando el #campo("concepto_retributivo") es #val("19") (Complement específic per càrrecs acadèmics) o #val("64") (Retribució addicional mèrit individual projectes UE), estamos ante el ejercicio de cargos académicos. A efectos de los cargos, llamamos *TABLA-PROYECTOS-GENERALES* al conjunto de los diez proyectos siguientes: #val("07G011"), #val("1I235"), #val("22G010"), #val("11G003"), #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") y #val("00000"). Cualquier otro proyecto se considera *específico* para esta regla. Distinguimos dos casos:
 
-        Cuando el concepto_retributivo es #val("19") (Complement específic per càrrecs acadèmics (Docents)) o es #val("64") (Retribució addicional mèrit individual projectes UE (art.76 LOSU)), estamos ante el ejercicio de «cargos».
+        / *Proyectos específicos* (los que NO están en TABLA-PROYECTOS-GENERALES): : el importe se imputa línea a línea como retribución extra: el centro de coste y la actividad se determinan con los módulos de clasificación del presupuesto. Estos importes generan UC en #ruta("auxiliares", "nóminas", "uc_cargos.parquet").
 
-        El centro de coste y la actividad de estos cargos se va a determinar de la siguiente forma:
+        / *Proyectos generales* (los diez de TABLA-PROYECTOS-GENERALES): : los importes *no se imputan línea a línea*: se reparten por persona entre los cargos que ostenta, ponderando por (días cobrados × cuantía mensual del RD asimilado).
 
-        #nota[Pendiente de indicar]
+            Para cada persona con cobro CR 19/64 en proyecto general en el año:
+
+            + Sea `TOTAL` la suma anual de CR 19/64 de la persona en proyecto general.
+            + Sea `CARGOS` el conjunto de filas de #ruta("personas cargos.xlsx") de la persona que cumplen:
+                - #campo("cargo_asimilado") no nulo (el cargo se asimila a uno de los 8 tipos del RD 1086/1989, ver #ruta("cargos real decreto.xlsx")).
+                - El periodo [#campo("fecha_inicio_cobra"), #campo("fecha_fin_cobra") o 31 de diciembre del año] solapa con el año analizado.
+            + Para cada cargo `c ∈ CARGOS`:
+                - `días(c)` = días naturales de solape del periodo de cobro con el año.
+                - `importe_rd(c)` = #campo("importe_mensual") del tipo RD asimilado.
+                - `peso(c) = días(c) × importe_rd(c)`.
+            + `importe_uc(c) = TOTAL × peso(c) / Σ pesos`.
+            + Se crea una UC por cargo con ese importe en #ruta("auxiliares", "nóminas", "cargos_uc.parquet").
+
+            *Parte extra del cargo (paga adicional)*: lo que la persona cobra por el cargo se compone de doce mensualidades ordinarias con CR 19/64 (recogidas en `TOTAL`) y dos pagas extras integradas en el CR #val("68") («Paga addicional complement específic pdi»). El CR 68 no es separable porque también recoge la paga adicional del complemento específico ordinario.
+
+            Estimación de la parte extra del cargo, por cargo:
+
+            $ "extra"(c) = 2 times "importe_rd"(c) times "días"(c) / 365 $
+
+            La UC del cargo recibe `importe_uc(c) = importe_uc_ord(c) + importe_uc_extra(c)`, donde `importe_uc_extra(c)` es la parte de la extra realmente aplicada (ver más abajo) repartida entre los cargos en proporción a la extra estimada de cada uno.
+
+            *Ajuste al CR 68*: para no contar dos veces el mismo dinero, antes del preprocesamiento de nóminas se descuenta `Σ_c extra(c)` de las líneas CR 68 en proyecto general de la persona, repartiendo el descuento proporcionalmente entre esas líneas. Si la suma del CR 68 disponible es menor que la extra estimada, el descuento se acota a 0 y la diferencia se reporta como anomalía «extra estimada > CR 68 disponible» en #ruta("auxiliares", "nóminas", "cargos_extras_aplicadas.parquet").
+
+            *Elemento de coste*: `ZZZ-XXX-cargos` con `ZZZ` por sector principal de la persona (#val("pdi") o #val("piyotper")) y `XXX` por categoría última de la persona en CR 19/64.
+
+            *Centro de coste y actividad*: campos #campo("centro") y #campo("actividad") de la fila del cargo en #ruta("cargos.xlsx"). Cuando estos campos contengan patrones (en lugar de etiquetas concretas del árbol), se resolverán siguiendo reglas que se definirán en una sección aparte. #nota[Reglas de resolución de patrones de actividad y centro pendientes de definir.]
+
+            *Cargos vigentes sin periodo de cobro* (cargos no remunerados, como direcciones de cátedras no retribuidas): aparecen en la #app como informativos pero no entran al reparto.
+
+            *Anomalías reportadas en la #app*:
+            - Cargo con periodo de cobro solapado pero #campo("cargo_asimilado") nulo: el cobro queda sin imputar y se etiqueta como «sin asimilación a RD».
+            - Persona con `TOTAL > 0` sin ningún cargo en `CARGOS`: anomalía global; toda la masa CR 19/64 de la persona en proyecto general queda sin imputar.
+
+            *Pantallas en la #app, bajo «Cargos académicos»*:
+            - *Por persona* — master-detail que consume #ruta("auxiliares", "nóminas", "cargos_uc.parquet"). Arriba, una fila por persona con cargos remunerados: #campo("per_id"), persona, sector, número de cargos remunerados, importe ordinario (suma de `importe_uc_ord`), importe extra (suma de `importe_uc_extra`), importe UC total y extra no aplicada (anomalía agregada). Al pinchar fila, una sub-tabla con una fila por cargo remunerado: cargo, nombre, tipo RD, cuantía RD mensual, fechas de cobro, días en el año, peso, importe ordinario, extra estimada, extra aplicada, importe UC y propuesta de elemento de coste, centro de coste y actividad. Los cargos no remunerados de la persona (cargos vigentes sin periodo de cobro) no aparecen en esta pantalla; se ven en la pantalla #emph[Personas cargos].
+            - *Personas cargos* — vista bruta de #ruta("personas cargos.xlsx") filtrada a filas con al menos un día activo en el año y a personas con expediente PDI/PVI.
+            - *Catálogo de cargos* — #ruta("cargos.xlsx") enriquecido con la cuantía mensual del RD asimilado y conteos sintéticos por sector (PDI · PVI · PTGAS · Otros · TOTAL).
 
     - *REGLA 23*: El resto de retribuciones ordinarias de cada PDI/PVI serán costes Regla 23, que habrán de ser repartidos posteriormente entre todas las actividades realizadas por cada trabajador. Dicho reparto se habrá de efectuar atendiendo al porcentaje de horas de dedicación del PDI/PVI en cuestión a cada una de estas actividades.
 
@@ -4135,13 +4109,15 @@ Convenciones del apéndice:
 
 / #ruta(
         "auxiliares",
-        "categoría_última_pdi_pvi.parquet",
-    ): por #campo("per_id"), categoría de PDI/PVI tras el último cobro por #campo("concepto_retributivo") = #val("19") o #val("64"). Producido a partir de #ruta("data", "entrada", "nómina", "nóminas y seguridad social.xlsx"). Origen: §«Generación de UC calculadas a partir de actividades con cargos».
+        "nóminas",
+        "cargos_uc.parquet",
+    ): una fila por (#campo("per_id"), #campo("cargo")) remunerado en el año analizado, con los días en el periodo de cobro, la cuantía mensual del RD asimilado, el peso del reparto, la parte ordinaria imputada, la parte extra estimada y la extra realmente aplicada, el importe UC total, y la propuesta de elemento de coste, centro de coste y actividad. Producido a partir de #ruta("data", "entrada", "nóminas", "personas cargos.xlsx"), #ruta("data", "entrada", "nóminas", "cargos.xlsx"), #ruta("data", "entrada", "nóminas", "cargos real decreto.xlsx"), #ruta("data", "entrada", "nóminas", "nóminas y seguridad social.xlsx") y #ruta("data", "entrada", "nóminas", "expedientes recursos humanos.xlsx"). Origen: §«Tratamiento de los cargos académicos».
 
 / #ruta(
         "auxiliares",
-        "cargos_departamentos.parquet",
-    ): cargos académicos asociados a cada departamento (filtrados por #campo("cuantía") > 0 y al menos un día activo en el año). Producido a partir de #ruta("data", "entrada", "personas cargos.xlsx"), #ruta("data", "entrada", "cargos.xlsx"), de la tabla TABLA-TRADUCCIÓN-DEPARTAMENTOS, de #ruta("data", "entrada", "inventario", "servicios.xlsx") y de #ruta("auxiliares", "categoría_última_pdi_pvi.parquet").
+        "nóminas",
+        "cargos_extras_aplicadas.parquet",
+    ): por persona, extra estimada por cargos, masa CR 68 disponible en proyecto general, extra realmente aplicada y diferencia no aplicada (anomalía). Producido durante el preprocesamiento de nóminas, antes del reparto. Origen: §«Tratamiento de los cargos académicos / Parte extra del cargo».
 
 == Seguridad social
 
