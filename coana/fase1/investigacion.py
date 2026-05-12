@@ -375,6 +375,61 @@ def _kalendas_agregado(
     )
 
 
+def _ocupacion_kalendas(
+    ruta_base: Path, año: int,
+) -> pl.DataFrame | None:
+    """Devuelve ``(per_id, oc_inicio, oc_fin)``: intervalos del año en
+    los que cada persona tiene actividad Kalendas validada (en cualquier
+    contrato).
+
+    Regla por mes:
+    - Si el día máximo de ``fecha_validación`` en el mes es ≤ 7
+      (actividad solo en la primera semana), se ocupan únicamente los
+      días 1-7.
+    - Si es > 7 (la actividad se extiende más allá de la primera
+      semana), se ocupa el mes entero.
+
+    El propósito es la regla cross-project: cuando una persona ya tiene
+    horas Kalendas en un mes, los proyectos NO-Kalendas de esa misma
+    persona no deben imputar horas por solapamiento con ese mes (o
+    primera semana, según la regla). El descuento se aplica en
+    ``calcular_horas_proyectos`` antes de convertir días a semanas.
+    """
+    path = ruta_base / "entrada" / "investigación" / "horas kalendas.xlsx"
+    if not path.exists():
+        return None
+    from coana.util import read_excel
+    df = read_excel(path)
+    if (
+        df.is_empty()
+        or "per_id" not in df.columns
+        or "fecha_validación" not in df.columns
+    ):
+        return None
+    df = df.filter(
+        pl.col("fecha_validación").is_not_null()
+        & (pl.col("fecha_validación").dt.year() == año)
+    )
+    if df.is_empty():
+        return None
+
+    agg = (
+        df.with_columns(
+            pl.col("fecha_validación").dt.month().alias("_mes"),
+            pl.col("fecha_validación").dt.day().alias("_día"),
+        )
+        .group_by("per_id", "_mes")
+        .agg(pl.col("_día").max().alias("_max_día"))
+    )
+    return agg.with_columns(
+        pl.datetime(año, pl.col("_mes"), 1).alias("oc_inicio"),
+        pl.when(pl.col("_max_día") <= 7)
+        .then(pl.datetime(año, pl.col("_mes"), 7))
+        .otherwise(pl.datetime(año, pl.col("_mes"), 1).dt.month_end())
+        .alias("oc_fin"),
+    ).select("per_id", "oc_inicio", "oc_fin")
+
+
 def _proyectos_fechas(ruta_base: Path) -> pl.DataFrame | None:
     """Devuelve (contrato, fecha_inicio_proy, fecha_fin_proy) para
     poder enriquecer cada (per_id, contrato) que no traiga fechas
@@ -613,14 +668,73 @@ def calcular_horas_proyectos(
         _coalesce_fin().alias("fecha_fin_efectiva"),
     )
 
-    # ── 3. Calcular semanas vigentes en el año (vectorizado) ─────────
-    df = df.with_columns(
-        _semanas_en_año(
-            pl.col("fecha_inicio_efectiva"),
-            pl.col("fecha_fin_efectiva"),
-            año,
-        ).alias("semanas"),
+    # ── 3. Calcular semanas vigentes en el año, descontando los meses
+    #       (o primera semana) en los que la persona ya tiene actividad
+    #       Kalendas en cualquier contrato — regla de no-superposición
+    #       cross-project. La rama Kalendas usa sus horas declaradas y
+    #       el valor de ``semanas`` se anula para esos registros en el
+    #       paso de salida, así que el descuento aquí solo afecta de
+    #       facto a los proyectos no-Kalendas. ───────────────────────
+    inicio_año_lit = pl.lit(datetime(año, 1, 1))
+    fin_año_lit = pl.lit(datetime(año, 12, 31))
+    inicio_clip = pl.max_horizontal(
+        pl.col("fecha_inicio_efectiva"), inicio_año_lit
     )
+    fin_clip = pl.min_horizontal(
+        pl.col("fecha_fin_efectiva"), fin_año_lit
+    )
+    dias_raw = (fin_clip - inicio_clip).dt.total_days() + 1
+    rango_valido = (
+        pl.col("fecha_inicio_efectiva").is_not_null()
+        & pl.col("fecha_fin_efectiva").is_not_null()
+        & (dias_raw > 0)
+    )
+    df = df.with_columns(
+        pl.when(rango_valido).then(dias_raw).otherwise(0).alias("_dias_brutos"),
+    )
+
+    ocupacion = _ocupacion_kalendas(ruta_base, año)
+    if ocupacion is not None and not ocupacion.is_empty():
+        df = df.with_row_index("_row_id")
+        overlap = (
+            df.select(
+                "_row_id", "per_id",
+                "fecha_inicio_efectiva", "fecha_fin_efectiva",
+            )
+            .join(ocupacion, on="per_id", how="inner")
+        )
+        ov_inicio = pl.max_horizontal(
+            pl.col("fecha_inicio_efectiva"), pl.col("oc_inicio")
+        )
+        ov_fin = pl.min_horizontal(
+            pl.col("fecha_fin_efectiva"), pl.col("oc_fin")
+        )
+        overlap = overlap.with_columns(
+            pl.when(ov_fin >= ov_inicio)
+            .then((ov_fin - ov_inicio).dt.total_days() + 1)
+            .otherwise(0)
+            .alias("_ov_days"),
+        )
+        ocup_agg = overlap.group_by("_row_id").agg(
+            pl.col("_ov_days").sum().alias("_dias_kalendas_ocup")
+        )
+        df = (
+            df.join(ocup_agg, on="_row_id", how="left")
+            .with_columns(pl.col("_dias_kalendas_ocup").fill_null(0))
+            .drop("_row_id")
+        )
+    else:
+        df = df.with_columns(
+            pl.lit(0, dtype=pl.Int64).alias("_dias_kalendas_ocup")
+        )
+
+    dias_efectivos = pl.max_horizontal(
+        pl.lit(0, dtype=pl.Int64),
+        pl.col("_dias_brutos") - pl.col("_dias_kalendas_ocup"),
+    )
+    df = df.with_columns(
+        (dias_efectivos / 7.0).ceil().cast(pl.Int32).alias("semanas"),
+    ).drop("_dias_brutos", "_dias_kalendas_ocup")
 
     # ── 4. Anexo del contrato y horas/semana asociadas ───────────────
     anexos = _anexos_por_contrato(ruta_base)
