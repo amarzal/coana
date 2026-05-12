@@ -34,3 +34,21 @@ def obtener_persona(per_id: int):
 def listar_detalle(per_id: int, params: QueryParams = Depends(query_dependency)):
     """Detalle de registros de dedicación de una persona específica."""
     return investigacion.listar_detalle_persona(per_id, params)
+
+
+@router.get("/uc")
+def listar_uc(params: QueryParams = Depends(query_dependency)):
+    """Distribución porcentual por (per_id, actividad). Esta anualidad
+    solo se calcula porcentaje, sin importe en euros (entrará al
+    integrar la regla 23)."""
+    return investigacion.listar_uc_investigacion(params)
+
+
+@router.get("/uc/{per_id}/{actividad}/detalle")
+def listar_uc_detalle(
+    per_id: int, actividad: str,
+    params: QueryParams = Depends(query_dependency),
+):
+    """Registros de detalle que contribuyen a una (per_id, actividad)
+    concreta — para el drill-down de la pestaña UC."""
+    return investigacion.listar_detalle_uc_actividad(per_id, actividad, params)

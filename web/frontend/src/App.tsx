@@ -48,6 +48,7 @@ import {
 import {
     InvestigacionResumen,
     InvestigacionPersonas,
+    InvestigacionUC,
 } from "@/routes/investigacion";
 import {
     Regla23Resumen,
@@ -149,6 +150,7 @@ export function App() {
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
                         <Route path="investigacion/resumen" element={<InvestigacionResumen />} />
                         <Route path="investigacion/personas" element={<InvestigacionPersonas />} />
+                        <Route path="investigacion/uc" element={<InvestigacionUC />} />
                         <Route path="regla23/resumen" element={<Regla23Resumen />} />
                         <Route path="regla23/dedicacion" element={<Regla23DedicacionDocente />} />
                         <Route path="regla23/no-oficial" element={<Regla23DocenciaNoOficial />} />

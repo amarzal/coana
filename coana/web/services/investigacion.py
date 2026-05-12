@@ -28,6 +28,7 @@ from coana.web.services.query import QueryParams, apply_query
 DIR_INV = DIR_AUX / "investigación"
 PATH_RESUMEN = DIR_INV / "resumen_investigacion.parquet"
 PATH_DETALLE = DIR_INV / "detalle_investigacion.parquet"
+PATH_UC = DIR_INV / "uc_investigacion.parquet"
 
 
 def _safe_read(path: Path) -> pl.DataFrame | None:
@@ -236,25 +237,210 @@ def obtener_persona_investigacion(per_id: int) -> RecordResponse | None:
 def listar_detalle_persona(per_id: int, params: QueryParams) -> ListResponse:
     """Lista los registros de detalle de una persona específica."""
     df = _detalle()
-    
+
     if df.is_empty() or "per_id" not in df.columns:
         return ListResponse(columns=_COLS_DETALLE, rows=[], total=0)
-    
+
     # Filtrar por persona
     df = df.filter(pl.col("per_id") == per_id)
-    
+
     # Seleccionar columnas
     cols = [c.name for c in _COLS_DETALLE if c.name in df.columns]
     df = df.select(cols)
-    
+
     # Aplicar query
     df, total, stats = apply_query(
         df, params,
         search_columns=["tipo", "identificador", "descripción", "origen"],
     )
-    
+
     return ListResponse(
         columns=_COLS_DETALLE,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )
+
+
+# ----------------------------------------------------------------------
+# UC investigación (distribución porcentual por persona/actividad)
+# ----------------------------------------------------------------------
+
+@lru_cache(maxsize=2)
+def _uc_cached(path_str: str, mtime_ns: int) -> pl.DataFrame:
+    del mtime_ns
+    p = Path(path_str)
+    if not p.exists():
+        return pl.DataFrame(schema={
+            "per_id": pl.Int64,
+            "actividad": pl.Utf8,
+            "horas": pl.Float64,
+            "horas_totales": pl.Float64,
+            "porcentaje": pl.Float64,
+        })
+    return read_parquet(p)
+
+
+def _uc() -> pl.DataFrame:
+    return _uc_cached(str(PATH_UC), _mtime_ns(PATH_UC))
+
+
+_COLS_UC: list[ColumnSpec] = [
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="horas", label="Horas", format="float"),
+    ColumnSpec(name="horas_totales", label="Horas totales persona", format="float"),
+    ColumnSpec(name="porcentaje", label="% sobre total persona", format="float"),
+]
+
+
+def listar_uc_investigacion(params: QueryParams) -> ListResponse:
+    """Lista los pares (per_id, actividad) con horas y porcentaje
+    sobre el total de la persona."""
+    df = _uc()
+    if df.is_empty():
+        return ListResponse(columns=_COLS_UC, rows=[], total=0)
+
+    df = _enriquecer_per_id(df)
+    cols = [c.name for c in _COLS_UC if c.name in df.columns]
+    df = df.select(cols)
+    df, total, stats = apply_query(
+        df, params, search_columns=["persona", "actividad"],
+    )
+    return ListResponse(
+        columns=_COLS_UC,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )
+
+
+_COLS_UC_DETALLE: list[ColumnSpec] = [
+    ColumnSpec(name="tipo", label="Tipo", format="text"),
+    ColumnSpec(name="identificador", label="Identificador", format="text"),
+    ColumnSpec(name="descripción", label="Descripción", format="text"),
+    ColumnSpec(name="semanas", label="Semanas", format="int"),
+    ColumnSpec(name="horas", label="Horas", format="float"),
+    ColumnSpec(name="origen", label="Origen", format="text"),
+]
+
+
+def listar_detalle_uc_actividad(
+    per_id: int, actividad: str, params: QueryParams,
+) -> ListResponse:
+    """Lista los registros de detalle que contribuyen a una actividad
+    concreta de una persona — para el modal de drill-down de UC.
+
+    Reproduce la lógica de resolución de actividad usada por
+    :func:`coana.fase1.investigacion.generar_distribución_investigación`
+    (tesis y grupos vía etiqueta fija; proyectos vía join con
+    `proyectos.xlsx`). De ese modo el filtrado por actividad coincide
+    exactamente con lo que se ha imputado en `uc_investigacion.parquet`.
+    """
+    df = _detalle()
+    if df.is_empty() or "per_id" not in df.columns:
+        return ListResponse(columns=_COLS_UC_DETALLE, rows=[], total=0)
+
+    df = df.filter(pl.col("per_id") == per_id)
+    if df.is_empty():
+        return ListResponse(columns=_COLS_UC_DETALLE, rows=[], total=0)
+
+    # Reutilizamos el resolver del módulo fase1 para que las
+    # actividades coincidan al 100% con uc_investigacion.parquet.
+    from coana.fase1.investigacion import (
+        _actividades_por_proyecto,
+        _doctorados_por_alumno,
+        _PREFIJO_FALLBACK_INV,
+    )
+    from coana.web.deps import DIR_ENTRADA
+
+    ruta_base = DIR_ENTRADA.parent
+    actividades_proy = _actividades_por_proyecto(ruta_base)
+    doctorados = _doctorados_por_alumno(ruta_base)
+
+    es_proy = pl.col("tipo") == "proyectos"
+    es_tesis = pl.col("tipo") == "tesis"
+
+    if actividades_proy is not None:
+        df = df.with_columns(
+            pl.when(es_proy)
+            .then(pl.col("identificador").cast(pl.Utf8))
+            .otherwise(pl.lit(None, dtype=pl.Utf8))
+            .alias("_proy"),
+        ).join(
+            actividades_proy.select(
+                pl.col("proyecto").alias("_proy"),
+                pl.col("actividad").alias("_actividad_proy"),
+            ),
+            on="_proy",
+            how="left",
+        )
+    else:
+        df = df.with_columns(
+            pl.lit(None, dtype=pl.Utf8).alias("_actividad_proy"),
+        )
+
+    if doctorados is not None:
+        df = df.with_columns(
+            pl.when(es_tesis)
+            .then(pl.col("identificador").cast(pl.Int64, strict=False))
+            .otherwise(pl.lit(None, dtype=pl.Int64))
+            .alias("_alumno"),
+        ).join(
+            doctorados.select(
+                pl.col("per_id_alumno").alias("_alumno"),
+                pl.col("actividad_doctorado").alias("_actividad_doctorado"),
+            ),
+            on="_alumno",
+            how="left",
+        )
+    else:
+        df = df.with_columns(
+            pl.lit(None, dtype=pl.Utf8).alias("_actividad_doctorado"),
+        )
+
+    actividad_expr = (
+        pl.when(pl.col("tipo") == "grupos")
+        .then(pl.lit("dag-inves"))
+        .when(es_tesis)
+        .then(
+            pl.coalesce([
+                pl.col("_actividad_doctorado"),
+                pl.lit("doctorado-sin-programa"),
+            ])
+        )
+        .when(es_proy)
+        .then(
+            pl.coalesce([
+                pl.col("_actividad_proy"),
+                pl.concat_str([
+                    pl.lit(f"{_PREFIJO_FALLBACK_INV}-"),
+                    pl.col("identificador").cast(pl.Utf8),
+                ]),
+            ])
+        )
+        .otherwise(pl.lit(None, dtype=pl.Utf8))
+    )
+
+    df = (
+        df.with_columns(actividad_expr.alias("_actividad"))
+        .filter(pl.col("_actividad") == actividad)
+        .drop(
+            ["_actividad", "_actividad_proy", "_proy",
+             "_actividad_doctorado", "_alumno"],
+            strict=False,
+        )
+    )
+
+    cols = [c.name for c in _COLS_UC_DETALLE if c.name in df.columns]
+    df = df.select(cols)
+    df, total, stats = apply_query(
+        df, params,
+        search_columns=["tipo", "identificador", "descripción", "origen"],
+    )
+    return ListResponse(
+        columns=_COLS_UC_DETALLE,
         rows=_serialize(df.to_dicts()),
         total=total,
         column_stats=stats,

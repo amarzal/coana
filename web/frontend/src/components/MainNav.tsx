@@ -91,6 +91,7 @@ const GROUPS: Group[] = [
         items: [
             { label: "Resumen", to: "/investigacion/resumen" },
             { label: "Dedicación por persona", to: "/investigacion/personas" },
+            { label: "Unidades de coste", to: "/investigacion/uc" },
         ],
     },
     {

@@ -68,3 +68,47 @@ export function InvestigacionPersonas() {
         </div>
     );
 }
+
+export function InvestigacionUC() {
+    const [sel, setSel] = useState<{ perId: string; actividad: string } | null>(
+        null,
+    );
+
+    return (
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title="Investigación · Unidades de coste"
+                subtitle="Distribución porcentual de las horas de investigación por (persona, actividad). En esta anualidad solo se calculan porcentajes; el importe en euros se añadirá al integrar la regla 23."
+            />
+            <DataTable
+                endpoint="/api/investigacion/uc"
+                queryKey="investigacion:uc"
+                rowKey="actividad"
+                onRowSelect={(row) => {
+                    const per = row.per_id;
+                    const act = row.actividad;
+                    if (per == null || act == null) {
+                        setSel(null);
+                    } else {
+                        setSel({ perId: String(per), actividad: String(act) });
+                    }
+                }}
+            />
+            {sel && (
+                <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <h2 className="mb-3 text-sm font-medium uppercase tracking-wide text-slate-500">
+                        Registros que contribuyen a{" "}
+                        <span className="font-mono text-slate-700">{sel.actividad}</span>{" "}
+                        para per_id {sel.perId}
+                    </h2>
+                    <DataTable
+                        endpoint={`/api/investigacion/uc/${encodeURIComponent(sel.perId)}/${encodeURIComponent(sel.actividad)}/detalle`}
+                        queryKey={`investigacion:uc:detalle:${sel.perId}:${sel.actividad}`}
+                        rowKey="identificador"
+                        showPopoverOnRowClick
+                    />
+                </div>
+            )}
+        </div>
+    );
+}

@@ -341,11 +341,37 @@ _HORAS_POR_ANEXO_DEFECTO: dict[str, float] = {
 _HORAS_DEFECTO = 6.0
 
 
+# ---------------------------------------------------------------------------
+# Flag de la regla cross-project de no-superposición con Kalendas.
+#
+# Por defecto, los días en los que la persona tiene actividad Kalendas
+# validada (en un contrato que también aparece en `investigadores en
+# contratos.xlsx`) NO se imputan a otros contratos no-Kalendas de la
+# misma persona durante ese intervalo (ver spec §«Regla cross-project
+# de no-superposición con Kalendas»).
+#
+# Si se quiere desactivar el descuento y permitir que las horas de
+# proyectos no-Kalendas también computen aunque haya Kalendas ese mes,
+# basta con poner `BLOQUEO_KALENDAS_HABILITADO = False`. La rama
+# Kalendas seguirá usando sus horas declaradas igualmente; solo
+# cambia el cálculo de semanas en la rama no-Kalendas.
+# ---------------------------------------------------------------------------
+BLOQUEO_KALENDAS_HABILITADO: bool = True
+
+
 def _kalendas_agregado(
     ruta_base: Path, año: int,
 ) -> pl.DataFrame | None:
-    """Devuelve un DataFrame con (per_id, contrato, horas_kalendas)
-    sumando todos los registros de Kalendas validados en el año.
+    """Devuelve un DataFrame con (per_id, contrato, horas_kalendas,
+    semanas_kalendas) sumando todos los registros de Kalendas
+    validados en el año.
+
+    ``semanas_kalendas`` cuenta las **semanas ISO distintas** del año
+    en las que la persona tiene horas_declaradas > 0 para ese
+    contrato (spec §«Cálculo de horas», punto 1: las horas
+    corresponden a la suma del periodo y las semanas se determinan a
+    partir de las semanas con registros).
+
     Retorna None si no existe el fichero o le faltan columnas clave.
     """
     path = ruta_base / "entrada" / "investigación" / "horas kalendas.xlsx"
@@ -367,11 +393,36 @@ def _kalendas_agregado(
         return None
 
     if "fecha_validación" in df.columns:
-        df = df.filter(pl.col("fecha_validación").dt.year() == año)
+        df = df.filter(
+            pl.col("fecha_validación").is_not_null()
+            & (pl.col("fecha_validación").dt.year() == año)
+        )
+
+    if "fecha_validación" not in df.columns:
+        # Sin fechas no podemos contar semanas; devolvemos solo horas.
+        return (
+            df.group_by("per_id", "contrato")
+            .agg(
+                pl.col(col_horas).sum().alias("horas_kalendas"),
+                pl.lit(None, dtype=pl.Int32).alias("semanas_kalendas"),
+            )
+            .with_columns(pl.col("contrato").cast(pl.Utf8))
+        )
 
     return (
-        df.group_by("per_id", "contrato")
-        .agg(pl.col(col_horas).sum().alias("horas_kalendas"))
+        df.with_columns(
+            pl.col("fecha_validación").dt.week().alias("_iso_week"),
+        )
+        .group_by("per_id", "contrato")
+        .agg(
+            pl.col(col_horas).sum().alias("horas_kalendas"),
+            # Semanas ISO distintas con horas > 0
+            pl.col("_iso_week")
+            .filter(pl.col(col_horas) > 0)
+            .n_unique()
+            .cast(pl.Int32)
+            .alias("semanas_kalendas"),
+        )
         .with_columns(pl.col("contrato").cast(pl.Utf8))
     )
 
@@ -482,8 +533,10 @@ def _proyectos_fechas(ruta_base: Path) -> pl.DataFrame | None:
 
 
 def _anexos_por_contrato(ruta_base: Path) -> pl.DataFrame | None:
-    """Devuelve (contrato, anexo, tipo_anexo) a partir de
-    ``anexos proyectos.xlsx``.
+    """Devuelve (contrato, anexo, tipo_anexo, codex) a partir de
+    ``anexos proyectos.xlsx``. ``codex`` es el código externo del
+    contrato (campo ``codex`` del Excel) — útil para la descripción
+    en la app.
     """
     path = ruta_base / "entrada" / "investigación" / "anexos proyectos.xlsx"
     if not path.exists():
@@ -506,14 +559,24 @@ def _anexos_por_contrato(ruta_base: Path) -> pl.DataFrame | None:
         if "tipo_anexo" in df.columns
         else pl.lit(None, dtype=pl.Int64)
     )
+    codex_expr = (
+        pl.col("codex").cast(pl.Utf8).str.strip_chars()
+        if "codex" in df.columns
+        else pl.lit(None, dtype=pl.Utf8)
+    )
     return (
         df.select(
             pl.col("contrato").cast(pl.Utf8),
             pl.concat_str(partes).str.strip_chars().alias("anexo"),
             tipo_expr.alias("tipo_anexo"),
+            codex_expr.alias("codex"),
         )
         .group_by("contrato")
-        .agg(pl.col("anexo").first(), pl.col("tipo_anexo").first())
+        .agg(
+            pl.col("anexo").first(),
+            pl.col("tipo_anexo").first(),
+            pl.col("codex").first(),
+        )
     )
 
 
@@ -713,9 +776,17 @@ def calcular_horas_proyectos(
         pl.when(rango_valido).then(dias_raw).otherwise(0).alias("_dias_brutos"),
     )
 
-    ocupacion = _ocupacion_kalendas(
-        ruta_base, año,
-        contratos_válidos=df.select("per_id", "contrato"),
+    # Regla cross-project: descontar días ocupados por Kalendas a la
+    # rama no-Kalendas (ver flag BLOQUEO_KALENDAS_HABILITADO arriba en
+    # el módulo). Si el flag está a False, equivale a ``_ocupacion_*``
+    # = vacío y no se descuenta nada.
+    ocupacion = (
+        _ocupacion_kalendas(
+            ruta_base, año,
+            contratos_válidos=df.select("per_id", "contrato"),
+        )
+        if BLOQUEO_KALENDAS_HABILITADO
+        else None
     )
     if ocupacion is not None and not ocupacion.is_empty():
         df = df.with_row_index("_row_id")
@@ -767,6 +838,7 @@ def calcular_horas_proyectos(
         df = df.with_columns(
             pl.lit(None, dtype=pl.Utf8).alias("anexo"),
             pl.lit(None, dtype=pl.Int64).alias("tipo_anexo"),
+            pl.lit(None, dtype=pl.Utf8).alias("codex"),
         )
 
     tipos = _tipos_anexo_horas(ruta_base)
@@ -847,16 +919,29 @@ def calcular_horas_proyectos(
     if df.is_empty():
         return _empty(_SCHEMA_PROYECTOS), sin_fechas
 
+    # En la rama Kalendas las "semanas" representan las semanas ISO en
+    # las que la persona declaró horas en ese contrato (ver
+    # `_kalendas_agregado`). En la rama no-Kalendas son las semanas
+    # vigentes en el año tras descontar la ocupación cross-project.
+    semanas_finales = (
+        pl.when(pl.col("origen") == "Kalendas")
+        .then(pl.col("semanas_kalendas").cast(pl.Int32))
+        .otherwise(pl.col("semanas"))
+    )
+
+    # Las fechas de la rama Kalendas no son las de la solicitud sino
+    # las del rango de declaración. Como las semanas ISO ya dan la
+    # información temporal real, dejamos las fechas a null en
+    # Kalendas para evitar inducir a error en el detalle.
     horas = df.select(
         pl.col("per_id"),
         pl.col("contrato"),
         pl.col("proyecto") if "proyecto" in df.columns
             else pl.lit(None, dtype=pl.Utf8).alias("proyecto"),
+        pl.col("codex") if "codex" in df.columns
+            else pl.lit(None, dtype=pl.Utf8).alias("codex"),
         pl.col("anexo"),
-        pl.when(pl.col("origen") == "Kalendas")
-        .then(pl.lit(None, dtype=pl.Int32))
-        .otherwise(pl.col("semanas"))
-        .alias("semanas"),
+        semanas_finales.alias("semanas"),
         pl.col("horas"),
         pl.col("origen"),
         pl.lit("proyectos").alias("tipo"),
@@ -929,8 +1014,22 @@ def consolidar_dedicacion_investigacion(
             if "proyecto" in proyectos.columns
             else pl.col("contrato")
         )
+        # Descripción: "contrato (codex) · anexo" — codex entre
+        # paréntesis se omite si es null/vacío.
+        contrato_str = pl.col("contrato").cast(pl.Utf8)
+        if "codex" in proyectos.columns:
+            con_codex = pl.concat_str(
+                [contrato_str, pl.lit(" ("), pl.col("codex"), pl.lit(")")],
+            )
+            contrato_y_codex = pl.when(
+                pl.col("codex").is_not_null()
+                & (pl.col("codex").str.len_chars() > 0)
+            ).then(con_codex).otherwise(contrato_str)
+        else:
+            contrato_y_codex = contrato_str
+        anexo_str = pl.col("anexo").fill_null(pl.lit(""))
         desc_expr = pl.concat_str(
-            [pl.col("contrato"), pl.col("anexo").fill_null(pl.lit(""))],
+            [contrato_y_codex, anexo_str],
             separator=" · ",
         ).str.strip_chars()
         partes_detalle.append(proyectos.select(
@@ -989,3 +1088,469 @@ def consolidar_dedicacion_investigacion(
     log.info("Total registros de detalle: %d", detalle.height)
     log.info("Proyectos descartados por falta de fechas: %d", proyectos_sin_fechas.height)
     return resumen, detalle, proyectos_sin_fechas
+
+
+# ---------------------------------------------------------------------------
+# Generación de UC a partir de la dedicación a investigación
+# ---------------------------------------------------------------------------
+
+_SCHEMA_UC_INVESTIGACION: dict[str, type] = {
+    "per_id": pl.Int64,
+    "actividad": pl.Utf8,
+    "horas": pl.Float64,
+    "horas_totales": pl.Float64,
+    "porcentaje": pl.Float64,
+}
+
+
+# ---------------------------------------------------------------------------
+# Mapeo tipo_proyecto → prefijo de actividad. Coincide con las reglas
+# del traductor de presupuesto (§«Costes en proyectos de Investigación
+# y transferencia») cuando el proyecto cumple programa=541-A y
+# tipo_línea≠00 (caso por defecto de los proyectos de investigación).
+# Los tipos «artículos 60» (0000I/A11I/A1TI/A83CA/CA/PCT/IDI) se
+# tratan aparte porque su prefijo depende del nombre del proyecto
+# (cátedra/aula empresa vs. resto).
+# ---------------------------------------------------------------------------
+_TIPO_PROYECTO_PREFIJO_AI: dict[str, str] = {
+    # Investigación internacional
+    "UEI": "ai-internacional",
+    "UEGD": "ai-internacional",
+    # Investigación nacional
+    "06I": "ai-nacional",
+    "COBEI": "ai-nacional",
+    "MCTFE": "ai-nacional",
+    "MCTI": "ai-nacional",
+    "MEC": "ai-nacional",
+    "MECD": "ai-nacional",
+    "MECI": "ai-nacional",
+    "MIE": "ai-nacional",
+    "MIG": "ai-nacional",
+    "MPEI": "ai-nacional",
+    "MSI": "ai-nacional",
+    "MSP": "ai-nacional",
+    "MTAI": "ai-nacional",
+    "MTD": "ai-nacional",
+    # Investigación regional
+    "DIPI": "ai-regional",
+    "FGVI": "ai-regional",
+    "GVI": "ai-regional",
+    # Otras competitivas
+    "BECI": "ai-otras-competitivas",
+    "CONI": "ai-otras-competitivas",
+    "CONVI": "ai-otras-competitivas",
+    # Plan propio
+    "000TR": "ait-financiación-propia",
+    # Co-financiación: por simplicidad caen en financiación externa
+    # (la spec distingue propia/externa con `_tipo_línea`, que aquí
+    # no tenemos a mano; lo más común para contratos de investigación
+    # es externa, ya que tienen una línea de financiación finalista).
+    "000I": "ait-financiación-externa",
+    "PII": "ait-financiación-externa",
+    "COF": "ait-financiación-externa",
+    "MEC": "ai-nacional",  # ya cubierto arriba, dejado por claridad
+}
+
+# Tipos de "artículos 60" que generan transf-60 o cátedras-aulas-empresa
+# según el nombre del proyecto contenga «cátedra» / «aula empresa».
+_TIPOS_ARTS60 = {"0000I", "A11I", "A1TI", "A83CA", "CA", "PCT", "IDI"}
+
+# Fallback cuando no podemos resolver categoría — se usa el nodo
+# genérico de ayudas de investigación y transferencia.
+_PREFIJO_FALLBACK_INV = "ait"
+
+
+# Overrides para mapear `estudio` (de estudios.xlsx) al identificador
+# del nodo del árbol de actividades cuando no se puede deducir por
+# nombre (idioma distinto entre el dato y la spec del árbol, o el
+# nodo no existe todavía y se usa un genérico de la Escuela de
+# Doctorado). Las claves son los códigos de `estudios.xlsx`.
+_DOCTORADO_OVERRIDES: dict[int, str] = {
+    # Catalán: "Programa de Doctorat en Diseño, Gestión..." — el
+    # nodo del árbol está en español como "Diseño, Gestión y
+    # Evaluación de Políticas Públicas de Bienestar Social" → doc-dgpeb.
+    90167: "doc-dgpeb",
+    # "Estudios Interdisciplinarios" (estudios.xlsx) vs
+    # "Estudios Interdisciplinares" (árbol) → mismo programa.
+    90171: "doc-eig",
+    # Doctorado Europeo Conjunto Marie Sklodowska-Curie: no hay nodo
+    # específico en el árbol; cae en la Escuela de Doctorado.
+    90184: "dag-escuela-doctorado",
+    90191: "dag-escuela-doctorado",
+}
+
+
+def _normaliza_nombre(s: str) -> str:
+    """Normaliza un nombre para comparación: minúsculas, sin
+    acentos ni espacios extra."""
+    import unicodedata
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
+    return s.lower().strip()
+
+
+def _doctorado_id_por_nombre_arbol(ruta_base: Path) -> dict[str, str]:
+    """Lee `actividades.tree` y construye {nombre_normalizado_programa:
+    identificador_nodo} para los hijos del nodo ``doctorado``.
+
+    Devuelve dict vacío si el árbol no existe o no se puede parsear.
+    """
+    import re
+    path = ruta_base / "entrada" / "estructuras" / "actividades.tree"
+    if not path.exists():
+        return {}
+    try:
+        from coana.util.arbol import Árbol
+        arbol = Árbol.from_file(path)
+        # Comprobar que existe el nodo doctorado
+        if "doctorado" not in arbol._por_id:
+            return {}
+        mapping: dict[str, str] = {}
+        for hijo in arbol.hijos("doctorado"):
+            # Esperamos descripciones del tipo
+            # "Programa de doctorado en Historia del Arte"
+            m = re.match(
+                r"(?i)Programa de [Dd]octorad[oa]?t? en (.+?)\s*$",
+                hijo.descripción,
+            )
+            if m:
+                mapping[_normaliza_nombre(m.group(1))] = hijo.identificador
+        return mapping
+    except Exception as e:
+        log.warning("No se pudo leer árbol de actividades: %s", e)
+        return {}
+
+
+def _doctorados_por_alumno(ruta_base: Path) -> pl.DataFrame | None:
+    """Devuelve (per_id_alumno, actividad_doctorado, nombre_doctorado)
+    cruzando ``tesis.xlsx`` con ``docencia/estudios.xlsx`` y con el
+    árbol de actividades.
+
+    Para cada tesis:
+    1. Si `estudio` está en :data:`_DOCTORADO_OVERRIDES` → se usa el
+       identificador del nodo configurado manualmente.
+    2. Si el nombre del estudio matchea (normalizado) con la
+       descripción de algún hijo del nodo `doctorado` del árbol → se
+       usa el identificador de ese hijo (p. ej. ``doc-ha``).
+    3. Si no, fallback a ``doctorado-{estudio}`` con warning.
+    """
+    import re
+    path_tesis = ruta_base / "entrada" / "investigación" / "tesis.xlsx"
+    if not path_tesis.exists():
+        return None
+
+    from coana.util import read_excel
+    df = read_excel(path_tesis)
+    if (
+        df.is_empty()
+        or "per_id_alumno" not in df.columns
+        or "estudio" not in df.columns
+    ):
+        return None
+
+    base = df.select(
+        pl.col("per_id_alumno").cast(pl.Int64),
+        pl.col("estudio").cast(pl.Int64, strict=False),
+    ).unique(subset=["per_id_alumno"], keep="first")
+
+    # Enriquecer con el nombre del programa.
+    path_estudios = ruta_base / "entrada" / "docencia" / "estudios.xlsx"
+    if path_estudios.exists():
+        estudios = read_excel(path_estudios)
+        if (
+            not estudios.is_empty()
+            and "estudio" in estudios.columns
+            and "nombre" in estudios.columns
+        ):
+            base = base.join(
+                estudios.select(
+                    pl.col("estudio").cast(pl.Int64, strict=False),
+                    pl.col("nombre").cast(pl.Utf8).alias("nombre_doctorado"),
+                ),
+                on="estudio",
+                how="left",
+            )
+        else:
+            base = base.with_columns(
+                pl.lit(None, dtype=pl.Utf8).alias("nombre_doctorado"),
+            )
+    else:
+        base = base.with_columns(
+            pl.lit(None, dtype=pl.Utf8).alias("nombre_doctorado"),
+        )
+
+    # Mapping nombre_normalizado → identificador del nodo del árbol.
+    nombre_a_id = _doctorado_id_por_nombre_arbol(ruta_base)
+
+    # Resolver el identificador por fila aplicando la jerarquía:
+    # override → árbol → fallback.
+    def _resolver(estudio: int | None, nombre: str | None) -> str | None:
+        if estudio is None:
+            return None
+        if estudio in _DOCTORADO_OVERRIDES:
+            return _DOCTORADO_OVERRIDES[estudio]
+        if nombre and nombre_a_id:
+            m = re.match(
+                r"(?i)Programa de [Dd]octorad[oa]?t? en (.+?)\s*$",
+                nombre,
+            )
+            if m:
+                clave = _normaliza_nombre(m.group(1))
+                ident = nombre_a_id.get(clave)
+                if ident:
+                    return ident
+        # Fallback: doctorado-{estudio} (avisa para que se añada al
+        # override o se complete el árbol).
+        log.warning(
+            "Tesis con estudio=%s (%s) sin nodo en árbol de doctorado; "
+            "usando fallback doctorado-%s",
+            estudio, nombre, estudio,
+        )
+        return f"doctorado-{estudio}"
+
+    return base.with_columns(
+        pl.struct(["estudio", "nombre_doctorado"])
+        .map_elements(
+            lambda s: _resolver(s["estudio"], s["nombre_doctorado"]),
+            return_dtype=pl.Utf8,
+        )
+        .alias("actividad_doctorado"),
+    ).select(
+        "per_id_alumno", "actividad_doctorado", "nombre_doctorado",
+    )
+
+
+def _actividades_por_proyecto(ruta_base: Path) -> pl.DataFrame | None:
+    """Devuelve (proyecto, tipo_proyecto, actividad) — la actividad
+    se construye como `{prefijo}-{proyecto}` aplicando las reglas
+    simplificadas del traductor de presupuesto sobre `tipo_proyecto`.
+
+    Si el tipo no se reconoce, se asigna ``ait-{proyecto}`` como
+    fallback (nodo de ayudas de investigación y transferencia
+    genérico).
+    """
+    path = ruta_base / "entrada" / "presupuesto" / "proyectos.xlsx"
+    if not path.exists():
+        log.warning("No existe %s; no se resolverán actividades de proyectos", path)
+        return None
+
+    from coana.util import read_excel
+    df = read_excel(path)
+    if df.is_empty() or "proyecto" not in df.columns or "tipo" not in df.columns:
+        return None
+
+    es_arts60 = pl.col("tipo").is_in(list(_TIPOS_ARTS60))
+    es_cátedra = (
+        pl.col("nombre").cast(pl.Utf8)
+        .str.contains(r"(?i)c.tedra|aula empresa")
+        .fill_null(False)
+        if "nombre" in df.columns else pl.lit(False)
+    )
+
+    prefijo = (
+        pl.when(es_arts60 & es_cátedra)
+        .then(pl.lit("cátedras-aulas-empresa"))
+        .when(es_arts60)
+        .then(pl.lit("transf-60"))
+        .otherwise(
+            pl.col("tipo").replace_strict(
+                _TIPO_PROYECTO_PREFIJO_AI,
+                default=_PREFIJO_FALLBACK_INV,
+                return_dtype=pl.Utf8,
+            )
+        )
+    )
+
+    actividad = pl.concat_str([prefijo, pl.lit("-"), pl.col("proyecto").cast(pl.Utf8)])
+
+    return df.select(
+        pl.col("proyecto").cast(pl.Utf8),
+        pl.col("tipo").alias("tipo_proyecto"),
+        actividad.alias("actividad"),
+    )
+
+
+def generar_distribución_investigación(
+    detalle: pl.DataFrame | None = None,
+    ruta_base: Path | None = None,
+    año: int = 2025,
+) -> pl.DataFrame:
+    """Distribución porcentual de horas de investigación por
+    (per_id, actividad).
+
+    Por cada persona se resuelve la actividad de cada registro de
+    detalle (proyectos, tesis, grupos) y se acumulan las horas; el
+    porcentaje es ``horas_actividad / horas_totales_persona``.
+
+    Parameters
+    ----------
+    detalle : DataFrame opcional con la salida de
+        :func:`consolidar_dedicacion_investigacion`. Si se pasa, no
+        se lee de disco. Útil para el orquestador, que ya lo tiene
+        en memoria.
+    ruta_base : alternativa a ``detalle``: se lee
+        ``fase1/auxiliares/investigación/detalle_investigacion.parquet``
+        de la ruta dada.
+    año : sin uso aquí; se acepta por simetría con el resto del
+        módulo.
+
+    Returns
+    -------
+    DataFrame con (per_id, actividad, horas, horas_totales,
+    porcentaje). Los porcentajes de una persona suman ~100%, salvo
+    redondeo y registros sin actividad resuelta (que se omiten de la
+    suma de actividad pero permanecen en ``horas_totales`` para que
+    el porcentaje refleje la dedicación real).
+
+    Notas
+    -----
+    - Para tesis se usa una actividad placeholder hasta que se
+      mapee el programa de doctorado (TODO en la spec).
+    - Para coordinación de grupos se usa ``dag-inves`` (transitorio,
+      hasta que el árbol de actividades contemple nodos por grupo).
+    - Para proyectos se aplica :func:`_resolver_actividad_proyecto`
+      (placeholder; TODO integrar reglas de proyectos de
+      transferencia/investigación).
+    - En esta anualidad solo se calculan porcentajes — ``importe``
+      en euros entrará al integrar regla 23 y datos retributivos.
+    """
+    del año  # parámetro reservado para futura simetría con otras fns
+
+    if detalle is None:
+        if ruta_base is None:
+            raise ValueError(
+                "Hay que pasar `detalle` o `ruta_base` para localizar "
+                "detalle_investigacion.parquet",
+            )
+        path = (
+            ruta_base / "fase1" / "auxiliares" / "investigación"
+            / "detalle_investigacion.parquet"
+        )
+        if not path.exists():
+            log.warning(
+                "No existe %s; no se genera UC de investigación", path,
+            )
+            return _empty(_SCHEMA_UC_INVESTIGACION)
+        detalle = pl.read_parquet(path)
+
+    if detalle.is_empty():
+        return _empty(_SCHEMA_UC_INVESTIGACION)
+
+    # Resolver la actividad de cada registro de tipo "proyectos"
+    # mediante join con la tabla `proyectos.xlsx`. Para tesis se
+    # cruza per_id_alumno con `tesis.xlsx` → `estudios.xlsx` y se
+    # genera ``doctorado-{estudio}``. Grupos sigue usando el nodo
+    # transitorio (TODO en la spec).
+    if ruta_base is not None:
+        actividades_proy = _actividades_por_proyecto(ruta_base)
+        doctorados = _doctorados_por_alumno(ruta_base)
+    else:
+        actividades_proy = None
+        doctorados = None
+
+    detalle_con_act = detalle.clone()
+    if actividades_proy is not None:
+        es_proy = pl.col("tipo") == "proyectos"
+        detalle_con_act = detalle_con_act.with_columns(
+            pl.when(es_proy)
+            .then(pl.col("identificador").cast(pl.Utf8))
+            .otherwise(pl.lit(None, dtype=pl.Utf8))
+            .alias("_proy"),
+        ).join(
+            actividades_proy.select(
+                pl.col("proyecto").alias("_proy"),
+                pl.col("actividad").alias("_actividad_proy"),
+            ),
+            on="_proy",
+            how="left",
+        )
+    else:
+        detalle_con_act = detalle_con_act.with_columns(
+            pl.lit(None, dtype=pl.Utf8).alias("_actividad_proy"),
+        )
+
+    if doctorados is not None:
+        es_tesis = pl.col("tipo") == "tesis"
+        detalle_con_act = detalle_con_act.with_columns(
+            pl.when(es_tesis)
+            .then(pl.col("identificador").cast(pl.Int64, strict=False))
+            .otherwise(pl.lit(None, dtype=pl.Int64))
+            .alias("_alumno"),
+        ).join(
+            doctorados.select(
+                pl.col("per_id_alumno").alias("_alumno"),
+                pl.col("actividad_doctorado").alias("_actividad_doctorado"),
+            ),
+            on="_alumno",
+            how="left",
+        )
+    else:
+        detalle_con_act = detalle_con_act.with_columns(
+            pl.lit(None, dtype=pl.Utf8).alias("_actividad_doctorado"),
+        )
+
+    actividad_expr = (
+        pl.when(pl.col("tipo") == "grupos")
+        .then(pl.lit("dag-inves"))  # transitorio (TODO de la spec)
+        .when(pl.col("tipo") == "tesis")
+        .then(
+            pl.coalesce([
+                pl.col("_actividad_doctorado"),
+                # Fallback: tesis sin `estudio` en tesis.xlsx.
+                pl.lit("doctorado-sin-programa"),
+            ])
+        )
+        .when(pl.col("tipo") == "proyectos")
+        .then(
+            pl.coalesce([
+                pl.col("_actividad_proy"),
+                # Proyecto no presente en proyectos.xlsx → fallback
+                # genérico ait-{proyecto}.
+                pl.concat_str([
+                    pl.lit(f"{_PREFIJO_FALLBACK_INV}-"),
+                    pl.col("identificador").cast(pl.Utf8),
+                ]),
+            ])
+        )
+        .otherwise(pl.lit(None, dtype=pl.Utf8))
+    )
+
+    detalle_con_act = detalle_con_act.with_columns(
+        actividad_expr.alias("actividad"),
+    ).drop(
+        ["_actividad_proy", "_proy", "_actividad_doctorado", "_alumno"],
+        strict=False,
+    )
+
+    # Total de horas por persona — incluye TODOS los registros (los
+    # que no resuelven actividad también suman al denominador, para
+    # que los porcentajes no se inflen artificialmente).
+    totales = detalle_con_act.group_by("per_id").agg(
+        pl.col("horas").sum().alias("horas_totales"),
+    )
+
+    # Suma de horas por (per_id, actividad), omitiendo registros sin
+    # actividad resuelta.
+    con_actividad = detalle_con_act.filter(pl.col("actividad").is_not_null())
+    if con_actividad.is_empty():
+        return _empty(_SCHEMA_UC_INVESTIGACION)
+
+    uc = (
+        con_actividad.group_by("per_id", "actividad")
+        .agg(pl.col("horas").sum().alias("horas"))
+        .join(totales, on="per_id", how="left")
+        .with_columns(
+            (
+                pl.col("horas") / pl.col("horas_totales") * 100.0
+            ).alias("porcentaje"),
+        )
+        .select(["per_id", "actividad", "horas", "horas_totales", "porcentaje"])
+        .sort("per_id", "porcentaje", descending=[False, True])
+    )
+
+    log.info(
+        "UC de investigación: %d pares (per_id, actividad) sobre "
+        "%d personas",
+        uc.height, uc["per_id"].n_unique(),
+    )
+    return uc

@@ -204,7 +204,10 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
 
     # -- Dedicación a investigación --
     print("Procesando dedicación a investigación…")
-    from coana.fase1.investigacion import consolidar_dedicacion_investigacion
+    from coana.fase1.investigacion import (
+        consolidar_dedicacion_investigacion,
+        generar_distribución_investigación,
+    )
     resumen_inv, detalle_inv, sin_fechas_inv = consolidar_dedicacion_investigacion(
         ruta_base, año,
     )
@@ -222,6 +225,20 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
         print(
             f"  Proyectos descartados sin fechas resolubles: "
             f"{_fmt_n(sin_fechas_inv.height)} (ver proyectos_sin_fechas.parquet)"
+        )
+
+    # Distribución porcentual por (per_id, actividad) — esta anualidad
+    # sin importe en euros (entrará al integrar regla 23). Se pasa
+    # `ruta_base` para que pueda resolver la actividad real de cada
+    # proyecto desde `proyectos.xlsx`.
+    uc_inv = generar_distribución_investigación(
+        detalle=detalle_inv, ruta_base=ruta_base, año=año,
+    )
+    if not uc_inv.is_empty():
+        uc_inv.write_parquet(dir_inv / "uc_investigacion.parquet")
+        print(
+            f"  UC investigación (porcentajes): "
+            f"{_fmt_n(uc_inv.height)} pares (per_id, actividad)"
         )
 
     # -- Fichero combinado --
