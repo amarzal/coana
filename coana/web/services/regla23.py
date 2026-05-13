@@ -13,7 +13,7 @@ from pathlib import Path
 import polars as pl
 
 from coana.util import read_excel
-from coana.web.deps import DIR_AUX, DIR_ENTRADA, _mtime_ns, read_parquet
+from coana.web.deps import DIR_AUX, DIR_ENTRADA, DIR_FASE1, _mtime_ns, read_parquet
 from coana.web.schemas.common import (
     ColumnSpec,
     FieldValue,
@@ -25,9 +25,13 @@ from coana.web.schemas.common import (
 from coana.web.services.query import QueryParams, apply_query
 
 DIR_NOMINAS = DIR_AUX / "nóminas"
+DIR_REGLA23 = DIR_FASE1 / "regla23"
 PATH_PERSONAS = DIR_ENTRADA / "nóminas" / "personas.xlsx"
 
-# Parquets de la regla 23
+# Parquet nuevo: dedicación PDI (regla 23 reescrita)
+PATH_DEDICACIÓN_PDI = DIR_REGLA23 / "dedicación_pdi.parquet"
+
+# Parquets de la regla 23 (legacy: reparto de masa indiferenciada PDI/PVI)
 PATH_DED_DOCENTE = DIR_NOMINAS / "regla_23_dedicación_docente.parquet"
 PATH_DED_TIT = DIR_NOMINAS / "regla_23_dedicación_titulaciones.parquet"
 PATH_DED_EST = DIR_NOMINAS / "regla_23_dedicación_estudios.parquet"
@@ -394,4 +398,166 @@ def listar_multiples_con_grado(p: QueryParams) -> ListResponse:
         PATH_MULT_GRADO, _COLS_MULT, p,
         search=["asignatura", "titulación", "tipo"],
         enriquecer_per_id=False,
+    )
+
+
+# ----------------------------------------------------------------------
+# Dedicación PDI (regla 23 reescrita: parquet dedicación_pdi)
+# ----------------------------------------------------------------------
+
+_COLS_DED_PERSONAS: list[ColumnSpec] = [
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="horas_total", label="Horas registradas", format="float"),
+    ColumnSpec(name="horas_docencia_oficial", label="Docencia oficial", format="float"),
+    ColumnSpec(name="horas_investigación", label="Investigación", format="float"),
+    ColumnSpec(name="n_actividades", label="Nº actividades", format="int"),
+    ColumnSpec(name="n_anomalías", label="Con anomalía", format="int"),
+]
+
+_COLS_DED_DETALLE: list[ColumnSpec] = [
+    ColumnSpec(name="grupo", label="Grupo", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro de coste", format="text"),
+    ColumnSpec(name="horas", label="Horas", format="float"),
+    ColumnSpec(name="factor", label="Factor", format="float"),
+    ColumnSpec(name="método", label="Método", format="text"),
+    ColumnSpec(name="origen", label="Origen", format="text"),
+    ColumnSpec(name="origen_id", label="Origen id", format="text"),
+    ColumnSpec(name="anomalía", label="Anomalía", format="text"),
+]
+
+
+def _resumen_personas_dedicación(df: pl.DataFrame) -> pl.DataFrame:
+    """Agrega dedicación por persona para la vista master."""
+    return (
+        df.group_by("per_id").agg(
+            pl.col("horas").sum().alias("horas_total"),
+            pl.col("horas")
+              .filter(pl.col("grupo") == "docencia_oficial")
+              .sum().alias("horas_docencia_oficial"),
+            pl.col("horas")
+              .filter(pl.col("grupo") == "investigación")
+              .sum().alias("horas_investigación"),
+            pl.len().alias("n_actividades"),
+            pl.col("anomalía").is_not_null().sum().alias("n_anomalías"),
+        )
+    )
+
+
+def listar_personas_dedicación(p: QueryParams) -> ListResponse:
+    df = _safe_read(PATH_DEDICACIÓN_PDI)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_DED_PERSONAS, rows=[], total=0)
+    df = _enriq(_resumen_personas_dedicación(df))
+    df = df.select([c.name for c in _COLS_DED_PERSONAS if c.name in df.columns])
+    df, total, stats = apply_query(df, p, search_columns=["persona"])
+    return ListResponse(
+        columns=_COLS_DED_PERSONAS,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )
+
+
+_COLS_DED_RESUMEN: list[ColumnSpec] = [
+    ColumnSpec(name="grupo", label="Grupo", format="text"),
+    ColumnSpec(name="origen", label="Origen", format="text"),
+    ColumnSpec(name="horas_brutas", label="Horas registradas", format="float"),
+    ColumnSpec(name="factor_medio", label="Factor", format="float"),
+    ColumnSpec(name="horas_efectivas", label="Horas efectivas", format="float"),
+    ColumnSpec(name="porcentaje", label="% jornada", format="float"),
+]
+
+_GRUPOS_CANÓNICOS: list[tuple[str, str]] = [
+    ("docencia_oficial", "Docencia oficial"),
+    ("docencia_no_oficial", "Docencia no oficial"),
+    ("gestión", "Gestión"),
+    ("investigación", "Investigación"),
+    ("extensión", "Extensión universitaria"),
+]
+
+JORNADA_ANUAL_PDI = 1642.0
+
+
+def listar_resumen_grupo_persona(
+    per_id: int, jornada_anual: float = JORNADA_ANUAL_PDI,
+) -> ListResponse:
+    """Resumen por (grupo, origen) + fila final HND.
+
+    Cada fila desglosa cuántas horas aporta cada fuente (POD, tesis,
+    cargo, grupo, …) a cada grupo de la regla 23. Las horas efectivas
+    incorporan el factor ×2,5 de impartición docente; el porcentaje se
+    calcula sobre la jornada anual.
+    """
+    df = _safe_read(PATH_DEDICACIÓN_PDI)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_DED_RESUMEN, rows=[], total=0)
+
+    sub = df.filter(pl.col("per_id") == per_id)
+    if sub.is_empty():
+        agg = pl.DataFrame(schema={
+            "grupo": pl.Utf8, "origen": pl.Utf8,
+            "horas_brutas": pl.Float64, "horas_efectivas": pl.Float64,
+        })
+    else:
+        agg = sub.group_by("grupo", "origen").agg(
+            pl.col("horas").sum().alias("horas_brutas"),
+            (pl.col("horas") * pl.col("factor")).sum().alias("horas_efectivas"),
+        )
+
+    etiqueta_por_clave = {clave: etiq for clave, etiq in _GRUPOS_CANÓNICOS}
+    orden_grupo = {clave: i for i, (clave, _) in enumerate(_GRUPOS_CANÓNICOS)}
+
+    filas_por_grupo: dict[str, list[dict]] = {}
+    total_efectivas = 0.0
+    for r in agg.to_dicts():
+        grupo = r["grupo"]
+        h_brutas = float(r["horas_brutas"] or 0.0)
+        h_efectivas = float(r["horas_efectivas"] or 0.0)
+        total_efectivas += h_efectivas
+        factor_medio = (h_efectivas / h_brutas) if h_brutas else 0.0
+        filas_por_grupo.setdefault(grupo, []).append({
+            "grupo": etiqueta_por_clave.get(grupo, grupo),
+            "origen": r["origen"],
+            "horas_brutas": round(h_brutas, 2),
+            "factor_medio": round(factor_medio, 2),
+            "horas_efectivas": round(h_efectivas, 2),
+            "porcentaje": round(100.0 * h_efectivas / jornada_anual, 2) if jornada_anual else 0.0,
+        })
+
+    filas: list[dict] = []
+    for clave in sorted(filas_por_grupo, key=lambda g: orden_grupo.get(g, 99)):
+        lista = sorted(filas_por_grupo[clave], key=lambda r: -r["horas_efectivas"])
+        filas.extend(lista)
+
+    h_pendientes = max(jornada_anual - total_efectivas, 0.0)
+    filas.append({
+        "grupo": "Sin asignación (HND)",
+        "origen": "",
+        "horas_brutas": round(h_pendientes, 2),
+        "factor_medio": 1.0,
+        "horas_efectivas": round(h_pendientes, 2),
+        "porcentaje": round(100.0 * h_pendientes / jornada_anual, 2) if jornada_anual else 0.0,
+    })
+
+    return ListResponse(columns=_COLS_DED_RESUMEN, rows=filas, total=len(filas))
+
+
+def listar_dedicación_persona(per_id: int, p: QueryParams) -> ListResponse:
+    df = _safe_read(PATH_DEDICACIÓN_PDI)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_DED_DETALLE, rows=[], total=0)
+    df = df.filter(pl.col("per_id") == per_id).select(
+        [c.name for c in _COLS_DED_DETALLE if c.name in df.columns]
+    )
+    df, total, stats = apply_query(
+        df, p,
+        search_columns=["actividad", "centro_de_coste", "origen", "origen_id", "anomalía"],
+    )
+    return ListResponse(
+        columns=_COLS_DED_DETALLE,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
     )

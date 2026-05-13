@@ -17,8 +17,8 @@ Actividades finalistas o principales y asimiladas | principales
                     Màster Universitari en Protecció Integrada de Cultius | máster-cultivos
             Ciencias de la educación | ámbito-educación
                 Grados | grados-educación
-                    Grau en Mestre o Mestra en Educació Infantil | ámbito-maestro-infantil
-                    Grau en Mestre o Mestra en Educació Primària | ámbito-maestro-primaria
+                    Grau en Mestre o Mestra en Educació Infantil | grado-maestro-infantil
+                    Grau en Mestre o Mestra en Educació Primària | grado-maestro-primaria
                 Másteres | másteres-educación
                     Màster Universitari en Comunicació Intercultural i Ensenyament de Llengües | máster-comunicación-intercultural
                     Màster Universitari en Professor/a d'Educació Secundària Obligatòria i Batxillerat, Formació Professional i Ensenyaments d'Idiomes | máster-secundaria
@@ -33,7 +33,7 @@ Actividades finalistas o principales y asimiladas | principales
                     Màster Universitari en Rehabilitació Psicosocial en Salut Mental Comunitària | máster-salud-mental
             Ciencias económicas, administración y dirección de empresas, márquetin, comercio, contabilidad y turismo | ámbito-económicas
                 Grados | grados-económicas
-                    Doble Grau en Administració i Direcció d'Empreses i Dret | doble-grado-adem-derecho
+                    Doble Grau en Administració i Direcció d'Empreses i Dret | doble-grado-ade-derecho
                     Grau en Administració i Direcció d'Empreses | grado-ade
                     Grau en Economia | grado-economía
                     Grau en Finances i Comptabilitat | grado-contabilidad
@@ -70,6 +70,7 @@ Actividades finalistas o principales y asimiladas | principales
             Filología, estudios clásicos, traducción y lingüística | ámbito-filología
                 Grados | grados-filología
                     Grau en Traducció i Interpretació | grado-traducción
+                    Grau en Estudis Anglesos | grado-estudios-ingleses
                 Másteres | másteres-filología
                     Màster Universitari en Investigació en Traducció i Interpretació / Master in Researching Translation and Interpreting | máster-traducción
                     Màster Universitari en Llengua Anglesa per al Comerç Internacional / Master in English Language for International Trade | máster-inglés-comercio
@@ -78,7 +79,7 @@ Actividades finalistas o principales y asimiladas | principales
                 Grados | grados-humanidades
                     Grau en Estudis Anglesos | grado-inglés
                     Grau en Història i Patrimoni | grado-historia
-                    Grau en Humanitats | grado-humanidades
+                    Grau en Humanitats: Estudis interculturals | grado-humanidades
                 Másteres | másteres-historia
                     Màster Universitari en Ensenyament i Adquisició de la Llengua Anglesa en Contextos Multilingües | máster-inglés-multilingüe
                     Màster Universitari en Estudis Internacionals de Pau, Conflictes i Desenvolupament | máster-paz
@@ -100,7 +101,7 @@ Actividades finalistas o principales y asimiladas | principales
                 Grados | grados-industrial
                     Grau en Enginyeria en Disseny Industrial i Desenvolupament de Productes | grado-diseño-industrial
                     Grau en Enginyeria en Tecnologies Industrials | grado-tecnologías-industriales
-                    Grau en Enginyeria Mecànica | grado-industrial-mecánica
+                    Grau en Enginyeria Mecànica | grado-ingeniería-mecánica
                 Másteres | másteres-industrial
                     Màster Universitari en Enginyeria Industrial | máster-ingeniería-industrial
                     Màster Universitari en Prevenció de Riscos Laborals | máster-riesgos-laborales
@@ -123,6 +124,10 @@ Actividades finalistas o principales y asimiladas | principales
             Periodismo, comunicación, publicidad y relaciones públicas | ámbito-periodismo
                 Grados | grados-periodismo
                     Grau en Periodisme | grado-periodismo
+                    Grau en Publicitat i Relacions Públiques | grado-publicidad-relaciones-públicas
+                    Grau en Publicitat i Comunicació Corporativa | grado-publicidad-corporativa
+                Másteres | másteres-periodismo
+                    Máster Universitari en Noves Tendències i Processos d'Innovació en Comunicació | máster-comunicación
             Química | ámbito-química
                 Grados | grados-química
                     Grau en Química | grado-química
@@ -185,9 +190,9 @@ Actividades finalistas o principales y asimiladas | principales
             Programa de doctorado en Diseño, Gestión y Evaluación de Políticas Públicas de Bienestar Social | doc-dgpeb
             Programa de doctorado en Derecho | doc-d
             Programa de doctorado en Economía y Empresa | doc-ee
-            Programa de doctorado en Educación | doc-e
-            Programa de doctorado en Marketing | doc-m
-            Programa de doctorado en Informática | doc-i
+            Programa de doctorado en Educación | doc-educación
+            Programa de doctorado en Marketing | doc-marqueting
+            Programa de doctorado en Informática | doc-informática
             Programa de doctorado en Tecnologías Industriales y Materiales | doc-titm
     Actividades deportivas y de extensión universitaria | deportes-extensión-universitaria
         Actividades deportivas | deportes

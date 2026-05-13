@@ -1,0 +1,81 @@
+import { useState } from "react";
+import { DataTable } from "@/components/DataTable";
+
+export function Regla23DedicacionPdi() {
+    const [perId, setPerId] = useState<number | null>(null);
+    const [personaSel, setPersonaSel] = useState<string | null>(null);
+    const [horasSel, setHorasSel] = useState<number | null>(null);
+
+    return (
+        <div className="flex flex-col gap-6">
+            <div>
+                <h1 className="text-2xl font-semibold">
+                    Regla 23 · Dedicación PDI
+                </h1>
+                <p className="text-sm text-slate-500">
+                    Personas con horas registradas en 2025 a partir de las
+                    fuentes disponibles (POD, tesis…). Pincha una fila para
+                    ver el detalle de actividades. Las horas son las brutas;
+                    el factor ×2,5 se aplicará en el cálculo final de la
+                    regla 23.
+                </p>
+            </div>
+            <DataTable
+                endpoint="/api/regla23/dedicacion-pdi/personas"
+                queryKey="regla23:dedicacion-pdi:personas"
+                rowKey="per_id"
+                onRowSelect={(row) => {
+                    const pid = Number(row.per_id);
+                    setPerId(Number.isFinite(pid) ? pid : null);
+                    setPersonaSel(String(row.persona ?? ""));
+                    setHorasSel(
+                        typeof row.horas_total === "number"
+                            ? row.horas_total
+                            : null,
+                    );
+                }}
+            />
+            {perId !== null && (
+                <>
+                    <div className="rounded-md border border-slate-200 bg-white p-4">
+                        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                            Reparto por grupo de {personaSel || `per_id ${perId}`}
+                            {horasSel !== null
+                                ? ` · ${horasSel.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h registradas (sin factor)`
+                                : ""}
+                        </h2>
+                        <p className="mb-3 text-xs text-slate-500">
+                            Las horas de impartición docente se multiplican por
+                            ×2,5 (factor de la regla 23). El porcentaje se
+                            calcula sobre la jornada anual de 1 642 h. La fila
+                            <em> Sin asignación (HND)</em> recoge las horas
+                            todavía sin fuente de dedicación; bajará conforme
+                            se incorporen cargos, proyectos, docencia no
+                            oficial, etc.
+                        </p>
+                        <DataTable
+                            key={`resumen-${perId}`}
+                            endpoint={`/api/regla23/dedicacion-pdi/${perId}/resumen`}
+                            queryKey={`regla23:dedicacion-pdi:resumen:${perId}`}
+                            rowKey="grupo"
+                            reorderImportes={false}
+                        />
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-white p-4">
+                        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                            Detalle por actividad
+                        </h2>
+                        <DataTable
+                            key={perId}
+                            endpoint={`/api/regla23/dedicacion-pdi/${perId}`}
+                            queryKey={`regla23:dedicacion-pdi:persona:${perId}`}
+                            rowKey="origen_id"
+                            showPopoverOnRowClick
+                            reorderImportes={false}
+                        />
+                    </div>
+                </>
+            )}
+        </div>
+    );
+}

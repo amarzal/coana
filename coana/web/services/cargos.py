@@ -457,6 +457,7 @@ _COLS_CARGOS_UC: list[ColumnSpec] = [
     ColumnSpec(name="elemento_de_coste", label="UC · elemento", format="text"),
     ColumnSpec(name="centro_de_coste", label="UC · centro", format="text"),
     ColumnSpec(name="actividad", label="UC · actividad", format="text"),
+    ColumnSpec(name="_anomalía_patrón", label="Anomalía patrón", format="text"),
 ]
 
 

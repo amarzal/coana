@@ -4,6 +4,8 @@ import { DataTable } from "@/components/DataTable";
 import { KpiPanel } from "@/components/KpiPanel";
 import { Tabs } from "@/components/Tabs";
 
+export { Regla23DedicacionPdi } from "./DedicacionPdi";
+
 const KPI = "/api/regla23/_resumen";
 const QK_RESUMEN = "regla23:resumen";
 

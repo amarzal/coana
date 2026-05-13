@@ -261,6 +261,35 @@ _SERVICIO_CC: dict[str, tuple[str, str]] = {
     "4255": ("vpee", "dag-vpee"),
     "4254": ("vri", "dag-vri"),
     "4249": ("vrspii", "dag-vrspii"),
+    # Servicios usados por cargos académicos (Director/a de departament,
+    # Decano, Director/a d'institut, etc.) detectados al implementar el
+    # patrón SERVICIO en `cargos.xlsx`. Los marcados con «REVISAR» son
+    # mejor-aproximación; los nombres del servicio en RR.HH. son antiguos
+    # y no encajan 1:1 con los departamentos actuales del árbol.
+    "82": ("dea", "dag-dea"),         # REVISAR — Filologia Anglesa i Romànica → ¿dea o dfce?
+    "84": ("dede", "dag-dede"),       # Educació → Educación y Didácticas Específicas
+    "89": ("ddpri", "dag-ddpri"),     # Dret Privat
+    "1622": ("dfs", "dag-dfs"),       # Filosofia, Sociologia i CAV → Filosofía y Sociología
+    "2282": ("dbbcn", "dag-dbbcn"),   # REVISAR — Ciències Agràries i Medi Natural → ¿dbbcn?
+    "1344": ("fcje", "dag-fcje"),     # Deganat FCJE
+    "1345": ("fchs", "dag-fchs"),     # Deganat FCHS
+    "2230": ("vefp", "dag-vefp"),     # REVISAR — Vicerectorat de Postgrau → ¿vefp?
+    "372": ("iei", "dag-iei"),        # Institut Interuniv. Economia Internacional
+    "1020": ("ifv", "dag-ifv"),       # Institut de Filologia Valenciana
+    "1165": ("ifv", "dag-ifv"),       # Institut Interuniv. de Filologia Valenciana
+    "2062": ("ilma", "dag-ilma"),     # Institut Univ. Llengües Modernes Aplicades - IULMA
+    "2482": ("iidl", "dag-iidl"),     # Institut Interuniv. Desenvolupament Local
+    "2604": ("imac", "dag-imac"),     # Institut Univ. Matemàtiques i Aplicacions Castelló
+    "2605": ("iuef", "dag-iuef"),     # Institut Univ. Estudis Feministes i Gènere
+    "2767": ("iigeo", "dag-iigeo"),   # Institut Interuniv. Geografia
+    "2862": ("idsp", "dag-idsp"),     # Institut Interuniv. Desenvolupament Social i Pau
+    "3083": ("iudt", "dag-iudt"),     # Institut Univ. Dret del Transport
+    "3505": ("ii-lópez-piñero", "dag-ii-lópez-piñero"),  # Institut Interuniv. López Piñero
+    "4527": ("iuturismo", "dag-iuturismo"),  # Institut Univ. Turisme
+    "4987": ("iuce", "dag-iuce"),     # Institut Univ. Ciències de l'Educació
+    # Servicios 86 (Ciències Experimentals) y 88 (Tecnologia) son
+    # departamentos históricos sin equivalencia clara en el árbol actual;
+    # se dejan sin mapear hasta confirmación.
 }
 
 # Excepción servicio 368: centro_plaza → (centro_de_coste, actividad).

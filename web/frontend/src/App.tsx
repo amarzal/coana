@@ -50,6 +50,7 @@ import {
 import {
     Regla23Resumen,
     Regla23DedicacionDocente,
+    Regla23DedicacionPdi,
     Regla23DocenciaNoOficial,
     Regla23EstructuraEstudios,
     Regla23BolsaAtrasos,
@@ -148,6 +149,7 @@ export function App() {
                         <Route path="personal/costes-sociales-calculados" element={<PersonalCostesSocialesCalculados />} />
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
                         <Route path="regla23/resumen" element={<Regla23Resumen />} />
+                        <Route path="regla23/dedicacion-pdi" element={<Regla23DedicacionPdi />} />
                         <Route path="regla23/dedicacion" element={<Regla23DedicacionDocente />} />
                         <Route path="regla23/no-oficial" element={<Regla23DocenciaNoOficial />} />
                         <Route path="regla23/estructura" element={<Regla23EstructuraEstudios />} />

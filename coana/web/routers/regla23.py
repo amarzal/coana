@@ -111,3 +111,26 @@ def anom_resolucion(p: QueryParams = Depends(query_dependency)) -> ListResponse:
 @router.get("/anomalias/multiples-grado", response_model=ListResponse)
 def anom_multiples(p: QueryParams = Depends(query_dependency)) -> ListResponse:
     return svc.listar_multiples_con_grado(p)
+
+
+# ---- Dedicación PDI (regla 23 reescrita) ----------------------------
+
+@router.get("/dedicacion-pdi/personas", response_model=ListResponse)
+def dedicacion_pdi_personas(p: QueryParams = Depends(query_dependency)) -> ListResponse:
+    """Lista de personas con horas registradas (master)."""
+    return svc.listar_personas_dedicación(p)
+
+
+@router.get("/dedicacion-pdi/{per_id}", response_model=ListResponse)
+def dedicacion_pdi_detalle(
+    per_id: int,
+    p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Detalle de actividades en las que una persona acumula horas."""
+    return svc.listar_dedicación_persona(per_id, p)
+
+
+@router.get("/dedicacion-pdi/{per_id}/resumen", response_model=ListResponse)
+def dedicacion_pdi_resumen(per_id: int) -> ListResponse:
+    """Resumen por grupo (docencia/investigación/gestión/extensión + HND)."""
+    return svc.listar_resumen_grupo_persona(per_id)

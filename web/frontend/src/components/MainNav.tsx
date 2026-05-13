@@ -90,6 +90,7 @@ const GROUPS: Group[] = [
         icon: Scale,
         items: [
             { label: "Resumen", to: "/regla23/resumen" },
+            { label: "Dedicación PDI", to: "/regla23/dedicacion-pdi" },
             { label: "Dedicación docente", to: "/regla23/dedicacion" },
             { label: "Docencia no oficial", to: "/regla23/no-oficial" },
             { label: "Estructura estudios", to: "/regla23/estructura" },

@@ -2338,124 +2338,282 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
         Si hay un servicio y el proyecto es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), el servicio indicado en el registro permite decidir el centro de coste con esta tabla de mapeo y una excepción que te digo después de la tabla para el servicio #val("368") (personal de suport):
 
         #table(
-            columns: (.5fr, 1fr, 1fr),
-            align: (left, left, left),
-            table.header(table.hline(), [*Servicio*], [*Centro de coste*], [*Actividad*], table.hline()),
-            [523], [#etqcen("asesoría-jurídica")], [#etqact("dag-asesoría-jurídica")],
-            [660], [#etqcen("bibliotecas")], [#etqact("dag-biblioteca")],
-            [640], [#etqcen("cent")], [#etqact("dag-cent")],
-            [263], [#etqcen("consejo-social")], [#etqact("dag-consejo-social")],
-            [2984], [#etqcen("consejo-estudiantes")], [#etqact("dag-consejo-estudiantes")],
-            [1862], [#etqcen("increa")], [#etqact("dag-innovación-emprendeduría")],
-            [1662], [#etqcen("cátedras-investigación-1I235")], [#etqact("cát-unesco-esclavitudes-afrodescendencia")],
-            [4267], [#etqcen("delegado")], [#etqact("dag-delegado")],
-            [101], [#etqcen("daem")], [#etqact("dag-daem")],
-            [93], [#etqcen("deco")], [#etqact("dag-deco")],
-            [3466], [#etqcen("dea")], [#etqact("dag-dede")],
-            [2103], [#etqcen("dmc")], [#etqact("dag-dmc")],
-            [81], [#etqcen("deq")], [#etqact("dag-deq")],
-            [2102], [#etqcen("desid")], [#etqact("dag-desid")],
-            [1442], [#etqcen("dicc")], [#etqact("dag-dicc")],
-            [1882], [#etqcen("dea")], [#etqact("dag-dea")],
-            [104], [#etqcen("dhga")], [#etqact("dag-dhga")],
-            [4207], [#etqcen("dbbcn")], [#etqact("dag-dbbcn")],
-            [2502], [#etqcen("dcc")], [#etqact("dag-dcc")],
-            [90], [#etqcen("ddpub")], [#etqact("dag-ddpub")],
-            [1883], [#etqcen("dfce")], [#etqact("dag-dfce")],
-            [2503], [#etqcen("dfs")], [#etqact("dag-dfs")],
-            [102], [#etqcen("dfc")], [#etqact("dag-dfc")],
-            [2283], [#etqcen("dfis")], [#etqact("dag-dfis")],
-            [1443], [#etqcen("dlsi")], [#etqact("dag-dlsi")],
-            [92], [#etqcen("dmat")], [#etqact("dag-dmat")],
-            [3465], [#etqcen("dpdcsll")], [#etqact("dag-dpdcsll")],
-            [97], [#etqcen("dpbcp")], [#etqact("dag-dpbcp")],
-            [96], [#etqcen("dpeesm")], [#etqact("dag-dpeesm")],
-            [2284], [#etqcen("dqfa")], [#etqact("dag-dqfa")],
-            [98], [#etqcen("dqio")], [#etqact("dag-dqio")],
-            [99], [#etqcen("dtc")], [#etqact("dag-dtc")],
-            [4], [#etqcen("estce")], [#etqact("dag-estce")],
-            [3165], [#etqcen("ed")], [#etqact("dag-escuela-doctorado")],
-            [2], [#etqcen("fchs")], [#etqact("dag-fchs")],
-            [3], [#etqcen("fcje")], [#etqact("dag-fcje")],
-            [2922], [#etqcen("fcs")], [#etqact("dag-fcs")],
-            [3405], [#etqcen("rectorado")], [#etqact("dag-rectorado")],
-            [261], [#etqcen("gerencia")], [#etqact("dag-gerencia")],
-            [4907], [#etqcen("inspección-servicios")], [#etqact("dag-inspección-servicios")],
-            [3145], [#etqcen("iidl")], [#etqact("dag-iidl")],
-            [3285], [#etqcen("inam")], [#etqact("dag-inam")],
-            [2603], [#etqcen("init")], [#etqact("dag-init")],
-            [2022], [#etqcen("iupa")], [#etqact("dag-iupa")],
-            [264], [#etqcen("iutc")], [#etqact("dag-iutc")],
-            [1982], [#etqcen("labcom")], [#etqact("dag-labcom")],
-            [4168], [#etqcen("ol")], [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
-            [364], [#etqcen("otop")], [#etqact("dag-otros-servicios-obras-proyectos")],
-            [3408], [#etqcen("oe")], [#etqact("dag-oe")],
-            [3406], [#etqcen("oir")], [#etqact("dag-otros-servicios-información-registro")],
-            [3425], [#etqcen("oiati")], [#etqact("dag-otros-servicios-ti")],
-            [2883], [#etqcen("oipep")], [#etqact("dag-oipep")],
-            [1723], [#etqcen("ocds")], [#etqact("cooperación")],
-            [242], [#etqcen("sgit")], [#etqact("dag-sgit")],
-            [3847], [#etqcen("opp")], [#etqact("dag-opp")],
-            [4567], [#etqcen("oppsm")], [#etqact("dag-otros-servicios-prevención-gestión-medioambiental")],
-            [2882], [#etqcen("ori")], [#etqact("dag-otros-servicios-relaciones-internacionales")],
-            [1722], [#etqcen("opaq")], [#etqact("dag-otros-servicios-promoción-evaluación-calidad")],
+            columns: (auto, 1fr, 1fr, 1fr),
+            align: (right, left, left, left),
+            table.header(
+                table.hline(), [*Servicio*], [*Nombre del servicio*], [*Centro de coste*], [*Actividad*], table.hline()
+            ),
+            [523], [Assessoria Jurídica], [#etqcen("asesoría-jurídica")], [#etqact("dag-asesoría-jurídica")],
+            [660], [Biblioteca], [#etqcen("bibliotecas")], [#etqact("dag-biblioteca")],
+            [640], [Centre d'Educació i Noves Tecnologies], [#etqcen("cent")], [#etqact("dag-cent")],
+            [263], [Consell Social], [#etqcen("consejo-social")], [#etqact("dag-consejo-social")],
+            [2984], [Consell de l'Estudiantat], [#etqcen("consejo-estudiantes")], [#etqact("dag-consejo-estudiantes")],
+            [1862],
+            [Càtedra INCREA d'Innovació, Creativitat i Aprenentatge],
+            [#etqcen("increa")],
+            [#etqact("dag-innovación-emprendeduría")],
+
+            [1662],
+            [Càtedra UNESCO Filosofia per a la Pau],
+            [#etqcen("cátedras-investigación-1I235")],
+            [#etqact("cát-unesco-esclavitudes-afrodescendencia")],
+
+            [4267],
+            [Delegat de la Rectora per a la Transformació Docent, la Comunicació i la Direcció del Gabinet],
+            [#etqcen("delegado")],
+            [#etqact("dag-delegado")],
+
+            [101], [Dep. d'Administració d'Empreses i Màrqueting], [#etqcen("daem")], [#etqact("dag-daem")],
+            [93], [Dep. d'Economia], [#etqcen("deco")], [#etqact("dag-deco")],
+            [3466], [Dep. d'Educació i Didàctiques Específiques], [#etqcen("dea")], [#etqact("dag-dede")],
+            [2103], [Dep. d'Enginyeria Mecànica i Construcció], [#etqcen("dmc")], [#etqact("dag-dmc")],
+            [81], [Dep. d'Enginyeria Química], [#etqcen("deq")], [#etqact("dag-deq")],
+            [2102], [Dep. d'Enginyeria de Sistemes Industrials i Disseny], [#etqcen("desid")], [#etqact("dag-desid")],
+            [1442], [Dep. d'Enginyeria i Ciència dels Computadors], [#etqcen("dicc")], [#etqact("dag-dicc")],
+            [1882], [Dep. d'Estudis Anglesos], [#etqcen("dea")], [#etqact("dag-dea")],
+            [104], [Dep. d'Història, Geografia i Art], [#etqcen("dhga")], [#etqact("dag-dhga")],
+            [4207], [Dep. de Biologia, Bioquímica i Ciències Naturals], [#etqcen("dbbcn")], [#etqact("dag-dbbcn")],
+            [2502], [Dep. de Ciències de la Comunicació], [#etqcen("dcc")], [#etqact("dag-dcc")],
+            [90], [Dep. de Dret Públic], [#etqcen("ddpub")], [#etqact("dag-ddpub")],
+            [1883], [Dep. de Filologia i Cultures Europees], [#etqcen("dfce")], [#etqact("dag-dfce")],
+            [2503], [Dep. de Filosofia i Sociologia], [#etqcen("dfs")], [#etqact("dag-dfs")],
+            [102], [Dep. de Finances i Comptabilitat], [#etqcen("dfc")], [#etqact("dag-dfc")],
+            [2283], [Dep. de Física], [#etqcen("dfis")], [#etqact("dag-dfis")],
+            [1443], [Dep. de Llenguatges i Sistemes Informàtics], [#etqcen("dlsi")], [#etqact("dag-dlsi")],
+            [92], [Dep. de Matemàtiques], [#etqcen("dmat")], [#etqact("dag-dmat")],
+            [3465],
+            [Dep. de Pedagogia i Didàctica de les Ciències Socials, la Llengua i la Literatura],
+            [#etqcen("dpdcsll")],
+            [#etqact("dag-dpdcsll")],
+
+            [97], [Dep. de Psicologia Bàsica, Clínica i Psicobiologia], [#etqcen("dpbcp")], [#etqact("dag-dpbcp")],
+            [96],
+            [Dep. de Psicologia Evolutiva, Educativa, Social i Metodologia],
+            [#etqcen("dpeesm")],
+            [#etqact("dag-dpeesm")],
+
+            [2284], [Dep. de Química Física i Analítica], [#etqcen("dqfa")], [#etqact("dag-dqfa")],
+            [98], [Dep. de Química Inorgànica i Orgànica], [#etqcen("dqio")], [#etqact("dag-dqio")],
+            [99], [Dep. de Traducció i Comunicació], [#etqcen("dtc")], [#etqact("dag-dtc")],
+            [4], [Escola Superior de Tecnologia i Ciències Experimentals], [#etqcen("estce")], [#etqact("dag-estce")],
+            [3165], [Escola de Doctorat], [#etqcen("ed")], [#etqact("dag-escuela-doctorado")],
+            [2], [Facultat de Ciències Humanes i Socials], [#etqcen("fchs")], [#etqact("dag-fchs")],
+            [3], [Facultat de Ciències Jurídiques i Econòmiques], [#etqcen("fcje")], [#etqact("dag-fcje")],
+            [2922], [Facultat de Ciències de la Salut], [#etqcen("fcs")], [#etqact("dag-fcs")],
+            [3405], [Gabinet de Rectorat], [#etqcen("rectorado")], [#etqact("dag-rectorado")],
+            [261], [Gerència], [#etqcen("gerencia")], [#etqact("dag-gerencia")],
+            [4907], [Inspecció de Serveis], [#etqcen("inspección-servicios")], [#etqact("dag-inspección-servicios")],
+            [3145], [Institut Interuniversitari de Desenvolupament Local], [#etqcen("iidl")], [#etqact("dag-iidl")],
+            [3285],
+            [Institut Universitari d'Investigació de Materials Avançats],
+            [#etqcen("inam")],
+            [#etqact("dag-inam")],
+
+            [2603], [Institut Universitari de Noves Tecnologies de la Imatge], [#etqcen("init")], [#etqact("dag-init")],
+            [2022], [Institut Universitari de Plaguicides i Aigües - IUPA], [#etqcen("iupa")], [#etqact("dag-iupa")],
+            [264],
+            [Institut Universitari de Tecnologia Ceràmica Agustín Escardino],
+            [#etqcen("iutc")],
+            [#etqact("dag-iutc")],
+
+            [1982], [Laboratori de Comunicació Audiovisual i Publicitat], [#etqcen("labcom")], [#etqact("dag-labcom")],
+            [4168],
+            [Observatori Lingüístic],
+            [#etqcen("ol")],
+            [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
+
+            [364],
+            [Oficina Tècnica d'Obres i Projectes],
+            [#etqcen("otop")],
+            [#etqact("dag-otros-servicios-obras-proyectos")],
+
+            [3408], [Oficina d'Estudis], [#etqcen("oe")], [#etqact("dag-oe")],
+            [3406],
+            [Oficina d'Informació i Registre (InfoCampus)],
+            [#etqcen("oir")],
+            [#etqact("dag-otros-servicios-información-registro")],
+
+            [3425], [Oficina d'Innovació i Auditoria TI], [#etqcen("oiati")], [#etqact("dag-otros-servicios-ti")],
+            [2883],
+            [Oficina d'Inserció Professional i Estades en Pràctiques],
+            [#etqcen("oipep")],
+            [#etqact("dag-oipep")],
+
+            [1723],
+            [Oficina de Cooperació al Desenvolupament i Solidaritat],
+            [#etqcen("ocds")],
+            [#etqact("cooperación")],
+
+            [242],
+            [Oficina de Cooperació en Investigació i Desenvolupament Tecnològic],
+            [#etqcen("sgit")],
+            [#etqact("dag-sgit")],
+
+            [3847], [Oficina de Planificació i Prospectiva (OPP)], [#etqcen("opp")], [#etqact("dag-opp")],
+            [4567],
+            [Oficina de Prevenció, Promoció de la Salut i Medi Ambient],
+            [#etqcen("oppsm")],
+            [#etqact("dag-otros-servicios-prevención-gestión-medioambiental")],
+
+            [2882],
+            [Oficina de Relacions Internacionals],
+            [#etqcen("ori")],
+            [#etqact("dag-otros-servicios-relaciones-internacionales")],
+
+            [1722],
+            [Oficina de la Promoció i Avaluació de la Qualitat],
+            [#etqcen("opaq")],
+            [#etqact("dag-otros-servicios-promoción-evaluación-calidad")],
             // [368], [#etqcen("")], [#etqact("")],
-            [311], [#etqcen("secretaría-general")], [#etqact("dag-secretaría-general")],
-            [720], [#etqcen("scic")], [#etqact("dag-scic")],
-            [251], [#etqcen("sasc")], [#etqact("cultura")],
-            [760], [#etqcen("se")], [#etqact("deportes")],
-            [3004], [#etqcen("sea")], [#etqact("dag-sea")],
-            [1530], [#etqcen("sic")], [#etqact("dag-sic")],
-            [366], [#etqcen("scp")], [#etqact("dag-otros-servicios-comunicación-publicaciones")],
-            [1544], [#etqcen("scag")], [#etqact("dag-scag")],
-            [1529], [#etqcen("sci")], [#etqact("dag-sci")],
-            [1543], [#etqcen("sge")], [#etqact("dag-sge")],
-            [361], [#etqcen("sgde")], [#etqact("dag-sgde")],
-            [4887], [#etqcen("sgit")], [#etqact("dag-sgit")],
-            [350], [#etqcen("slt")], [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
-            [362], [#etqcen("srh")], [#etqact("dag-srh")],
-            [2942], [#etqcen("upi")], [#etqact("dag-upi")],
-            [95], [#etqcen("updtssee")], [#etqact("dag-updtssee")],
-            [2943], [#etqcen("upm")], [#etqact("dag-upm")],
-            [3427], [#etqcen("uadti")], [#etqact("dag-otros-servicios-ti")],
-            [4167], [#etqcen("gencisub")], [#etqact("dag-gencisub")],
-            [2822], [#etqcen("ui")], [#etqact("dag-otros-servicios-promoción-fomento-igualdad")],
-            [218], [#etqcen("uiic")], [#etqact("dag-otros-servicios-ti")],
-            [4487], [#etqcen("uo")], [#etqact("dag-uo")],
-            [4687], [#etqcen("udpea")], [#etqact("otras-extensión-universitaria-refinamiento")],
-            [4488], [#etqcen("udd")], [#etqact("dag-otros-servicios-atención-diversidad-apoyo-educativo")],
-            [4489], [#etqcen("ufie")], [#etqact("dag-ufie")],
-            [344], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [311], [Secretaria General], [#etqcen("secretaría-general")], [#etqact("dag-secretaría-general")],
+            [720], [Servei Central d'Instrumentació Científica], [#etqcen("scic")], [#etqact("dag-scic")],
+            [251], [Servei d'Activitats Socioculturals], [#etqcen("sasc")], [#etqact("cultura")],
+            [760], [Servei d'Esports], [#etqcen("se")], [#etqact("deportes")],
+            [3004], [Servei d'Experimentació Animal], [#etqcen("sea")], [#etqact("dag-sea")],
+            [1530], [Servei d'Informació Comptable], [#etqcen("sic")], [#etqact("dag-sic")],
+            [366],
+            [Servei de Comunicació i Publicacions],
+            [#etqcen("scp")],
+            [#etqact("dag-otros-servicios-comunicación-publicaciones")],
+
+            [1544], [Servei de Contractació i Assumptes Generals], [#etqcen("scag")], [#etqact("dag-scag")],
+            [1529], [Servei de Control Intern], [#etqcen("sci")], [#etqact("dag-sci")],
+            [1543], [Servei de Gestió Econòmica], [#etqcen("sge")], [#etqact("dag-sge")],
+            [361], [Servei de Gestió de la Docència i Estudiants], [#etqcen("sgde")], [#etqact("dag-sgde")],
+            [4887], [Servei de Gestió de la Investigació i Transferència], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [350],
+            [Servei de Llengües i Terminologia],
+            [#etqcen("slt")],
+            [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")],
+
+            [362], [Servei de Recursos Humans], [#etqcen("srh")], [#etqact("dag-srh")],
+            [2942], [Unitat Predepartamental d'Infermeria], [#etqcen("upi")], [#etqact("dag-upi")],
+            [95],
+            [Unitat Predepartamental de Dret del Treball/SS/Eclesiàstic i de l'Estat],
+            [#etqcen("updtssee")],
+            [#etqact("dag-updtssee")],
+
+            [2943], [Unitat Predepartamental de Medicina], [#etqcen("upm")], [#etqact("dag-upm")],
+            [3427], [Unitat d'Anàlisi i Desenvolupament TI], [#etqcen("uadti")], [#etqact("dag-otros-servicios-ti")],
+            [4167], [Unitat d'Encàrrecs, Convenis i  Subvencions], [#etqcen("gencisub")], [#etqact("dag-gencisub")],
+            [2822], [Unitat d'Igualtat], [#etqcen("ui")], [#etqact("dag-otros-servicios-promoción-fomento-igualdad")],
+            [218], [Servei d'Informàtica], [#etqcen("uiic")], [#etqact("dag-otros-servicios-ti")],
+            [4487], [Unitat d'Orientació], [#etqcen("uo")], [#etqact("dag-uo")],
+            [4687],
+            [Unitat de Dinamització i Participació de l'Estudiantat i Associacions],
+            [#etqcen("udpea")],
+            [#etqact("otras-extensión-universitaria-refinamiento")],
+
+            [4488],
+            [Unitat de Diversitat i Discapacitat],
+            [#etqcen("udd")],
+            [#etqact("dag-otros-servicios-atención-diversidad-apoyo-educativo")],
+
+            [4489], [Unitat de Formació i Innovació Educativa], [#etqcen("ufie")], [#etqact("dag-ufie")],
+            [344], [Unitat de Gestió 1], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [3409], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [3409], [Unitat de Gestió 12], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [3445], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [3445], [Unitat de Gestió 13], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [345], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [345], [Unitat de Gestió 2], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [347], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [347], [Unitat de Gestió 4], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [346], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [346], [Unitat de Gestió 3], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [348], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [348], [Unitat de Gestió 5], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [349], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [349], [Unitat de Gestió 6], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [2263], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [2263], [Unitat de Gestió 7], [#etqcen("sgit")], [#etqact("dag-sgit")],
             // UG
-            [4647], [#etqcen("sgit")], [#etqact("dag-sgit")],
+            [4647],
+            [Unitat de Gestió de la Investigació, Transferència i Justificacions],
+            [#etqcen("sgit")],
+            [#etqact("dag-sgit")],
             // UG
-            [2342], [#etqcen("universidad-mayores")], [#etqact("universidad-mayores")],
-            [4251], [#etqcen("vevs")], [#etqact("dag-vevs")],
-            [4252], [#etqcen("vefp")], [#etqact("dag-vefp")],
-            [4248], [#etqcen("vis")], [#etqact("dag-vis")],
-            [4250], [#etqcen("vitdc")], [#etqact("dag-vitdc")],
-            [4247], [#etqcen("vi")], [#etqact("dag-vi")],
-            [2224], [#etqcen("voap")], [#etqact("dag-voap")],
-            [4253], [#etqcen("vcls")], [#etqact("dag-vcls")],
-            [4255], [#etqcen("vpee")], [#etqact("dag-vpee")],
-            [4254], [#etqcen("vri")], [#etqact("dag-vri")],
-            [4249], [#etqcen("vrspii")], [#etqact("dag-vrspii")],
+            [2342], [Universitat per a Majors], [#etqcen("universidad-mayores")], [#etqact("universidad-mayores")],
+            [4251], [Vicerectorat d'Estudiantat i Vida Saludable], [#etqcen("vevs")], [#etqact("dag-vevs")],
+            [4252], [Vicerectorat d'Estudis i Formació Permanent], [#etqcen("vefp")], [#etqact("dag-vefp")],
+            [4248], [Vicerectorat d'Infraestructures i Sostenibilitat], [#etqcen("vis")], [#etqact("dag-vis")],
+            [4250],
+            [Vicerectorat d'Innovació, Transferència i Divulgació Científica],
+            [#etqcen("vitdc")],
+            [#etqact("dag-vitdc")],
+
+            [4247], [Vicerectorat d'Investigació], [#etqcen("vi")], [#etqact("dag-vi")],
+            [2224], [Vicerectorat d'Ordenació Acadèmica i Professorat], [#etqcen("voap")], [#etqact("dag-voap")],
+            [4253], [Vicerectorat de Cultura, Llengües i Societat], [#etqcen("vcls")], [#etqact("dag-vcls")],
+            [4255], [Vicerectorat de Planificació Econòmica i Estratègica], [#etqcen("vpee")], [#etqact("dag-vpee")],
+            [4254], [Vicerectorat de Relacions Internacionals], [#etqcen("vri")], [#etqact("dag-vri")],
+            [4249],
+            [Vicerectorat de Responsabilitat Social, Polítiques Inclusives i Igualtat],
+            [#etqcen("vrspii")],
+            [#etqact("dag-vrspii")],
+            // Servicios añadidos para resolver el patrón SERVICIO en
+            // cargos.xlsx (cargos académicos: directores de departamento,
+            // decanos, vicedecanos, directores de instituto, etc.).
+            [82], [Dep. de Filologia Anglesa i Romànica], [#etqcen("dea")], [#etqact("dag-dea")],
+            // REVISAR — Filologia Anglesa i Romànica: ¿dea (Estudios
+            // Ingleses) o dfce (Filología y Culturas Europeas)?
+            [84], [Dep. d'Educació], [#etqcen("dede")], [#etqact("dag-dede")],
+            [89], [Dep. de Dret Privat], [#etqcen("ddpri")], [#etqact("dag-ddpri")],
+            [1622],
+            [Dep. de Filosofia, Sociologia i Comunicació Audiovisual i Publicitat],
+            [#etqcen("dfs")],
+            [#etqact("dag-dfs")],
+
+            [2282], [Dep. de Ciències Agràries i del Medi Natural], [#etqcen("dbbcn")], [#etqact("dag-dbbcn")],
+            // REVISAR — Ciències Agràries i del Medi Natural: ¿dbbcn?
+            [1344],
+            [Deganat de la Facultat de Ciències Jurídiques i Econòmiques],
+            [#etqcen("fcje")],
+            [#etqact("dag-fcje")],
+
+            [1345], [Deganat de la Facultat de Ciències Humanes i Socials], [#etqcen("fchs")], [#etqact("dag-fchs")],
+            [2230], [Vicerectorat de Postgrau], [#etqcen("vefp")], [#etqact("dag-vefp")],
+            // REVISAR — Vicerectorat de Postgrau: ¿vefp?
+            [372], [Institut Interuniversitari d'Economia Internacional], [#etqcen("iei")], [#etqact("dag-iei")],
+            [1020], [Institut de Filologia Valenciana], [#etqcen("ifv")], [#etqact("dag-ifv")],
+            [1165], [Institut Interuniversitari de Filologia Valenciana], [#etqcen("ifv")], [#etqact("dag-ifv")],
+            [2062],
+            [Institut Universitari de Llengües Modernes Aplicades - IULMA],
+            [#etqcen("ilma")],
+            [#etqact("dag-ilma")],
+
+            [2482],
+            [Institut Interuniversitari de Desenvolupament Local de la Comunitat Valenciana],
+            [#etqcen("iidl")],
+            [#etqact("dag-iidl")],
+
+            [2604],
+            [Institut Universitari de Matemàtiques i Aplicacions de Castelló],
+            [#etqcen("imac")],
+            [#etqact("dag-imac")],
+
+            [2605],
+            [Institut Universitari d'Estudis Feministes i de Gènere Purificación Escribano],
+            [#etqcen("iuef")],
+            [#etqact("dag-iuef")],
+
+            [2767], [Institut Interuniversitari de Geografia], [#etqcen("iigeo")], [#etqact("dag-iigeo")],
+            [2862],
+            [Institut Interuniversitari de Desenvolupament Social i Pau],
+            [#etqcen("idsp")],
+            [#etqact("dag-idsp")],
+
+            [3083], [Institut Universitari de Dret del Transport], [#etqcen("iudt")], [#etqact("dag-iudt")],
+            [3505],
+            [Institut Interuniversitari López Piñero],
+            [#etqcen("ii-lópez-piñero")],
+            [#etqact("dag-ii-lópez-piñero")],
+
+            [4527], [Institut Universitari de Turisme], [#etqcen("iuturismo")], [#etqact("dag-iuturismo")],
+            [4987], [Institut Universitari en Ciències de l'Educació], [#etqcen("iuce")], [#etqact("dag-iuce")],
+            // Servicios 86 (Ciències Experimentals) y 88 (Tecnologia)
+            // son departamentos históricos sin equivalencia clara en el
+            // árbol actual; se dejan sin mapear hasta confirmación.
         )
 
         Con el servicio #val("368") hay una información adicional en el campo #campo("centro_plaza"). Su valor determina el centro de coste y la actividad con esta otra tabla:
@@ -3770,7 +3928,122 @@ Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y a
 
 // ---- XXXX ----
 
-==== Regla 23
+==== Regla 23 — invariante #campo("dedicación_pdi")
+
+La regla 23 del Modelo de Contabilidad Analítica para Universidades (cuadro 9.7 del modelo) reparte los costes del PDI entre las actividades en que cada persona participa. El reparto se hace en *horas*, no en euros: primero se determinan las horas que cada PDI dedica a cada actividad concreta, y solo después se traduce esa dedicación al coste imputado a cada actividad, en proporción a la jornada anual.
+
+Para soportar este reparto construimos, como artefacto intermedio único, un parquet llamado #ruta("fase1", "regla23", "dedicación_pdi.parquet") con una fila por #emph[(per_id, actividad, origen, origen_id)] y las siguientes columnas:
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Columna*], [*Significado*], table.hline()),
+    [#campo("per_id")], [PDI al que se imputa la dedicación],
+    [#campo("actividad")], [Etiqueta del árbol de actividades (o #val("pendiente")) ],
+    [#campo("centro_de_coste")], [Etiqueta del árbol de centros (o #val("pendiente"))],
+    [#campo("horas")], [Horas registradas (sin factor ×2,5)],
+    [#campo("método")], [#val("md") / #val("ep") / #val("et") / #val("pr") — medición directa, estimación porcentual (cargos), estimación por tipología, peso relativo (HND)],
+    [#campo("factor")], [#val("2,5") para impartición de docencia, #val("1,0") para el resto],
+    [#campo("grupo")], [#val("docencia_oficial") / #val("docencia_no_oficial") / #val("gestión") / #val("investigación") / #val("extensión")],
+    [#campo("origen")], [#val("POD") / #val("tesis") / #val("cargo") / #val("proyecto") / …],
+    [#campo("origen_id")], [Identificador en la fuente origen],
+    [#campo("anomalía")], [Texto explicativo si hay dato pendiente o nulo],
+    table.hline(),
+)
+
+Cada *fuente* contribuye con un cargador que produce filas de este esquema. La tabla crece a medida que se incorporan fuentes; lo que no esté registrado acabará formando parte de las horas no distribuidas (HND) en la fase de reparto.
+
+La jornada anual del PDI se fija en #val("1 642 h") (constante #campo("JORNADA_ANUAL_PDI")). Es el tope sobre el que se calculan tanto las horas no docentes (input del cargador de cargos) como los porcentajes que se muestran en el visor.
+
+===== Cargador #emph[POD] (docencia oficial)
+
+Para cada fila de #ruta("entrada", "docencia", "pod.xlsx") aplicamos el siguiente peso de año natural:
+
+#table(
+    columns: (auto, auto, auto),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*curso académico*], [*semestre*], [*peso*], table.hline()),
+    [2024], [#val("2")], [#val("100 %")],
+    [2025], [#val("1")], [#val("100 %")],
+    [2024], [#val("A") / #val("1-2")], [#val("50 %")],
+    [2025], [#val("A") / #val("1-2")], [#val("50 %")],
+    [resto], [resto], [#val("0 %")],
+    table.hline(),
+)
+
+Las horas brutas registradas son #val("créditos_computables × 10 × peso"). El factor #val("2,5") de la regla 23 (que recoge la preparación de clases, exámenes, tutorías, etc.) se almacena en la columna #campo("factor") para auditar; el cálculo final lo aplicará la fase de reparto.
+
+La titulación de cada asignatura se resuelve cruzando con #ruta("entrada", "docencia", "asignaturas grados.xlsx") y #ruta("entrada", "docencia", "asignaturas másteres.xlsx"). La actividad y centro de coste asociados a cada titulación los toma de #ruta("entrada", "docencia", "titulaciones actividad centro.xlsx"). Las titulaciones todavía no mapeadas se emiten con #val("actividad = pendiente"), #val("centro = pendiente") y anomalía #val("titulación sin mapeo a actividad/centro").
+
+===== Cargador #emph[tesis]
+
+Para cada tesis de #ruta("entrada", "investigación", "tesis.xlsx") activa en el año (solape de #campo("fecha_inicio_tiempo") y #campo("fecha_fin_tiempo") con el año natural, considerando #campo("fecha_lectura_tesis") como fin efectivo si está informada) se reparten #val("2 h/semana") entre las personas únicas de la dirección (#campo("per_id_director"), #campo("per_id_tutor"), #campo("per_id_codirector") y #campo("per_id_codirector2"), eliminando duplicados):
+
+$ "horas_persona" = 2 dot ("días_solape" / 7) / N_"único" $
+
+El #campo("origen_id") es el #campo("per_id_alumno") de la tesis. Mientras no dispongamos del programa de doctorado en el fichero de entrada, la actividad se imputa al umbrella #etqact("doctorado") y el centro se marca como #val("pendiente") con anomalía #val("tesis sin programa de doctorado").
+
+===== Cargador #emph[cargos académicos]
+
+Lee #ruta("fase1", "auxiliares", "nóminas", "cargos_uc.parquet") (que ya tiene cargo asimilado al RD 1086/1989, días de solape y actividad/centro resueltos) y aplica el porcentaje del cuadro 9.7 de la regla 23 sobre las horas no docentes de la persona:
+
+$ "horas_cargo" = ("días_cargo" / 365) dot "pct"_(9.7) dot "horas_no_docentes" $
+
+donde #campo("horas_no_docentes") = #campo("JORNADA_ANUAL_PDI") − suma de #campo("horas") × #campo("factor") sobre las filas de la persona con #campo("grupo") igual a #val("docencia_oficial") o #val("docencia_no_oficial") ya cargadas. Si la docencia ya supera la jornada, las horas no docentes se ponen a #val("0") y la persona no recibe horas por gestión.
+
+La asimilación al cuadro 9.7 se calcula así:
+
+#table(
+    columns: (auto, 1fr, auto),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*RD 1086*], [*Nombre*], [*pct cuadro 9.7*], table.hline()),
+    [1], [Rector/a], [#val("100 %")],
+    [2], [Vicerector/a], [#val("100 %")],
+    [3], [Degà/ana o director/a de centre], [#val("62,5 %")],
+    [4], [Director/a de Departament], [#val("37,5 %")],
+    [5], [Vicedegà/ana o subdirector/a de centre], [#val("37,5 %")],
+    [6], [Director/a d'Institut Universitari], [#val("37,5 %")],
+    [7], [Secretari/ària de Departament], [#val("25 %")],
+    [8], [Coordinador/a de Curs d'Orientació (asimilado a coord./subdir. de centro)], [#val("25 %")],
+    table.hline(),
+)
+
+El #campo("origen_id") es el #campo("id") de la UC del cargo (#val("CARGO-NNNNN")). El #campo("método") es #val("ep") (estimación porcentual). Los cargos sin asimilación RD no aportan horas todavía: cuando dispongamos de un mapeo cargo→pct más amplio, los incluiremos.
+
+===== Cargador #emph[grupos de investigación]
+
+Lee #ruta("entrada", "investigación", "investigadores en grupos.xlsx") y filtra las filas con #campo("coordinador") = #val("S"). Para cada coordinador imputa #val("2 h/semana") (cuadro 9.7, fila "Coordinación/dirección de grupos de investigación"), prorrateado por los días de solape entre el periodo de coordinación (#campo("fecha_alta") a #campo("fecha_baja"), o fin del año si no hay baja) y el año natural:
+
+$ "horas_grupo" = 2 dot ("días_solape" / 7) $
+
+Si una persona figura como coordinadora en varias líneas del mismo grupo se cuenta una sola vez. Los miembros no coordinadores y los colaboradores no reciben horas por este cargador: sus horas vendrán por los proyectos concretos en los que participen (cargador futuro).
+
+El #campo("origen_id") es el #campo("id_grupo"). La actividad se imputa, de momento, a #val("pendiente") con anomalía #val("coordinación de grupo sin mapeo a actividad/centro"); cuando se decida cómo modelar los grupos en el árbol de actividades se ajustará.
+
+===== Próximos cargadores
+
+- Proyectos de investigación: aportarán horas a los IPs (#val("10 h/sem") internacionales/europeos/nacionales/regionales; #val("6 h/sem") propios y con entidades; #val("8 h/sem") transferencia; #val("2 h/sem") cátedras), prorrateadas por días de vigencia.
+- Docencia no oficial: másteres propios, expertos, microcredenciales… con el mismo tratamiento que #emph[POD] (×2,5 para impartición).
+- Extensión universitaria: actividades culturales, deportivas, de cooperación, de promoción.
+
+===== Vista en la #app
+
+En el menú lateral, bloque #emph[Regla 23], la entrada #emph[Dedicación PDI] abre una pantalla master-detail con tres áreas:
+
++ *Lista de personas* (master): per_id, persona, horas totales, horas docencia oficial, horas investigación, nº actividades y nº filas con anomalía.
++ *Reparto por grupo y origen* (panel resumen al seleccionar persona): una fila por cada par (grupo, origen) con horas registradas, factor medio aplicado, horas efectivas y porcentaje sobre la jornada anual; fila final #emph[Sin asignación (HND)] con las horas que falta cargar.
++ *Detalle por actividad*: las filas crudas de #campo("dedicación_pdi") para la persona, con #campo("origen_id"), #campo("método"), #campo("factor") y anomalías.
+
+El usuario puede así ver de un vistazo no solo cuántas horas dedica cada PDI a cada grupo de la regla 23, sino *de dónde vienen* (POD, tesis, coordinación de grupo, cargo) y qué fracción de jornada queda todavía sin asignar.
+
+===== Fase de reparto (pendiente)
+
+Una vez completada la tabla #campo("dedicación_pdi"), el reparto efectivo a las actividades concretas seguirá las siete fases del modelo (jornada anual, descuento de docencia, cargos, extensión, investigación inicial, HND, repercusión a actividades concretas), con tratamiento especial del sexenio "vivo" (toda la HND a investigación) y del profesor asociado (toda la dedicación a docencia).
+
+==== Regla 23 — borrador previo
 
 Lo primero es asociar a cada expediente una dedicación a diferentes palos. #nota[Vamos a empezar con los asociados (PAA y PAL) porque tienen un tratamiento singular para lo que no es docencia y su regla 23 es más sencilla.]
 

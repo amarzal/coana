@@ -24,6 +24,7 @@ from coana.fase1.cargos import (
 from coana.fase1.inventario import ContextoInventario, procesar_inventario
 from coana.fase1.nóminas import ContextoNóminas, preprocesar_nóminas
 from coana.fase1.presupuesto import ContextoPresupuesto, TraductorPresupuesto
+from coana.fase1.regla23 import generar_dedicación_pdi
 from coana.fase1.suministros import generar_uc_suministros
 
 log = logging.getLogger(__name__)
@@ -222,6 +223,15 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
             pl.col("importe_uc").alias("importe"),
             "origen", "origen_id", "origen_porción",
         ))
+
+    # -- Regla 23: dedicación del PDI a actividades --
+    print("Generando dedicación PDI (regla 23)…")
+    dedicación = generar_dedicación_pdi(ruta_base, año=año)
+    print(
+        f"  Dedicación PDI: {len(dedicación):,} filas, "
+        f"{dedicación['horas'].sum():,.0f} h, "
+        f"{dedicación['per_id'].n_unique():,} personas"
+    )
 
     # -- Fichero combinado --
     if todas_uc:

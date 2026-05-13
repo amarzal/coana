@@ -299,12 +299,74 @@ def generar_cargos_uc(
         ).alias("elemento_de_coste"),
     )
 
+    # 7.b) Resolver patrones (SERVICIO, TITULACIÓN, CENTROTITULACION) en
+    # los campos `act_cargo` y `cc_cargo` que vienen de cargos.xlsx.
+    mapping_serv = _cargar_mapping_servicio()
+    mapping_tit = _cargar_mapping_titulaciones(ruta_base)
+
+    def _resolver(row: dict) -> dict:
+        act = row.get("act_cargo") or ""
+        cc = row.get("cc_cargo") or ""
+        if "SERVICIO" in act or "SERVICIO" in cc:
+            srv = row.get("servicio")
+            if srv is not None:
+                try:
+                    srv_key = str(int(srv))
+                except (ValueError, TypeError):
+                    srv_key = str(srv)
+                mp = mapping_serv.get(srv_key)
+                if mp is not None:
+                    cc_resuelto = mp[0] or ""
+                    if cc_resuelto:
+                        act = act.replace("SERVICIO", cc_resuelto)
+                        cc = cc.replace("SERVICIO", cc_resuelto)
+        tit = row.get("titulación")
+        if tit is not None and ("TITULACIÓN" in act or "TITULACIÓN" in cc or "CENTROTITULACION" in cc):
+            try:
+                tit_key = int(tit)
+            except (ValueError, TypeError):
+                tit_key = None
+            mp_t = mapping_tit.get(tit_key) if tit_key is not None else None
+            if mp_t is not None:
+                act_t, cc_t = mp_t
+                if "CENTROTITULACION" in cc and cc_t:
+                    cc = cc.replace("CENTROTITULACION", cc_t)
+                if act_t:
+                    act = act.replace("TITULACIÓN", act_t)
+                    cc = cc.replace("TITULACIÓN", act_t)
+        return {"act_resuelta": act, "cc_resuelto": cc}
+
+    activas = activas.with_columns(
+        pl.struct(["act_cargo", "cc_cargo", "servicio", "titulación"]).map_elements(
+            _resolver,
+            return_dtype=pl.Struct({"act_resuelta": pl.Utf8, "cc_resuelto": pl.Utf8}),
+        ).alias("_resuelto"),
+    ).with_columns(
+        pl.col("_resuelto").struct.field("act_resuelta").alias("act_cargo"),
+        pl.col("_resuelto").struct.field("cc_resuelto").alias("cc_cargo"),
+    ).drop("_resuelto")
+
     # 8) origen_id seriado.
     activas = activas.sort("per_id", "cargo")
     activas = activas.with_row_index("_idx").with_columns(
         (pl.lit("CARGO-") + (pl.col("_idx") + 1).cast(pl.Utf8).str.zfill(5))
         .alias("id"),
     ).drop("_idx")
+
+    # Anomalía de patrón: si tras la resolución persiste algún token en
+    # mayúsculas (SERVICIO, TITULACIÓN, CENTROTITULACION) en `act_cargo`
+    # o `cc_cargo`, la UC queda con etiqueta inválida. Lo marcamos para
+    # poder visualizar y depurar los casos.
+    patron_pendiente = (
+        pl.col("act_cargo").cast(pl.Utf8).str.contains(r"[A-ZÁÉÍÓÚÑ]{3,}").fill_null(False)
+        | pl.col("cc_cargo").cast(pl.Utf8).str.contains(r"[A-ZÁÉÍÓÚÑ]{3,}").fill_null(False)
+    )
+    activas = activas.with_columns(
+        pl.when(patron_pendiente)
+        .then(pl.lit("patrón sin resolver (servicio/titulación faltante)"))
+        .otherwise(pl.lit(""))
+        .alias("_anomalía_patrón"),
+    )
 
     out = activas.select(
         "id",
@@ -325,6 +387,7 @@ def generar_cargos_uc(
         pl.col("elemento_de_coste"),
         pl.col("cc_cargo").alias("centro_de_coste"),
         pl.col("act_cargo").alias("actividad"),
+        "_anomalía_patrón",
         pl.col("categoría_última"),
         pl.col("sector_principal"),
         pl.lit("nómina").alias("origen"),
@@ -337,11 +400,42 @@ def generar_cargos_uc(
 
     n_personas = out["per_id"].n_unique()
     n_uc = len(out)
+    n_anom = out.filter(pl.col("_anomalía_patrón") != "").height
     total = float(out["importe_uc"].sum() or 0)
     print(
         f"  Cargos UC (reparto CR 19/64 proyecto general por persona): "
         f"{n_personas:,} personas, {n_uc:,} UC, {total:,.2f} €"
+        + (f" ⚠ {n_anom:,} UC con patrón sin resolver" if n_anom else "")
     )
+    return out
+
+
+def _cargar_mapping_servicio() -> dict[str, tuple[str, str]]:
+    """`{servicio_id: (cc, actividad)}` del clasificador de centros de coste.
+    Sirve para resolver el patrón SERVICIO en las etiquetas de cargos.xlsx."""
+    from coana.fase1.clasificador_centros_coste import _SERVICIO_CC
+    return _SERVICIO_CC
+
+
+def _cargar_mapping_titulaciones(
+    ruta_base: Path,
+) -> dict[int, tuple[str, str]]:
+    """`{código_titulación: (actividad, centro)}` desde
+    `data/entrada/docencia/titulaciones actividad centro.xlsx`.
+    Sirve para resolver los patrones TITULACIÓN y CENTROTITULACION."""
+    p = Path(ruta_base) / "entrada" / "docencia" / "titulaciones actividad centro.xlsx"
+    if not p.exists():
+        return {}
+    df = read_excel(p)
+    out: dict[int, tuple[str, str]] = {}
+    for r in df.iter_rows(named=True):
+        try:
+            tid = int(r["titulación"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        act = str(r.get("actividad") or "").strip()
+        cc = str(r.get("centro") or "").strip()
+        out[tid] = (act, cc)
     return out
 
 
