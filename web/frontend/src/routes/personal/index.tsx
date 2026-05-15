@@ -44,33 +44,36 @@ function LineasExpedienteTabs({
         ),
     }));
 
-    const esUc = activoLabel === "UC generadas";
-
     return (
-        <div className="flex flex-col gap-3">
-            <Tabs
-                tabs={tabs}
-                active={activoLabel ?? grupos[0].label}
-                onChange={setActivo}
-            />
-            {activoLabel && esUc && (
+        <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-3">
+                <Tabs
+                    tabs={tabs}
+                    active={activoLabel ?? grupos[0].label}
+                    onChange={setActivo}
+                />
+                {activoLabel && (
+                    <DataTable
+                        endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/lineas`}
+                        queryKey={`personal:exp:${sector}:${expediente}:grupo:${activoLabel}`}
+                        rowKey="id"
+                        extraParams={{ grupo: activoLabel }}
+                        showPopoverOnRowClick
+                        reorderImportes={activoLabel !== "Cargos"}
+                    />
+                )}
+            </div>
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+                <h3 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                    Unidades de coste generadas
+                </h3>
                 <DataTable
                     endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/uc`}
                     queryKey={`personal:exp:${sector}:${expediente}:uc`}
                     rowKey="id"
                     showPopoverOnRowClick
                 />
-            )}
-            {activoLabel && !esUc && (
-                <DataTable
-                    endpoint={`/api/personal/expedientes/${sector}/${encodeURIComponent(expediente)}/lineas`}
-                    queryKey={`personal:exp:${sector}:${expediente}:grupo:${activoLabel}`}
-                    rowKey="id"
-                    extraParams={{ grupo: activoLabel }}
-                    showPopoverOnRowClick
-                    reorderImportes={activoLabel !== "Cargos"}
-                />
-            )}
+            </div>
         </div>
     );
 }

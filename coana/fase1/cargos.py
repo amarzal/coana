@@ -93,6 +93,12 @@ def calcular_extras_cargos_por_persona(
     asimilación a RD, la extra anual del cargo se estima como
     `2 × importe_rd × días / 365`. Sumamos por persona.
 
+    Solo se considera a personas con cobro CR 19/64 > 0 en *proyecto
+    general* en el año: la extra "camuflada" en el CR 68 solo aparece
+    en ese caso. Los cargos pagados en proyectos específicos no tienen
+    parte extra oculta — se cobran línea a línea — y por tanto la
+    extra no debe restarse de su CR 68 ni añadirse a su UC individual.
+
     Esta cantidad se restará del CR 68 (paga adicional del complemento
     específico PDI) en el preprocesamiento de nóminas, y se añadirá al
     importe imputado al cargo en `cargos_uc.parquet`.
@@ -100,12 +106,34 @@ def calcular_extras_cargos_por_persona(
     pc_path = Path(ruta_base) / "entrada" / "nóminas" / "personas cargos.xlsx"
     cat_path = Path(ruta_base) / "entrada" / "nóminas" / "cargos.xlsx"
     rd_path = Path(ruta_base) / "entrada" / "nóminas" / "cargos real decreto.xlsx"
-    for p in (pc_path, cat_path, rd_path):
+    nom_path = Path(ruta_base) / "entrada" / "nóminas" / "nóminas y seguridad social.xlsx"
+    exp_path = Path(ruta_base) / "entrada" / "nóminas" / "expedientes recursos humanos.xlsx"
+    for p in (pc_path, cat_path, rd_path, nom_path, exp_path):
         if not p.exists():
             return {}
     pc = read_excel(pc_path)
     cat = read_excel(cat_path)
     rd = read_excel(rd_path)
+    nom = read_excel(nom_path)
+    exp = read_excel(exp_path)
+
+    # Personas con CR 19/64 > 0 en proyecto general en el año: las únicas
+    # que pueden tener extra "camuflada" en CR 68.
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    proy = pl.col("proyecto").cast(pl.Utf8)
+    personas_general = (
+        nom.join(exp.select("expediente", "per_id"), on="expediente", how="inner")
+        .filter(cr.is_in(["19", "64"]))
+        .filter(proy.is_in(list(_PROYECTOS_GENERALES)))
+        .filter(pl.col("fecha").dt.year() == año)
+        .group_by("per_id")
+        .agg(pl.col("importe").sum().alias("total"))
+        .filter(pl.col("total") > 0)
+        .get_column("per_id").to_list()
+    )
+    if not personas_general:
+        return {}
+
     cat_min = cat.with_columns(pl.col("cargo").cast(pl.Utf8)).select(
         "cargo", "cargo_asimilado",
     )
@@ -114,7 +142,8 @@ def calcular_extras_cargos_por_persona(
         pl.col("importe_mensual").alias("importe_rd"),
     )
     df = (
-        pc.with_columns(pl.col("cargo").cast(pl.Utf8))
+        pc.filter(pl.col("per_id").is_in(personas_general))
+        .with_columns(pl.col("cargo").cast(pl.Utf8))
         .join(cat_min, on="cargo", how="left")
         .filter(pl.col("cargo_asimilado").is_not_null())
         .join(rd_min, on="cargo_asimilado", how="left")

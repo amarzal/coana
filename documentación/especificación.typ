@@ -1020,7 +1020,7 @@ La #app se organiza en un panel lateral con un árbol de navegación y un área 
     [Personal],
     [Resumen, Expedientes PDI, Expedientes PTGAS, Expedientes PVI, Expedientes otros, Multiexpediente, Persona, Anomalías PDI],
     [Regla 23],
-    [Dedicación docente, Docencia no oficial, Estructura estudios, Bolsa de atrasos, Despidos, Indemnizaciones asistencias, Cargos, Expedientes apartados, Asignaturas sin titulación, Anomalías],
+    [Dedicación docente, Docencia no oficial, Estructura estudios, Cargos, Asignaturas sin titulación, Anomalías],
     [Cargos académicos], [Resumen, Por persona, Personas cargos, Catálogo de cargos],
     [Superficies], [Resumen, Totales, Presencia centros],
     [Resultados Fase 1], [Resumen, Todas las UC, Actividades, Centros de coste, Elementos de coste, Anomalías UC],
@@ -1069,14 +1069,6 @@ Una preocupación recurrente del proceso es detectar registros que no encajan co
     [Regla 23 → Anomalías (pestaña «Múltiples con grado»)],
     [#ruta("regla_23_múltiples_con_grado.parquet")],
     [Asignaturas que aparecen asociadas a varias titulaciones y al menos una de ellas no es máster, contra la regla del catálogo de pod de másteres (que solo desambigua entre másteres). Origen: paso de resolución de titulación efectiva en la #nombre-regla[Regla 23].],
-
-    [Regla 23 → Bolsa de atrasos],
-    [#ruta("regla_23_atrasos.parquet")],
-    [Líneas de nómina PDI/PVI con #campo("concepto_retributivo") = #val("30") o #val("87") (atrasos), o con #campo("atrasos") marcado, que se separan del flujo principal de retribuciones. No son una anomalía estricta, sino registros que se tratan en una vía paralela porque corresponden a ejercicios anteriores.],
-
-    [Regla 23 → Expedientes apartados],
-    [#ruta("regla_23_expedientes_apartados.parquet")],
-    [Expedientes PDI/PVI que, tras separar la bolsa de atrasos, quedan sin ingresos reales en el ejercicio (o solo con atrasos). Se apartan para que no contaminen los cálculos de dedicación e importe del año analizado.],
 
     table.hline(),
 )
@@ -3551,19 +3543,18 @@ Cada una de esas listas (PDI+PVI y PTGAS) se va a procesar de un modo distinto, 
 
 ===== PTGAS
 
-Cada expediente del PTGAS tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
+Cada expediente del PTGAS tendrá las siguientes pestañas en la #app, en este orden:
 
-- una, #campo("costes sociales"), con los registros asociados a la Seguridad Social (#campo("aplicación") que empieza por 12),
-- otra, #campo("retribuciones ordinarias") con lo que es nómina ordinaria (cuando #campo("proyecto") es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000")) exceptuando el concepto retributivo #val("48") (indemnización por asistencias), que se aborda en el siguiente punto.
-- otra, #campo("retribuciones ordinarias asistencias") con lo que está con concepto retributivo #val("48") cuando #campo("proyecto") es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000").
-- otra, #campo("retribuciones extra"), con el resto.
-- otra, #campo("unidades de coste"), con una lista de unidades de coste asociadas a este expediente. Estas unidades se pueden crear desde el presupuesto o desde las nóminas.
++ #campo("Retribuciones ordinarias (sin CR 48)"): nómina ordinaria cuando #campo("proyecto") es #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), exceptuando el concepto retributivo #val("48").
++ #campo("Retribuciones ordinarias CR 48"): líneas con concepto retributivo #val("48") (indemnizaciones por asistencias), independientemente del proyecto. Su tratamiento es uniforme (actividad #etqact("dag-sgc-indemnizaciones-asistencias")).
++ #campo("Retribuciones extra"): el resto de líneas no encuadradas en las anteriores.
++ #campo("Costes sociales"): registros asociados a la Seguridad Social (#campo("aplicación") que empieza por #val("12")).
 
-En la #app, al seleccionar un expediente, veré todas sus tablas (accesible cada una con una pestaña) y al pinchar en una fila de un de esas tablas veré el detalle de esa fila, con toda la información que tiene, para facilitar comprobaciones.
+Las pestañas vacías se ocultan.
 
-La #app mostrará los totales de cada tabla y comprobará que los totales de las cuatro primeras suman el total de la nómina del expediente, para detectar posibles errores en la clasificación de los registros en las tablas.
+Debajo del bloque de pestañas, una tabla independiente *Unidades de coste generadas* lista todas las UC creadas para el expediente: retributivas (#ruta("auxiliares", "nóminas", "uc_ptgas.parquet")), indemnizaciones por asistencias (#ruta("auxiliares", "nóminas", "uc_indemnizaciones_asistencias.parquet")) y la parte de las UC de seguridad social (#ruta("auxiliares", "nóminas", "persona_uc.parquet") con #campo("tipo") = #val("coste social")) que corresponde al per_id del expediente. Sirve para verificar la clasificación y evitar duplicidades sin tener que cambiar de pantalla.
 
-En la #app se han de mostrar también las unidad de coste que ya se han creado para cada expediente, para facilitar comprobaciones y evitar duplicidades.
+La #app mostrará los totales de cada pestaña y comprobará que la suma de las cuatro coincide con el total de la nómina del expediente, para detectar errores en la clasificación.
 
 ===== PDI + PVI
 
@@ -3587,20 +3578,27 @@ Sea TABLA-PROYECTOS-GENERALES-NÓMINA esta serie de proyectos:
     table.hline(),
 )
 
-Cada expediente del PDI/PVI tendrá varias tablas en las que se almacenan los registros de la nómina correspondientes:
+Cada expediente del PDI/PVI tendrá las siguientes pestañas en la #app, en este orden:
 
-- Una, #campo("costes sociales"), con los registros asociados a la Seguridad Social (aplicación presupuestaria que empieza por #val("12")).
-- Otra, #campo("costes sociales calculados"). Para los trabajadores en el régimen de clases pasivas (los que no tienen ningún elemento con aplicación presupuestaria que empiece por #val("12")), se han de calcular los costes de Seguridad Social simulados. Más adelante se explica cómo.
-- Otra, #campo("retribuciones extra")  con los registros (primera regla aplica):
-    #reglas[
-        - cuyo #campo("concepto retributivo") no es #val("19") o #val("64") y cuyo proyecto es  #val("07G011") (Armonización europea), #val("1I235") (Cátedras - Cátedras UNESCO), #val("22G010") (Objetivos de Desarrollo Sostenible, ODS) o #val("11G003") (Prácticas internacionales).
-        - cuyo proyecto no es uno de TABLA-PROYECTOS-GENERALES-NÓMINA).
-    ]
-- Otra, #campo("retribuciones ordinarias de atrasos") (cuando el proyecto es uno de TABLA-PROYECTOS-GENERALES-NÓMINA), con aquéllas incluidas en los conceptos retributivos #val("30") u #val("87").
-- Otra, #campo("retribuciones ordinarias de despidos") (el proyecto ha de ser uno de TABLA-PROYECTOS-GENERALES-NÓMINA), con aquéllas incluidas en el concepto retributivo #val("47").
-- Otra, #campo("retribuciones ordinarias de indemnizaciones por asistencias") (tribunales y otros) de proyectos en TABLA-PROYECTOS-GENERALES-NÓMINA, con las retribuciones incluidas en el concepto retributivo #val("48").
-- Otra, #campo("retribuciones ordinarias de cargos académicos") para proyectos  de TABLA-PROYECTOS-GENERALES-NÓMINA, con las retribuciones incluidas en los conceptos retributivos #val("19") o #val("64").
-- Otra, #campo("retribuciones ordinarias de regla 23"), con las retribuciones incluidas en proyectos de TABLA-PROYECTOS-GENERALES-NÓMINA en todos los conceptos retributivos distintos a los anteriores.
++ #campo("Retribuciones ordinarias para regla 23"): la "bolsa gorda" — líneas con proyecto en TABLA-PROYECTOS-GENERALES-NÓMINA cuyo concepto retributivo no es #val("47"), #val("48"), #val("19") ni #val("64"). Incluye los atrasos (#val("30") y #val("87")), que no se separan en bolsa propia.
++ #campo("Ordinarias despidos (CR 47)"): proyecto en TABLA-PROYECTOS-GENERALES-NÓMINA y concepto retributivo #val("47").
++ #campo("Ordinarias indemnizaciones por asistencias (CR 48)"): concepto retributivo #val("48"), independientemente del proyecto (su tratamiento es uniforme: actividad #etqact("dag-sgc-indemnizaciones-asistencias")).
++ #campo("Ordinarias cargos (CR 19/64)"): proyecto en TABLA-PROYECTOS-GENERALES-NÓMINA y concepto retributivo #val("19") o #val("64").
++ #campo("Retribuciones extra"): líneas con proyecto NO incluido en TABLA-PROYECTOS-GENERALES-NÓMINA (excluyendo las CR 48, que ya aparecen en su pestaña).
++ #campo("Costes sociales"): registros con aplicación presupuestaria que empieza por #val("12"). Para los trabajadores en el régimen de clases pasivas (los que no tienen líneas con aplicación que empiece por #val("12")) esta pestaña se sustituye por #campo("Costes sociales calculados") con el detalle del cálculo simulado.
+
+Las pestañas vacías se ocultan automáticamente, de modo que un expediente sin atrasos ni despidos, por ejemplo, solo verá las pestañas con contenido.
+
+Debajo del bloque de pestañas, una tabla independiente *Unidades de coste generadas* consolida todas las UC ya creadas para el expediente. Incluye:
+
+- UC retributivas individuales de #ruta("auxiliares", "nóminas", "uc_pdi.parquet") o #ruta("auxiliares", "nóminas", "uc_pvi.parquet").
+- UC de despidos en proyecto general de #ruta("auxiliares", "nóminas", "uc_despidos.parquet").
+- UC de indemnizaciones por asistencias de #ruta("auxiliares", "nóminas", "uc_indemnizaciones_asistencias.parquet").
+- UC de cargos académicos en proyecto específico de #ruta("auxiliares", "nóminas", "uc_cargos.parquet").
+- UC del reparto de cargos académicos en proyecto general (CR 19/64 + parte extra del CR 68) de #ruta("auxiliares", "nóminas", "cargos_uc.parquet"), asociadas al expediente vía #campo("per_id").
+- UC del reparto de seguridad social (real o calculada) de #ruta("auxiliares", "nóminas", "persona_uc.parquet") con #campo("tipo") = #val("coste social"), también vía #campo("per_id").
+
+En este momento, el único concepto que queda *sin* generar UC es la masa destinada a regla 23 (la bolsa gorda de la primera pestaña), pendiente de la fase de reparto por dedicación. Los costes sociales que aparecen son provisionales: sus importes se reajustarán cuando se cierre el reparto definitivo.
 
 
 === Decisión del elemento de coste a partir de los registros de la nómina
@@ -3867,13 +3865,13 @@ Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y a
 
 / Segundo.- Retribuciones ordinarias, es decir, todos los gastos de cualquier concepto retributivo de los proyectos #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), y los gastos de los conceptos #val("19") y #val("64") en los proyectos #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003").: Hay que seguir los siguientes pasos:
 
-    - *Tratamiento de atrasos*: Hay un problema con los atrasos (concepto_retributivo igual a #val("30") u #val("87")). Puede ser una masa económica grande y su reparto no depende, para cada expediente, de la actividad que haya desarrollado el profesor en ese año, sino de la actividad que haya desarrollado en años anteriores. Lo que haremos es agrupar todos esos pagos de atrasos en una bolsa común y apartarlos de la regla 23. Más adelante repartiremos todo lo que hay en esa bolsa con una distribución similar a la que se aplica en promedio a todo el PDI + PVI. De momento, por tanto, gestiona esa bolsa y en la #app muestra el total que hay en esa bolsa común de atrasos y que podamos ver el detalle.
+    - *Tratamiento de atrasos*: Los atrasos (concepto_retributivo igual a #val("30") u #val("87")) son cuantías relativamente pequeñas que, al final, se repartirán con la misma distribución promedio que el resto de la masa de regla 23. Por simplicidad, no los separamos en una bolsa propia: las líneas con CR #val("30") u #val("87") en proyectos de TABLA-PROYECTOS-GENERALES-NÓMINA se integran directamente en la bolsa de #emph[Retribuciones ordinarias para regla 23] y se reparten junto con el resto cuando se cierre la fase de reparto por dedicación.
 
-        Después de esto, si algún expediente no ha tenido ingresos en el año, apártalo y, con la #app permíteme saber cuántos y cuáles has apartado. Además, destaca de algún modo expedientes que solo han tenido retribución por atrasos.
+    - *Tratamiento de despidos*: Cuando el concepto_retributivo es #val("47"), estamos ante despidos. Distinguimos dos casos según el proyecto:
 
-    - *Tratamiento de despidos*: Cuando el concepto_retributivo es #val("47"), estamos ante despidos que pueden financiarse con cargo a un proyecto específico o con cargo a fondos generales.
+        / *Proyectos específicos* (los que NO están en TABLA-PROYECTOS-GENERALES): : el despido es coste del propio proyecto y se trata como cualquier otra retribución extra: el centro de coste y la actividad se determinan con los módulos de clasificación del presupuesto. Estos importes *no* van a #ruta("auxiliares", "nóminas", "uc_despidos.parquet"); generan UC retributivas normales en #ruta("auxiliares", "nóminas", "uc_pdi.parquet") o #ruta("auxiliares", "nóminas", "uc_pvi.parquet").
 
-        Si el proyecto es #val("23G019"), la actividad es #etqact("otras-ait-financiación-propia") y el centro de coste es #val("vi"). En otro caso, el centro de coste y la actividad se decide de acuerdo a los módulos que hemos usado en presupuesto y nóminas para decidir estos valores.
+        / *Proyectos generales* (los diez de TABLA-PROYECTOS-GENERALES): : el despido se imputa de forma especial y se aparta de la regla 23 en #ruta("auxiliares", "nóminas", "uc_despidos.parquet"). Si el proyecto es #val("23G019") (fondo de contingencia para despidos), la actividad es #etqact("otras-ait-financiación-propia") y el centro de coste es #val("vi"). En el resto de proyectos generales, el centro de coste y la actividad se deciden con los módulos de clasificación del presupuesto.
 
     - *Tratamiento de indemnizaciones por asistencias (tribunales y otros)*: Cuando el concepto_retributivo es #val("48"), estamos ante indemnizaciones por asistencias a tribunales y similares. La actividad a las que se han de aplicar estas retribuciones es la etiqueta #etqact("dag-sgc-indemnizaciones-asistencias"). Podemos refinar esto en función de la figura. El centro de coste ha de ser el que corresponda al Servicio indicado en la tabla de la regla Por servicio existe servicio y el proyecto uno de la línea (en la sección «Preparación de un módulo para clasificar centros de coste»).
 
@@ -3896,7 +3894,7 @@ Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y a
             + `importe_uc(c) = TOTAL × peso(c) / Σ pesos`.
             + Se crea una UC por cargo con ese importe en #ruta("auxiliares", "nóminas", "cargos_uc.parquet").
 
-            *Parte extra del cargo (paga adicional)*: lo que la persona cobra por el cargo se compone de doce mensualidades ordinarias con CR 19/64 (recogidas en `TOTAL`) y dos pagas extras integradas en el CR #val("68") («Paga addicional complement específic pdi»). El CR 68 no es separable porque también recoge la paga adicional del complemento específico ordinario.
+            *Parte extra del cargo (paga adicional)*: lo que la persona cobra por el cargo se compone de doce mensualidades ordinarias con CR 19/64 (recogidas en `TOTAL`) y dos pagas extras integradas en el CR #val("68") («Paga addicional complement específic pdi»). El CR 68 no es separable porque también recoge la paga adicional del complemento específico ordinario. *Esta extra "camuflada" solo aparece para los cargos pagados en proyectos generales*: los cargos pagados en proyectos específicos se cobran línea a línea (CR 19/64 mes a mes) sin parte adicional integrada en el CR 68, por lo que el ajuste del CR 68 que se describe a continuación se aplica únicamente a las personas con CR 19/64 > 0 en proyecto general.
 
             Estimación de la parte extra del cargo, por cargo:
 
@@ -3979,11 +3977,37 @@ La titulación de cada asignatura se resuelve cruzando con #ruta("entrada", "doc
 
 ===== Cargador #emph[tesis]
 
-Para cada tesis de #ruta("entrada", "investigación", "tesis.xlsx") activa en el año (solape de #campo("fecha_inicio_tiempo") y #campo("fecha_fin_tiempo") con el año natural, considerando #campo("fecha_lectura_tesis") como fin efectivo si está informada) se reparten #val("2 h/semana") entre las personas únicas de la dirección (#campo("per_id_director"), #campo("per_id_tutor"), #campo("per_id_codirector") y #campo("per_id_codirector2"), eliminando duplicados):
+Cada fila de #ruta("entrada", "investigación", "tesis.xlsx") es un *periodo de matrícula* (no una tesis completa: una tesis identificada por #campo("per_id_alumno") puede tener varios periodos a lo largo del tiempo). El estado del periodo es #val("C") (tiempo completo), #val("P") (tiempo parcial), #val("B") (baja), #val("BM") (baja por maternidad) o #val("BV") (baja por otra causa).
 
-$ "horas_persona" = 2 dot ("días_solape" / 7) / N_"único" $
+*Filtros para considerar un periodo activo en el año natural:*
 
-El #campo("origen_id") es el #campo("per_id_alumno") de la tesis. Mientras no dispongamos del programa de doctorado en el fichero de entrada, la actividad se imputa al umbrella #etqact("doctorado") y el centro se marca como #val("pendiente") con anomalía #val("tesis sin programa de doctorado").
++ Si #campo("fecha_lectura_tesis") < #val("1/1/año") → fuera (ya leída antes del año).
++ Si #campo("fecha_inicio_tiempo") > #val("31/12/año") o #campo("fecha_inicio_tesis") > #val("31/12/año") → fuera (empieza después del año).
++ Descartar todas las filas con #campo("estado") en #val("B"), #val("BV") o #val("BM") (bajas, no producen dedicación).
++ Mantener las que tienen al menos un día del rango #emph[[fecha_inicio_tiempo, fecha_fin_tiempo]] dentro del año natural.
++ El estado superviviente es #val("C") o #val("P").
+
+*Cálculo de horas:*
+
+La asignación anual base por fila es de #val("104 h") (#val("2 h/semana") × #val("52 semanas")) si #campo("estado") = #val("C") y de #val("52 h") si #campo("estado") = #val("P") (la dedicación parcial recibe la mitad). Las horas de la fila para el año natural son:
+
+$ "horas_tesis" = "base_anual" dot "días_activos" / 365 $
+
+donde #campo("base_anual") es #val("104") o #val("52") según estado, y #campo("días_activos") son los días del periodo dentro del año.
+
+*Reparto por persona:*
+
+#campo("per_id_tutor") recibe el #val("10 %") y los miembros de la lista de directores (no nulos: #campo("per_id_director"), #campo("per_id_codirector"), #campo("per_id_codirector2")) se reparten el #val("90 %") a partes iguales:
+
+$ "horas_tutor" = "horas_tesis" dot 0.10 quad "horas_director" = "horas_tesis" dot 0.90 \/ N_"directores" $
+
+Si una misma persona figura como tutor y como director, recibe ambas slices (no se deduplica).
+
+*Programa de doctorado:*
+
+El campo #campo("estudio") (códigos #val("90xxx")) se cruza con #ruta("entrada", "docencia", "doctorados.xlsx") para obtener el #campo("nombre") del programa, y con #ruta("entrada", "docencia", "doctorados actividad centro.xlsx") para obtener la etiqueta de actividad y centro. Si ese mapeo no existe todavía, la fila se emite con #val("actividad = doctorado") (umbrella) y #val("centro = pendiente") con anomalía que incluye el código y nombre del programa para facilitar el mapeo posterior.
+
+El #campo("origen_id") es la concatenación #val("per_id_alumno/rol") (donde #val("rol") es #val("tutor") o #val("director")), de modo que cada slice queda identificada de forma única.
 
 ===== Cargador #emph[cargos académicos]
 
@@ -4347,18 +4371,6 @@ Convenciones del apéndice:
         "nóminas",
         "regla_23_horas_no_oficiales.parquet",
     ): horas dedicadas a estudios propios, microcredenciales, doctorado, etc. (todo lo que no se imputa a titulaciones oficiales). Origen: §«Horas no oficiales».
-
-/ #ruta(
-        "auxiliares",
-        "nóminas",
-        "regla_23_atrasos.parquet",
-    ): líneas de PDI/PVI con #campo("concepto_retributivo") = #val("30") o #val("87") (atrasos), apartadas del reparto de la regla 23 del año. Solo se genera si hay atrasos. Origen: §«Tratamiento de atrasos».
-
-/ #ruta(
-        "auxiliares",
-        "nóminas",
-        "regla_23_expedientes_apartados.parquet",
-    ): expedientes que tras separar atrasos quedan sin ingresos reales en el año. Solo se genera si hay expedientes apartados.
 
 / #ruta(
         "auxiliares",

@@ -825,14 +825,24 @@ def generar_uc_despidos(
 ) -> pl.DataFrame:
     """Genera UC de despidos PDI/PVI (concepto_retributivo 47).
 
-    Reglas:
-    - Si ``proyecto`` = "23G019": actividad = "otras-ait-financiación-propia",
-      centro_de_coste = "vi".
-    - En otro caso: CC y actividad vía los clasificadores compartidos.
+    Solo procesa los despidos imputados a *proyectos generales* (los
+    diez de TABLA-PROYECTOS-GENERALES). Los despidos en proyecto
+    específico son coste del propio proyecto y se procesan por el flujo
+    normal de retribuciones extras.
+
+    Reglas para los despidos en proyecto general:
+    - Si ``proyecto`` = "23G019" (fondo de contingencia para despidos):
+      actividad = ``otras-ait-financiación-propia``, centro = ``vi``.
+    - En otro caso (resto de proyectos generales): CC y actividad vía
+      los clasificadores compartidos.
     """
     despidos = _filtrar_pdi_pvi_por_conceptos(
         nóminas, expedientes, (_CONCEPTO_DESPIDO,),
     )
+    if not despidos.is_empty():
+        despidos = despidos.filter(
+            pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_GENERALES))
+        )
     if despidos.is_empty():
         p = dir_salida / "uc_despidos.parquet"
         if p.exists():
@@ -890,10 +900,21 @@ def generar_uc_indemnizaciones_asistencias(
 ) -> pl.DataFrame:
     """Genera UC de indemnizaciones por asistencia (concepto 48).
 
-    Cubre los tres sectores (PTGAS, PDI, PVI). El elemento de coste
-    es fijo: ``otras-indemnizaciones``. El CC y la actividad se
-    determinan con los clasificadores compartidos.
+    Cubre los tres sectores (PTGAS, PDI, PVI). Reglas (spec, sección
+    «Reglas para el tratamiento de los costes del PTGAS · Segundo.1»
+    y equivalente para PDI/PVI):
+
+    - Elemento de coste: fijo, ``otras-indemnizaciones``.
+    - Actividad: fija, ``dag-sgc-indemnizaciones-asistencias``.
+    - Centro de coste: el del Servicio en la tabla ``_SERVICIO_CC``.
+      Caso especial servicio ``368``: se usa ``centro_plaza`` con la
+      tabla ``_CENTRO_PLAZA_CC`` (igual que en Segundo.2).
     """
+    from coana.fase1.clasificador_centros_coste import (
+        _CENTRO_PLAZA_CC,
+        _SERVICIO_CC,
+    )
+
     exp_min = expedientes.select("expediente", "per_id", "sector")
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
     rows = (
@@ -909,10 +930,42 @@ def generar_uc_indemnizaciones_asistencias(
             p.unlink()
         return pl.DataFrame()
 
-    rows = rows.with_columns(pl.lit("otras-indemnizaciones").alias("_ec"))
+    srv_to_cc = {k: v[0] for k, v in _SERVICIO_CC.items()}
+    cp_to_cc = {k: v[0] for k, v in _CENTRO_PLAZA_CC.items()}
+
+    cols = rows.columns
+    cast_srv = (
+        pl.col("servicio").cast(pl.Utf8)
+        if "servicio" in cols
+        else pl.lit(None, dtype=pl.Utf8)
+    )
+    cast_cp = (
+        pl.col("centro_plaza").cast(pl.Utf8)
+        if "centro_plaza" in cols
+        else pl.lit(None, dtype=pl.Utf8)
+    )
+
+    rows = rows.with_columns(
+        pl.lit("otras-indemnizaciones").alias("_ec"),
+        pl.lit("dag-sgc-indemnizaciones-asistencias").alias("_act"),
+        pl.when(cast_srv == "368")
+        .then(cast_cp.replace_strict(cp_to_cc, default=None, return_dtype=pl.Utf8))
+        .otherwise(cast_srv.replace_strict(srv_to_cc, default=None, return_dtype=pl.Utf8))
+        .alias("_cc"),
+    )
+
+    sin_cc = rows.filter(pl.col("_cc").is_null())
+    if not sin_cc.is_empty():
+        n = len(sin_cc)
+        imp = float(sin_cc["importe"].sum())
+        print(
+            f"    ⚠ {n:,} línea(s) CR 48 sin centro resoluble por servicio "
+            f"({imp:,.2f} €)"
+        )
+
     uc = _clasificar_y_construir_uc(
-        rows=rows,
-        rows_fijos=None,
+        rows=pl.DataFrame(),
+        rows_fijos=rows,
         id_prefix="IA",
         origen_tag="INDEMN-ASIST",
         nombre_salida="uc_indemnizaciones_asistencias",
@@ -996,86 +1049,15 @@ def generar_atrasos_y_apartados(
     expedientes: pl.DataFrame,
     dir_salida: Path,
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """Separa atrasos PDI/PVI y detecta expedientes sin ingresos reales.
+    """No-op: los atrasos (CR 30/87) ya no se separan.
 
-    Atrasos (``concepto_retributivo`` ∈ {"30", "87"}): se apartan de la
-    regla 23 y se guardan en ``regla_23_atrasos.parquet`` como bolsa
-    común. Se repartirán más adelante con una distribución promedio.
-
-    Expedientes apartados: PDI/PVI cuyos ingresos, tras quitar atrasos,
-    suman ≤ 0,01 €. Se guardan en ``regla_23_expedientes_apartados.parquet``.
+    Se integran en la masa de regla 23 y se reparten con la misma
+    distribución promedio que el resto. Esta función se mantiene como
+    stub por compatibilidad con el orquestador y limpia los parquets
+    antiguos si existen.
     """
-    exp_pp = expedientes.filter(
-        pl.col("sector").is_in(["PDI", "PI"])
-    ).select("expediente", "per_id", "sector")
-    if exp_pp.is_empty():
-        return pl.DataFrame(), pl.DataFrame()
-
-    n = nóminas.join(exp_pp, on="expediente", how="inner")
-    es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    n_no_ss = n.filter(~es_ss)
-
-    es_atraso = pl.col("concepto_retributivo").cast(pl.Utf8).is_in(list(_CONCEPTOS_ATRASOS))
-    atrasos = n_no_ss.filter(es_atraso)
-    resto = n_no_ss.filter(~es_atraso)
-
-    atrasos_path = dir_salida / "regla_23_atrasos.parquet"
-    if not atrasos.is_empty():
-        atrasos.write_parquet(atrasos_path)
-        tot = float(atrasos["importe"].sum())
-        print(
-            f"  Regla 23 — bolsa de atrasos: {len(atrasos):,} filas, "
-            f"{tot:,.2f} € (conceptos 30+87 PDI/PVI)"
-        )
-    elif atrasos_path.exists():
-        atrasos_path.unlink()
-
-    # Expedientes apartados: sin ingresos reales tras quitar atrasos
-    importe_sin_at = (
-        resto.group_by("expediente", "per_id", "sector")
-        .agg(pl.col("importe").sum().alias("importe_sin_atrasos"))
-    )
-    importe_at = (
-        atrasos.group_by("expediente")
-        .agg(pl.col("importe").sum().alias("importe_atrasos"))
-    )
-    # Expedientes que aparecen en atrasos o en resto
-    expedientes_activos = (
-        pl.concat([
-            atrasos.select("expediente", "per_id", "sector"),
-            resto.select("expediente", "per_id", "sector"),
-        ], how="vertical")
-        .unique()
-    )
-    tot_exp = (
-        expedientes_activos
-        .join(importe_sin_at.select("expediente", "importe_sin_atrasos"),
-              on="expediente", how="left")
-        .join(importe_at, on="expediente", how="left")
-        .with_columns(
-            pl.col("importe_sin_atrasos").fill_null(0.0),
-            pl.col("importe_atrasos").fill_null(0.0),
-        )
-    )
-    apartados = tot_exp.filter(pl.col("importe_sin_atrasos") <= 0.01).with_columns(
-        pl.when(pl.col("importe_atrasos") > 0.01)
-          .then(pl.lit("solo atrasos"))
-          .otherwise(pl.lit("sin ingresos"))
-          .alias("tipo")
-    )
-
-    apartados_path = dir_salida / "regla_23_expedientes_apartados.parquet"
-    if not apartados.is_empty():
-        apartados.write_parquet(apartados_path)
-        n_solo = apartados.filter(pl.col("tipo") == "solo atrasos").height
-        n_sin = apartados.filter(pl.col("tipo") == "sin ingresos").height
-        tot_at = float(apartados["importe_atrasos"].sum())
-        print(
-            f"  Regla 23 — expedientes apartados: {len(apartados):,} "
-            f"(solo atrasos: {n_solo:,} · sin ingresos: {n_sin:,} · "
-            f"{tot_at:,.2f} € en atrasos)"
-        )
-    elif apartados_path.exists():
-        apartados_path.unlink()
-
-    return atrasos, apartados
+    for nombre in ("regla_23_atrasos.parquet", "regla_23_expedientes_apartados.parquet"):
+        p = dir_salida / nombre
+        if p.exists():
+            p.unlink()
+    return pl.DataFrame(), pl.DataFrame()

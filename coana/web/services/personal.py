@@ -245,54 +245,54 @@ def _grupos_lineas(df: pl.DataFrame, sector: str) -> list[tuple[str, pl.DataFram
     cs = df.filter(es_cs)
     no_cs = df.filter(~es_cs)
     grupos: list[tuple[str, pl.DataFrame]] = []
-    grupos.append(("Costes sociales", cs))
 
     if sector == "PTGAS" and "proyecto" in df.columns and _PROYECTOS_ORDINARIOS:
         es_ord = pl.col("proyecto").is_in(_PROYECTOS_ORDINARIOS)
+        cr_48 = pl.col("concepto_retributivo").cast(pl.Utf8) == "48"
+        ord_lineas = no_cs.filter(es_ord)
+        # Orden pedido: ord (sin CR 48), ord CR 48, extra, costes sociales.
         grupos += [
-            ("Retribuciones ordinarias", no_cs.filter(es_ord)),
+            ("Retribuciones ordinarias (sin CR 48)", ord_lineas.filter(~cr_48)),
+            ("Retribuciones ordinarias CR 48", ord_lineas.filter(cr_48)),
             ("Retribuciones extra", no_cs.filter(~es_ord)),
+            ("Costes sociales", cs),
         ]
-    elif sector == "PDI":
-        df = _enriquecer_tipo_linea(df)
-        no_cs = df.filter(~es_cs)
-        if "tipo_línea" in df.columns:
-            finalista = no_cs.filter(pl.col("tipo_línea") != "00")
-            resto = no_cs.filter(pl.col("tipo_línea") == "00")
-        else:
-            finalista = no_cs.head(0)
-            resto = no_cs
+        return [(label, sub) for label, sub in grupos if not sub.is_empty()]
+
+    if sector in ("PDI", "PVI"):
+        from coana.fase1.nóminas.regla_23 import _PROYECTOS_GENERALES
         cr_str = pl.col("concepto_retributivo").cast(pl.Utf8)
         proy = pl.col("proyecto").cast(pl.Utf8)
-        docencia = resto.filter(
-            proy.is_in(["1G019", "23G019"])
-            & cr_str.is_in(["17", "20", "24", "44", "86", "99"])
-        )
-        gestion = resto.filter(
-            proy.is_in(["02G041", "11G006", "1G019", "23G019"])
-            & cr_str.is_in(["19", "30"])
-        )
-        investigacion = resto.filter(
-            proy.is_in(["1G019", "23G019"]) & cr_str.is_in(["26", "77"])
-        )
-        incentivos = resto.filter(cr_str.is_in(["13", "67"]))
-        ids_clas = pl.concat(
-            [docencia, gestion, investigacion, incentivos], how="diagonal",
-        ).select("id")
-        regla23 = resto.join(ids_clas, on="id", how="anti")
-        grupos += [
-            ("Retribuciones con financiación finalista", finalista),
-            ("Retribuciones ordinarias docencia", docencia),
-            ("Retribuciones ordinarias gestión", gestion),
-            ("Retribuciones ordinarias investigación", investigacion),
-            ("Retribuciones por incentivos", incentivos),
-            ("Retribuciones para regla 23", regla23),
-        ]
-    elif sector == "PVI":
-        grupos.append(("Retribuciones", no_cs))
-    else:
-        grupos.append(("Retribuciones", no_cs))
+        es_gen = proy.is_in(list(_PROYECTOS_GENERALES))
 
+        ord_gen = no_cs.filter(es_gen)
+        # Tratamientos especiales dentro de las ordinarias en proyecto
+        # general, en líneas con CR específico. Los atrasos (CR 30/87)
+        # ya no se apartan: entran en la bolsa de regla 23.
+        despidos = ord_gen.filter(cr_str == "47")
+        cargos_gen = ord_gen.filter(cr_str.is_in(["19", "64"]))
+        # CR 48 sale a su propia pestaña independientemente del proyecto
+        # (su tratamiento es uniforme).
+        indemn = no_cs.filter(cr_str == "48")
+        # Bolsa gorda regla 23: ordinarias generales que no son ninguna
+        # de las anteriores. Incluye los atrasos (CR 30/87).
+        regla23 = ord_gen.filter(~cr_str.is_in(["47", "48", "19", "64"]))
+        # Retribuciones extra: proyecto específico, excluyendo CR 48 (que
+        # ya se muestra en su pestaña).
+        extra = no_cs.filter(~es_gen & (cr_str != "48"))
+        grupos += [
+            ("Retribuciones ordinarias para regla 23", regla23),
+            ("Ordinarias despidos (CR 47)", despidos),
+            ("Ordinarias indemnizaciones por asistencias (CR 48)", indemn),
+            ("Ordinarias cargos (CR 19/64)", cargos_gen),
+            ("Retribuciones extra", extra),
+            ("Costes sociales", cs),
+        ]
+        return [(label, sub) for label, sub in grupos if not sub.is_empty()]
+
+    # Otros sectores: solo costes sociales y retribuciones.
+    grupos.append(("Costes sociales", cs))
+    grupos.append(("Retribuciones", no_cs))
     return [(label, sub) for label, sub in grupos if not sub.is_empty()]
 
 
@@ -585,13 +585,17 @@ def _cargos_de_persona(per_id: int) -> pl.DataFrame:
     ).get(int(per_id), [])
     total_persona = _total_cr19_64_persona(per_id)
 
-    # Calcula días e importe RD por fila; marca anomalías.
-    # Anomalía = la persona cobra por este cargo (días > 0) pero no
-    # tenemos asimilación a RD. Cargo sin periodo de cobro (días = 0)
-    # NO es anomalía: simplemente no es remunerado.
+    # Calcula días e importe RD por fila; marca anomalías. Los cargos sin
+    # periodo de cobro (días = 0) no se conservan: no generan UC y solo
+    # ensucian la vista. La asimilación al RD se considera anomalía solo
+    # si la persona cobra efectivamente por ese cargo.
+    rows_remunerados: list[dict] = []
     pesos: list[float] = []
     for r in rows:
-        r["días_2025"] = _días_en_año(r)
+        días = _días_en_año(r)
+        if días == 0:
+            continue  # cargo no remunerado: descartado
+        r["días_2025"] = días
         tipo_rd = r.get("cargo_asimilado")
         try:
             tipo_rd = int(tipo_rd) if tipo_rd is not None else None
@@ -599,12 +603,16 @@ def _cargos_de_persona(per_id: int) -> pl.DataFrame:
             tipo_rd = None
         if tipo_rd is None or tipo_rd not in rd:
             r["importe_rd"] = None
-            r["_anomalía"] = "sin asimilación a RD" if r["días_2025"] > 0 else "no remunerado"
+            r["_anomalía"] = "sin asimilación a RD"
             pesos.append(0.0)
         else:
             r["importe_rd"] = rd[tipo_rd]
-            r["_anomalía"] = "" if r["días_2025"] > 0 else "no remunerado"
-            pesos.append(r["días_2025"] * rd[tipo_rd])
+            r["_anomalía"] = ""
+            pesos.append(días * rd[tipo_rd])
+        rows_remunerados.append(r)
+    rows = rows_remunerados
+    if not rows:
+        return pl.DataFrame()
 
     suma_pesos = sum(pesos)
     elemento = _elemento_de_coste_cargos(per_id)
@@ -625,8 +633,6 @@ def _cargos_de_persona(per_id: int) -> pl.DataFrame:
         r["uc_centro_de_coste"] = str(r.get("centro") or "")
         r["uc_actividad"] = str(r.get("actividad") or "")
         r["proyectos"] = proyectos_str
-        if r["días_2025"] == 0:
-            r["días_2025"] = None
 
     return pl.DataFrame(rows).sort("importe_uc", descending=True, nulls_last=True)
 
@@ -681,45 +687,44 @@ _COLS_CARGOS_EXP: list[ColumnSpec] = [
 def grupos_lineas_nomina(sector: str, expediente: int) -> GruposLineasResponse:
     """Metadatos (label, n, importe) de los grupos de un expediente.
 
-    Incluye además, como pestañas sintéticas:
-    - «Costes sociales calculados», si la persona está en clases
-      pasivas (PDI funcionario sin SS cotizada).
-    - «UC generadas», con las UC producidas por la fase 1.
+    Si la persona del expediente está en clases pasivas (PDI funcionario
+    sin SS cotizada), la pestaña «Costes sociales» se sustituye por
+    «Costes sociales calculados» con el detalle del cálculo. Las UC
+    generadas se muestran en una tabla aparte debajo del bloque de
+    pestañas (no aparecen como pestaña).
     """
     df = _nominas_raw()
-    out: list[GrupoLineas] = []
+    grupos_raw: list[tuple[str, int, float]] = []
     if not df.is_empty() and "expediente" in df.columns:
         sub = df.filter(pl.col("expediente") == expediente)
         for label, g in _grupos_lineas(sub, sector):
-            out.append(GrupoLineas(
-                label=label,
-                n=g.height,
-                importe=(
-                    float(g["importe"].sum() or 0) if "importe" in g.columns else 0.0
-                ),
-            ))
+            imp = float(g["importe"].sum() or 0) if "importe" in g.columns else 0.0
+            grupos_raw.append((label, g.height, imp))
+
     per_id = _per_id_de_expediente(expediente)
+    calc_df: pl.DataFrame | None = None
     if per_id is not None:
-        calc = _costes_calculados_de_persona(per_id)
-        if not calc.is_empty():
+        calc_df = _costes_calculados_de_persona(per_id)
+        if calc_df.is_empty():
+            calc_df = None
+
+    out: list[GrupoLineas] = []
+    for label, n, imp in grupos_raw:
+        if label == "Costes sociales" and calc_df is not None:
             out.append(GrupoLineas(
                 label=COSTES_CALCULADOS_LABEL,
-                n=calc.height,
-                importe=float(calc["importe_total"].sum() or 0),
+                n=calc_df.height,
+                importe=float(calc_df["importe_total"].sum() or 0),
             ))
-        cargos_df = _cargos_de_persona(per_id)
-        if not cargos_df.is_empty():
-            out.append(GrupoLineas(
-                label=CARGOS_LABEL,
-                n=cargos_df.height,
-                importe=float(cargos_df["importe_uc"].sum() or 0),
-            ))
-    uc = _uc_de_expediente(sector, expediente)
-    if not uc.is_empty():
+        else:
+            out.append(GrupoLineas(label=label, n=n, importe=imp))
+    # Si no hay líneas de CS reales pero sí hay calculados, añadir la
+    # pestaña al final.
+    if calc_df is not None and not any(g.label == COSTES_CALCULADOS_LABEL for g in out):
         out.append(GrupoLineas(
-            label=UC_GENERADAS_LABEL,
-            n=uc.height,
-            importe=float(uc["importe"].sum() or 0) if "importe" in uc.columns else 0.0,
+            label=COSTES_CALCULADOS_LABEL,
+            n=calc_df.height,
+            importe=float(calc_df["importe_total"].sum() or 0),
         ))
     return GruposLineasResponse(grupos=out)
 
@@ -741,6 +746,15 @@ _UC_PATHS_TRANSVERSALES = [
     DIR_NOMINAS / "uc_cargos.parquet",
 ]
 
+# UC de seguridad social: una fila por (per_id, actividad, CC) sin
+# expediente concreto. Se asocian al expediente vía per_id.
+PATH_PERSONA_UC = DIR_NOMINAS / "persona_uc.parquet"
+
+# UC del reparto CR 19/64 (proyecto general) entre los cargos
+# académicos de cada persona, incluyendo la parte extra (CR 68). Sin
+# expediente: se asocia al expediente vía per_id.
+PATH_CARGOS_UC = DIR_NOMINAS / "cargos_uc.parquet"
+
 
 _COLS_UC_EXP: list[ColumnSpec] = [
     ColumnSpec(name="id", label="ID UC", format="text"),
@@ -755,9 +769,10 @@ _COLS_UC_EXP: list[ColumnSpec] = [
 
 
 def _uc_de_expediente(sector: str, expediente: int) -> pl.DataFrame:
-    """Consolida las UC del expediente desde el parquet del sector y los
+    """Consolida las UC del expediente desde el parquet del sector, los
     parquets transversales (despidos, indemnizaciones por asistencia,
-    cargos asociados a proyecto específico)."""
+    cargos asociados a proyecto específico) y las UC de costes sociales
+    (que son por per_id y se asocian vía la persona del expediente)."""
     partes: list[pl.DataFrame] = []
     rutas: list[Path] = []
     sector_path = _UC_PATHS_POR_SECTOR.get(sector)
@@ -771,6 +786,36 @@ def _uc_de_expediente(sector: str, expediente: int) -> pl.DataFrame:
         sub = df.filter(pl.col("expediente") == expediente).drop("expediente")
         if not sub.is_empty():
             partes.append(sub)
+
+    # UC de SS y de cargos generales (CR 19/64 + extra CR 68): por
+    # per_id, no por expediente.
+    per_id = _per_id_de_expediente(expediente)
+    if per_id is not None:
+        ss_df = _safe_read(PATH_PERSONA_UC)
+        if ss_df is not None and not ss_df.is_empty() and "tipo" in ss_df.columns:
+            ss = ss_df.filter(
+                (pl.col("tipo") == "coste social") & (pl.col("per_id") == per_id)
+            )
+            if not ss.is_empty():
+                drop_cols = [c for c in ("expediente", "per_id", "tipo") if c in ss.columns]
+                partes.append(ss.drop(drop_cols))
+
+        cargos_df = _safe_read(PATH_CARGOS_UC)
+        if cargos_df is not None and not cargos_df.is_empty():
+            cu = cargos_df.filter(pl.col("per_id") == per_id)
+            if not cu.is_empty():
+                cu_norm = cu.select(
+                    "id",
+                    "elemento_de_coste",
+                    "centro_de_coste",
+                    "actividad",
+                    pl.col("importe_uc").alias("importe"),
+                    "origen",
+                    "origen_id",
+                    "origen_porción",
+                )
+                partes.append(cu_norm)
+
     if not partes:
         return pl.DataFrame()
     return pl.concat(partes, how="diagonal")

@@ -53,8 +53,6 @@ import {
     Regla23DedicacionPdi,
     Regla23DocenciaNoOficial,
     Regla23EstructuraEstudios,
-    Regla23BolsaAtrasos,
-    Regla23ExpedientesApartados,
     Regla23Despidos,
     Regla23IndemnizacionesAsistencias,
     Regla23Cargos,
@@ -148,16 +146,14 @@ export function App() {
                         <Route path="personal/persona" element={<PersonalPersona />} />
                         <Route path="personal/costes-sociales-calculados" element={<PersonalCostesSocialesCalculados />} />
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
+                        <Route path="personal/despidos" element={<Regla23Despidos />} />
+                        <Route path="personal/indemnizaciones" element={<Regla23IndemnizacionesAsistencias />} />
                         <Route path="regla23/resumen" element={<Regla23Resumen />} />
                         <Route path="regla23/dedicacion-pdi" element={<Regla23DedicacionPdi />} />
                         <Route path="regla23/dedicacion" element={<Regla23DedicacionDocente />} />
                         <Route path="regla23/no-oficial" element={<Regla23DocenciaNoOficial />} />
                         <Route path="regla23/estructura" element={<Regla23EstructuraEstudios />} />
-                        <Route path="regla23/atrasos" element={<Regla23BolsaAtrasos />} />
-                        <Route path="regla23/despidos" element={<Regla23Despidos />} />
-                        <Route path="regla23/indemnizaciones" element={<Regla23IndemnizacionesAsistencias />} />
                         <Route path="regla23/cargos" element={<Regla23Cargos />} />
-                        <Route path="regla23/apartados" element={<Regla23ExpedientesApartados />} />
                         <Route path="regla23/sin-titulacion" element={<Regla23AsignaturasSinTitulacion />} />
                         <Route path="regla23/anomalias" element={<Regla23Anomalias />} />
                         <Route path="resultados/resumen" element={<ResultadosResumen />} />

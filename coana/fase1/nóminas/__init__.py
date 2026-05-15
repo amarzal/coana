@@ -501,8 +501,13 @@ def _generar_uc_pdi_pvi_extras(
     cr = pl.col("concepto_retributivo").cast(pl.Utf8)
     es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_GENERALES))
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
+    # CR 47 (despidos) solo se considera UC definida cuando el proyecto
+    # es general: los de proyecto específico son coste del propio
+    # proyecto y se procesan como retribuciones extras normales. CR 48
+    # (indemnizaciones por asistencia) genera UC en todos los casos.
     es_uc_definida = (
-        cr.is_in(["47", "48"])
+        (cr == "47") & es_proy_gen
+        | (cr == "48")
         | (cr.is_in(["19", "64"]) & ~es_proy_gen)
     )
 
@@ -529,9 +534,11 @@ def _generar_uc_pdi_pvi_extras(
 
     # Reportar masa apartada para regla 23 (proyecto general, conceptos
     # no especiales): de momento no genera UC; se reparte cuando esté
-    # implementada la regla 23.
+    # implementada la regla 23. Los atrasos (CR 30/87) entran en esta
+    # bolsa: no se mantienen como bolsa separada porque se repartirán
+    # con la misma distribución promedio que el resto.
     masa_regla_23 = (
-        registros.filter(~es_ss & es_proy_gen & ~cr.is_in(["19", "64", "47", "48", "30", "87"]))
+        registros.filter(~es_ss & es_proy_gen & ~cr.is_in(["19", "64", "47", "48"]))
     )
     if not masa_regla_23.is_empty():
         print(
