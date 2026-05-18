@@ -424,6 +424,8 @@ _COLS_DED_DETALLE: list[ColumnSpec] = [
     ColumnSpec(name="método", label="Método", format="text"),
     ColumnSpec(name="origen", label="Origen", format="text"),
     ColumnSpec(name="origen_id", label="Origen id", format="text"),
+    ColumnSpec(name="nombre_proyecto", label="Nombre proyecto", format="text"),
+    ColumnSpec(name="detalle", label="Detalle", format="text"),
     ColumnSpec(name="anomalía", label="Anomalía", format="text"),
 ]
 
@@ -548,12 +550,36 @@ def listar_dedicación_persona(per_id: int, p: QueryParams) -> ListResponse:
     df = _safe_read(PATH_DEDICACIÓN_PDI)
     if df is None or df.is_empty():
         return ListResponse(columns=_COLS_DED_DETALLE, rows=[], total=0)
-    df = df.filter(pl.col("per_id") == per_id).select(
-        [c.name for c in _COLS_DED_DETALLE if c.name in df.columns]
-    )
+    df = df.filter(pl.col("per_id") == per_id)
+
+    # Enriquecimiento: nombre del proyecto presupuestario para las
+    # filas con origen='proyecto'. Cruza origen_id con proyectos.xlsx.
+    proyectos_path = DIR_ENTRADA / "presupuesto" / "proyectos.xlsx"
+    if proyectos_path.exists():
+        proyectos = (
+            read_excel(proyectos_path)
+            .select(
+                pl.col("proyecto").cast(pl.Utf8).alias("origen_id"),
+                pl.col("nombre").alias("nombre_proyecto"),
+            )
+        )
+        df = df.join(proyectos, on="origen_id", how="left")
+        df = df.with_columns(
+            pl.when(pl.col("origen") == "proyecto")
+            .then(pl.col("nombre_proyecto"))
+            .otherwise(pl.lit(None, dtype=pl.Utf8))
+            .alias("nombre_proyecto")
+        )
+    else:
+        df = df.with_columns(pl.lit(None, dtype=pl.Utf8).alias("nombre_proyecto"))
+
+    df = df.select([c.name for c in _COLS_DED_DETALLE if c.name in df.columns])
     df, total, stats = apply_query(
         df, p,
-        search_columns=["actividad", "centro_de_coste", "origen", "origen_id", "anomalía"],
+        search_columns=[
+            "actividad", "centro_de_coste", "origen", "origen_id",
+            "nombre_proyecto", "anomalía",
+        ],
     )
     return ListResponse(
         columns=_COLS_DED_DETALLE,

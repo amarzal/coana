@@ -115,11 +115,17 @@ class Árbol:
     # --- Mutación ---
 
     def añadir_hijo(
-        self, padre_id: str, descripción: str, sufijo_id: str
+        self, padre_id: str, descripción: str, sufijo_id: str,
+        *, id_completo: str | None = None,
     ) -> NodoÁrbol:
         """Añade un hijo al nodo con identificador *padre_id*.
 
-        El identificador del nuevo nodo es ``padre_id + "-" + sufijo_id``.
+        Por defecto el identificador del nuevo nodo es
+        ``padre_id + "-" + sufijo_id``. Si se pasa ``id_completo``, se
+        usa ese identificador literal en lugar de la concatenación
+        (útil cuando se quiere una etiqueta independiente del padre,
+        p. ej. ``grupo-investigación-034`` bajo varios institutos).
+
         Si ya existe un nodo con ese identificador y la misma descripción,
         no hace nada y devuelve el nodo existente.  Si la descripción
         difiere, lanza ``ValueError`` (colisión de identificadores).
@@ -128,7 +134,7 @@ class Árbol:
         en orden alfabético por descripción entre sí.
         """
         padre = self._nodo(padre_id)
-        nuevo_id = f"{padre_id}-{sufijo_id}"
+        nuevo_id = id_completo if id_completo is not None else f"{padre_id}-{sufijo_id}"
 
         if nuevo_id in self._por_id:
             existente = self._por_id[nuevo_id]

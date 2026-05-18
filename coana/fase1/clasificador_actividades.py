@@ -279,9 +279,9 @@ _PROYECTOS_ESPECIALES: dict[str, str] = {
     "06G008": "acceso-enseñanzas-oficiales",
     "1G041": "acceso-enseñanzas-oficiales",
     "16G095": "universidad-mayores",
-    "23I235": "ait-financiación-propia",
-    "24I351": "ait-financiación-propia",
-    "24I352": "ait-financiación-propia",
+    "23I235": "ai-financiación-propia",
+    "24I351": "ai-financiación-propia",
+    "24I352": "ai-financiación-propia",
     "1I235": "cátedras-aulas-empresa",
     "22G023": "dag-biblioteca",
     "22G025": "dag-biblioteca",
@@ -555,9 +555,9 @@ def _reglas_actividad(
          pl.lit("+=otras-ayudas-estudiantes")),
 
         # INVESTIGACIÓN Y TRANSFERENCIA
-        ("[Plan propio] arts, tl=00 → +=ait-plan-propio",
+        ("[Plan propio] arts, tl=00 → +=ai-plan-propio",
          tp.is_in(tipos_arts) & (tl == "00"),
-         pl.lit("+=ait-plan-propio")),
+         pl.lit("+=ai-plan-propio")),
 
         ("[Cátedras y aulas] arts, cátedra/aula empresa → +=cátedras-aulas-empresa",
          tp.is_in(tipos_arts)
@@ -597,12 +597,12 @@ def _reglas_actividad(
          ).fill_null(False),
          pl.lit("+=ppsi")),
 
-        ("[Co-financiación] cofi, 541-A, tl=00, UJI-/GACUJIMA → +=ait-plan-propio",
+        ("[Co-financiación] cofi, 541-A, tl=00, UJI-/GACUJIMA → +=ai-plan-propio",
          tp.is_in(tipos_cofi) & prog_541a & (tl == "00")
          & pl.col("_nombre_proyecto").str.contains(
              r"(?i)UJI-|GACUJIMA"
          ).fill_null(False),
-         pl.lit("+=ait-plan-propio")),
+         pl.lit("+=ai-plan-propio")),
 
         ("[Co-financiación] cofi, 541-A, tl=00 (resto) → +=otras-ait-financiación-propia",
          tp.is_in(tipos_cofi) & prog_541a & (tl == "00"),
@@ -612,9 +612,9 @@ def _reglas_actividad(
          tp.is_in(tipos_cofi) & prog_541a & (tl != "00"),
          pl.lit("+=ait-financiación-externa")),
 
-        ("[Financiación propia] 000TR, 541-A, tl=00 → +=ait-financiación-propia",
+        ("[Financiación propia] 000TR, 541-A, tl=00 → +=ai-financiación-propia",
          (tp == "000TR") & prog_541a & (tl == "00"),
-         pl.lit("+=ait-financiación-propia")),
+         pl.lit("+=ai-financiación-propia")),
 
         ("[Doctorado] DOCT, 541-A → +=doctorado",
          (tp == "DOCT") & prog_541a,
@@ -744,9 +744,9 @@ def _reglas_actividad(
          & (pl.col("proyecto") != "00000") & (subcentro == "DS"),
          pl.lit("dag-cooperación")),
 
-        ("[Innovación y emprendimiento (es EMP)] 20G, sub=EMP, tl=00 → ait-financiación-propia",
+        ("[Innovación y emprendimiento (es EMP)] 20G, sub=EMP, tl=00 → ai-financiación-propia",
          cap_ne_4 & (tp == "20G") & (subcentro == "EMP") & (tl == "00"),
-         pl.lit("ait-financiación-propia")),
+         pl.lit("ai-financiación-propia")),
 
         ("[Innovación y emprendimiento (es EMP)] 20G, sub=EMP, tl≠00 → ait-financiación-externa",
          cap_ne_4 & (tp == "20G") & (subcentro == "EMP") & (tl != "00"),
@@ -796,9 +796,9 @@ def _reglas_actividad(
          cap_ne_4 & (tp == "OAD") & (subcentro != "UMAJ"),
          pl.lit("otros-docencia-propia")),
 
-        ("[Sin proyectos] OAT, tl=00 → ait-financiación-propia",
+        ("[Sin proyectos] OAT, tl=00 → ai-financiación-propia",
          cap_ne_4 & (tp == "OAT") & (tl == "00"),
-         pl.lit("ait-financiación-propia")),
+         pl.lit("ai-financiación-propia")),
 
         ("[Sin proyectos] OAT, tl≠00 → ait-financiación-externa",
          cap_ne_4 & (tp == "OAT") & (tl != "00"),
@@ -832,9 +832,9 @@ def _reglas_actividad(
          cap_ne_4 & (tp == "19G"),
          pl.lit("deportes")),
 
-        ("VARI, 541-A, tl=00 → ait-financiación-propia",
+        ("VARI, 541-A, tl=00 → ai-financiación-propia",
          cap_ne_4 & (tp == "VARI") & prog_541a & (tl == "00"),
-         pl.lit("ait-financiación-propia")),
+         pl.lit("ai-financiación-propia")),
 
         ("21I321 → +=ai-internacional",
          cap_ne_4 & (tp == "21I321"),
@@ -1037,7 +1037,7 @@ def _reglas_actividad_dinámicas(
         ("+=cooperación", "proyecto"),
         ("+=dag-cooperación", "proyecto"),
         ("+=otras-extensión-universitaria", "proyecto"),
-        ("+=ait-plan-propio", "proyecto"),
+        ("+=ai-plan-propio", "proyecto"),
         ("+=cátedras-aulas-empresa", "proyecto"),
         ("+=ai-regional", "proyecto"),
         ("+=ai-nacional", "proyecto"),
@@ -1045,7 +1045,7 @@ def _reglas_actividad_dinámicas(
         ("+=ai-otras-competitivas", "proyecto"),
         ("+=ppsi", "proyecto"),
         ("+=otras-ait-financiación-propia", "proyecto"),
-        ("+=ait-financiación-propia", "proyecto"),
+        ("+=ai-financiación-propia", "proyecto"),
         ("+=ait-financiación-externa", "proyecto"),
         ("+=transf-60", "proyecto"),
         ("+=doctorado", "proyecto"),

@@ -160,6 +160,14 @@ def cargar_tesis(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
         .otherwise(pl.lit(None, dtype=pl.Utf8))
     )
 
+    detalle = pl.concat_str([
+        pl.lit("Tesis alumno "), pl.col("per_id_alumno").cast(pl.Utf8),
+        pl.lit(" · rol "), pl.col("rol"),
+        pl.lit(" · programa "), pl.col("estudio").cast(pl.Utf8),
+        pl.lit(" ("), pl.col("nombre_doctorado").fill_null("?"), pl.lit(")"),
+        pl.lit(" · "), pl.col("horas").round(2).cast(pl.Utf8), pl.lit(" h asignadas"),
+    ])
+
     return filas.select(
         pl.col("per_id"),
         pl.col("actividad").fill_null("doctorado").alias("actividad"),
@@ -172,6 +180,7 @@ def cargar_tesis(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
         pl.concat_str(
             [pl.col("per_id_alumno").cast(pl.Utf8), pl.lit("/"), pl.col("rol")]
         ).alias("origen_id"),
+        detalle.alias("detalle"),
         anomalía_expr.alias("anomalía"),
     )
 

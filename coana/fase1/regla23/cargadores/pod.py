@@ -104,6 +104,15 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
         .otherwise(pl.lit(None, dtype=pl.Utf8))
     )
 
+    detalle = pl.concat_str([
+        pl.lit("Asignatura "), pl.col("asignatura"),
+        pl.lit(" · curso "), pl.col("curso_académico").cast(pl.Utf8),
+        pl.lit("/sem "), pl.col("semestre"),
+        pl.lit(" · titulación "), pl.col("titulación").cast(pl.Utf8),
+        pl.lit(" ("), pl.col("tipo_titulación"), pl.lit(")"),
+        pl.lit(" · "), pl.col("horas").round(2).cast(pl.Utf8), pl.lit(" h registradas"),
+    ])
+
     return pod.select(
         pl.col("per_id").cast(pl.Int64),
         pl.col("actividad").fill_null("pendiente").alias("actividad"),
@@ -122,5 +131,6 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
                 pl.col("semestre"),
             ]
         ).alias("origen_id"),
+        detalle.alias("detalle"),
         anomalía.alias("anomalía"),
     )

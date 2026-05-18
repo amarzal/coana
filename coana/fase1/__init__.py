@@ -22,6 +22,7 @@ from coana.fase1.cargos import (
     generar_cargos_uc,
 )
 from coana.fase1.inventario import ContextoInventario, procesar_inventario
+from coana.fase1.investigación import enriquecer_árbol_cc_con_grupos
 from coana.fase1.nóminas import ContextoNóminas, preprocesar_nóminas
 from coana.fase1.presupuesto import ContextoPresupuesto, TraductorPresupuesto
 from coana.fase1.regla23 import generar_dedicación_pdi
@@ -69,6 +70,19 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
     resultado_inv.sin_fecha_alta_df.write_parquet(dir_amort / "sin_fecha_alta.parquet")
     resultado_inv.filtrados_fecha_df.write_parquet(dir_amort / "filtrados_fecha.parquet")
     resultado_inv.detalle_cuentas_filtradas.write_parquet(dir_amort / "detalle_cuentas_filtradas.parquet")
+
+    # Enriquecimiento del árbol de centros de coste con los grupos de
+    # investigación (un CC por grupo, bajo su instituto; los no adscritos
+    # bajo un nodo virtual `inves`).
+    if ctx.centros_de_coste is not None:
+        n_grupos, n_grupos_om = enriquecer_árbol_cc_con_grupos(
+            ruta_base, ctx.centros_de_coste,
+        )
+        if n_grupos or n_grupos_om:
+            print(
+                f"  CC grupos investigación: {n_grupos} creados, "
+                f"{n_grupos_om} omitidos (sin mapeo de instituto o colisión)"
+            )
 
     # Nodos de actividades y centros de coste antes de traducir
     nodos_act_antes = len(ctx.actividades._por_id) - 1 if ctx.actividades else 0
@@ -226,7 +240,9 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
 
     # -- Regla 23: dedicación del PDI a actividades --
     print("Generando dedicación PDI (regla 23)…")
-    dedicación = generar_dedicación_pdi(ruta_base, año=año)
+    dedicación = generar_dedicación_pdi(
+        ruta_base, año=año, árbol_actividades=ctx.actividades,
+    )
     print(
         f"  Dedicación PDI: {len(dedicación):,} filas, "
         f"{dedicación['horas'].sum():,.0f} h, "

@@ -1,0 +1,1 @@
+export { InvestigacionGrupos } from "./Grupos";

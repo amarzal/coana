@@ -13,6 +13,7 @@ import {
     Folder,
     Sheet,
     ListTree,
+    Microscope,
     ChevronDown,
     ChevronRight,
     type LucideIcon,
@@ -99,6 +100,13 @@ const GROUPS: Group[] = [
             { label: "Cargos", to: "/regla23/cargos" },
             { label: "Asignaturas sin titulación", to: "/regla23/sin-titulacion" },
             { label: "Anomalías", to: "/regla23/anomalias" },
+        ],
+    },
+    {
+        label: "Investigación",
+        icon: Microscope,
+        items: [
+            { label: "Grupos", to: "/investigacion/grupos" },
         ],
     },
     {

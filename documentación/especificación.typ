@@ -1102,6 +1102,26 @@ Queremos generar dos tablas internas:
 
 La #app ha de mostrar las dos tablas mediante opciones de un desplegable «Presupuesto» y permitir descargarlas en formato Excel. Además, se ha de mostrar un resumen de la información que contienen, con el número de filas y el importe total de cada una de ellas.
 
+== Creación de centros de coste para grupos de investigación
+
+El fichero `investigadores en grupos.xlsx` debe procesarse para quedarse solo con las filas que tienen al menos un día de actividad en el año que estamos estudiando. la ida es asociar cada `per_id` a uno o más grupo de investigación (`id_grupo`). Hemos de recordar si se trata de un coordinador (`coordinador` vale #val(`S`)) y si es interlocutor (`interlocutor` vale #val(`S`)), porque eso puede ser relevante para asignar el centro de coste correspondiente a cada unidad de coste que se genere a partir de un gasto con ese `per_id`.
+
+El nombre de los grupos de investigación se puede extrar de `grupos investigación.xlsx`.
+
+Los grupos de investigación con 0 personas, fuera. Los institutos de investigación, fuera.
+
+Crea un instituto de investigación virtual llamado `INVES`. Como sabemos a qué instituto (o INVES) pertenece cada grupo, hemos de enriquecer el árbol de centros de coste creando un centro de coste con el nombre del grupo de investigación debajo de cada instituto. La etiqueta del centro de coste será `grupo-investigación-XXX` donde `XXX` es el `id_grupo` del grupo de investigación.
+
+En la #app, esos centros que hemos construido dinámicamente han de mostrarse en un color distinto.
+
+De momento, en la #app, en la sección de Investigación,  quiero ver el listado de grupos y para cada grupo quiero ver las personas que forman parte de él, destacando en primer lugar al interlocutor, en segundo lugar a  los coordinadores distintos del interlocutor y luego al resto de miembros.
+
+#nota[Falta una tabla que dice de cada proyectos de investigación: su IP, su código interno presupuestario, el grupo de investigación del IP (identificador del grupo).]
+
+#nota[Ojo con gastos que están en proyectos generales, como 19I001, y que, por su naturaleza, deben asociarse a un grupo. Por ejemplo, una predoc UJI que tiene un beneficiario y deberíamos llegar al grupo de investigación a través suyo. Si no está en el censo del grupo: problema. Quizá información de su tutor permita establecer la asociación.]
+
+
+
 == Preparación de un módulo para clasificar actividades
 
 Tanto en presupuesto como en nóminas necesitaré establecer la actividad a la que un registro asocia el gasto. Vamos a preparar un módulo que permita clasificar actividades a partir de reglas. Usará campos que tenemos tanto en presupuesto como en nóminas. En particular, el capítulo del gasto, su aplicación, su proyecto, el centro y subcentro... y puede haber más. Algunas de las actividades ya existirán en árbol de actividades y otras se crearán a partir de las reglas.
@@ -3941,9 +3961,11 @@ Para soportar este reparto construimos, como artefacto intermedio único, un par
     [#campo("actividad")], [Etiqueta del árbol de actividades (o #val("pendiente")) ],
     [#campo("centro_de_coste")], [Etiqueta del árbol de centros (o #val("pendiente"))],
     [#campo("horas")], [Horas registradas (sin factor ×2,5)],
-    [#campo("método")], [#val("md") / #val("ep") / #val("et") / #val("pr") — medición directa, estimación porcentual (cargos), estimación por tipología, peso relativo (HND)],
+    [#campo("método")],
+    [#val("md") / #val("ep") / #val("et") / #val("pr") — medición directa, estimación porcentual (cargos), estimación por tipología, peso relativo (HND)],
     [#campo("factor")], [#val("2,5") para impartición de docencia, #val("1,0") para el resto],
-    [#campo("grupo")], [#val("docencia_oficial") / #val("docencia_no_oficial") / #val("gestión") / #val("investigación") / #val("extensión")],
+    [#campo("grupo")],
+    [#val("docencia_oficial") / #val("docencia_no_oficial") / #val("gestión") / #val("investigación") / #val("extensión")],
     [#campo("origen")], [#val("POD") / #val("tesis") / #val("cargo") / #val("proyecto") / …],
     [#campo("origen_id")], [Identificador en la fuente origen],
     [#campo("anomalía")], [Texto explicativo si hay dato pendiente o nulo],
@@ -4009,6 +4031,56 @@ El campo #campo("estudio") (códigos #val("90xxx")) se cruza con #ruta("entrada"
 
 El #campo("origen_id") es la concatenación #val("per_id_alumno/rol") (donde #val("rol") es #val("tutor") o #val("director")), de modo que cada slice queda identificada de forma única.
 
+*Participación en proyectos de investigación y contratos de transferencia:*
+
+La tabla #ruta("entrada", "investigación", "investigadores en contratos.xlsx") contiene información de participacón de cada `per_id` en proyectos de investigación y contratos de transferencia. Para cada `per_id` puede haber más de una fila y en cada fila aparece un `contrato`. Es un código interno del SGIT para identficar contratos y proyectos.
+
+Es necesario consultar #ruta("entrada", "investigación", "proyectos en contratos investigación.xlsx") para saber si un `contrato` está vivo o no. En esta tabla hay `fecha_inicio` y `fecha_fin` de cada contrato. Así pues, hemos de filtrar para quedarnos primero con los contratos con un día o más activos en el año del análisis. Hemos de eliminar, también, las filas  con `importe_concedido` cero o nulo, se han de suprimir. Y con eso, filtrar también la tabla de investigadores en contratos para quedarnos con las filas de contratos activos.
+
+La información del proyecto se enriquece con #ruta("entrada", "investigación", "anexos proyectos.xlsx"). En particular, hay un `codex` que permite obtener información sobre el financiador usando los campos `tipo_anexo`,	`subtipo_anexo` y `microtipo_anexo`. Con ellos formamos una cadena que concatenas sus tres valores y usamos este mapeo (el `*` es comodín y el orden importa):
+
+#table(
+    columns: 3,
+    align: (left, left, right),
+    stroke: none,
+    table.hline(),
+    [*`tipo_anexo`+`subtipo_anexo`+`microtipo_anexo`*], [*Actividad*], [*Horas/semana estimadas*],
+    table.hline(),
+    val("2PE"), etqact("ai-internacional"), val("10"),
+    val("2PN"), etqact("ai-nacional"), val("10"),
+    val("2PV"), etqact("ai-regional"), val("10"),
+    val("2PA"), etqact("ai-nacional"), val("10"),
+    val("2PI"), etqact("ai-internacional"), val("10"),
+    val("2PU"), etqact("ai-plan-propio"), val("3"),
+    // Eran 6 en el modelo, pero sabiendo lo que son los proyectos de plan propio, 3 va bien.
+    val("1CE"), etqact("cátedras-aulas-empresa"), val("2"),
+    val("1AA"), etqact("transf"), val("1"),
+    val("1**"), etqact("transf"), val("8"),
+    table.hline(),
+)
+
+
+Con esta información hemos de asignar un cupo de horas semanales a las personas que participan en proyectos de investigación y contratos de transferencia, prorrateado por los días de vigencia en el año natural.
+
+*Agrupación por proyecto presupuestario.* Una persona puede figurar en muchos contratos del mismo proyecto (cada acto administrativo de una cátedra o un contrato art. 60 abre un contrato nuevo en el SGIT). Para no inflar la dedicación, *no generamos una fila por contrato, sino una sola fila por par (per_id, proyecto presupuestario)*. El proyecto presupuestario se toma de la línea de menor número del contrato en #ruta("entrada", "investigación", "proyectos en contratos investigación.xlsx") (la línea 1 si está, o la primera disponible). Si el contrato no tiene proyecto presupuestario asociado, se usa como clave artificial `contrato-{id}` para no perder la dedicación.
+
+Para cada (per_id, proyecto presupuestario):
++ *Periodo efectivo por contrato.* Calculamos la intersección de [fechas del contrato] ∩ [fechas de solicitud principal o alternativa del per_id] ∩ [año natural].
++ *Días efectivos.* La *unión* de los periodos efectivos de todos los contratos del par (días distintos cubiertos por al menos un contrato). Así, si varios anexos solapan, esos días se cuentan una sola vez; si hay huecos reales, se respetan.
++ *Selección del tipo.* Cuando los contratos del par no comparten tipo de anexo, se elige el de *mayor h/sem*. En caso de empate, el de mayor `importe_concedido`, y en último recurso el de mayor id de contrato. La actividad final se calcula a partir del tipo ganador.
++ *Horas.* `horas = h_sem × días_efectivos / 7`.
+
+El #campo("origen") es #val("proyecto") y el #campo("origen_id") es el proyecto presupuestario (o la clave artificial `contrato-{id}` cuando no haya). La actividad debe ser tan detallada como sea posible:
+- ``1AA`` (art 60) → `transf-60-{proyecto presupuestario}`.
+- Resto con proyecto presupuestario conocido → `{actividad_base}-{proyecto presupuestario}` (p. ej. `ai-nacional-XXX`, `transf-XXX`, `cátedras-aulas-empresa-XXX`).
+- Sin proyecto presupuestario → actividad base genérica.
+
+Los nodos `{actividad_base}-XXX` o `transf-60-XXX` se insertan dinámicamente en el árbol de actividades como hijos de su actividad base.
+
+El *centro de coste* ha de ser el del grupo de investigación al que está adscrita la persona. Si la persona está en N grupos activos en el año, las horas se reparten proporcionalmente a los días activos en cada grupo (una fila por grupo). Si la persona no está en ningún grupo, se emite la fila con `centro_de_coste = pendiente` y anomalía `persona sin grupo de investigación activo en el año`. Si el anexo no casa con ninguna regla, la fila se emite con `actividad = pendiente` y anomalía con el `codex`.
+
+En la #app, muestra para cada `per_id` su participación en proyectos y contratos.
+
 ===== Cargador #emph[cargos académicos]
 
 Lee #ruta("fase1", "auxiliares", "nóminas", "cargos_uc.parquet") (que ya tiene cargo asimilado al RD 1086/1989, días de solape y actividad/centro resueltos) y aplica el porcentaje del cuadro 9.7 de la regla 23 sobre las horas no docentes de la persona:
@@ -4045,11 +4117,12 @@ $ "horas_grupo" = 2 dot ("días_solape" / 7) $
 
 Si una persona figura como coordinadora en varias líneas del mismo grupo se cuenta una sola vez. Los miembros no coordinadores y los colaboradores no reciben horas por este cargador: sus horas vendrán por los proyectos concretos en los que participen (cargador futuro).
 
-El #campo("origen_id") es el #campo("id_grupo"). La actividad se imputa, de momento, a #val("pendiente") con anomalía #val("coordinación de grupo sin mapeo a actividad/centro"); cuando se decida cómo modelar los grupos en el árbol de actividades se ajustará.
+El #campo("origen_id") es el #campo("id_grupo"). El centro de coste es el del grupo de investigación (`grupo-investigación-XXX`). La actividad se crea como `dag-grupo-investigación-XXX`, donde `XXX` es el id del grupo. Esa actividad se inserta como hija del nodo del instituto (`dag-{instituto}` bajo `dag-institutos-centros-investigación`, o `dag-inves` si el grupo no está adscrito a ningún instituto). En la #app, muestra para cada `per_id` su participación como coordinador en grupos de investigación.
+
+
 
 ===== Próximos cargadores
 
-- Proyectos de investigación: aportarán horas a los IPs (#val("10 h/sem") internacionales/europeos/nacionales/regionales; #val("6 h/sem") propios y con entidades; #val("8 h/sem") transferencia; #val("2 h/sem") cátedras), prorrateadas por días de vigencia.
 - Docencia no oficial: másteres propios, expertos, microcredenciales… con el mismo tratamiento que #emph[POD] (×2,5 para impartición).
 - Extensión universitaria: actividades culturales, deportivas, de cooperación, de promoción.
 

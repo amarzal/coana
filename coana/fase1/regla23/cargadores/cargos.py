@@ -105,6 +105,15 @@ def cargar_cargos(
         .otherwise(pl.lit(None, dtype=pl.Utf8))
     )
 
+    detalle = pl.concat_str([
+        pl.lit("Cargo "), pl.col("cargo").cast(pl.Utf8),
+        pl.lit(" ("), pl.col("nombre_cargo").fill_null("?"), pl.lit(")"),
+        pl.lit(" · RD "), pl.col("cargo_asimilado").cast(pl.Utf8),
+        pl.lit(" · "), (pl.col("pct_cuadro97") * 100).round(1).cast(pl.Utf8),
+        pl.lit(" % cuadro 9.7 · "),
+        pl.col("días").cast(pl.Utf8), pl.lit(" días"),
+    ])
+
     return cargos.select(
         pl.col("per_id").cast(pl.Int64),
         pl.col("actividad").fill_null("pendiente").alias("actividad"),
@@ -115,6 +124,7 @@ def cargar_cargos(
         pl.lit("gestión").alias("grupo"),
         pl.lit("cargo").alias("origen"),
         pl.col("id").cast(pl.Utf8).alias("origen_id"),
+        detalle.alias("detalle"),
         anomalía_expr.alias("anomalía"),
     )
 

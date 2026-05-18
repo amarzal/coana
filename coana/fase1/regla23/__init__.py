@@ -38,6 +38,7 @@ import polars as pl
 from coana.fase1.regla23.cargadores.cargos import cargar_cargos
 from coana.fase1.regla23.cargadores.grupos import cargar_grupos
 from coana.fase1.regla23.cargadores.pod import cargar_pod
+from coana.fase1.regla23.cargadores.proyectos import cargar_proyectos
 from coana.fase1.regla23.cargadores.tesis import cargar_tesis
 
 log = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ SCHEMA: dict[str, pl.DataType] = {
     "grupo": pl.Utf8,
     "origen": pl.Utf8,
     "origen_id": pl.Utf8,
+    "detalle": pl.Utf8,
     "anomalía": pl.Utf8,
 }
 
@@ -60,8 +62,14 @@ SCHEMA: dict[str, pl.DataType] = {
 def generar_dedicación_pdi(
     ruta_base: Path = Path("data"),
     año: int = 2025,
+    árbol_actividades=None,
 ) -> pl.DataFrame:
-    """Genera la tabla unificada de dedicación del PDI."""
+    """Genera la tabla unificada de dedicación del PDI.
+
+    Si se pasa ``árbol_actividades``, el cargador de proyectos podrá
+    enriquecerlo con nodos `transf-60-XXX` para los contratos de
+    artículo 60.
+    """
     fuentes: list[pl.DataFrame] = []
 
     log.info("Cargando POD…")
@@ -75,9 +83,16 @@ def generar_dedicación_pdi(
     fuentes.append(tesis)
 
     log.info("Cargando coordinaciones de grupo…")
-    grupos = cargar_grupos(ruta_base, año=año)
+    grupos = cargar_grupos(ruta_base, año=año, árbol_actividades=árbol_actividades)
     log.info("  grupos: %s filas, %.1f h totales", f"{len(grupos):,}", grupos["horas"].sum())
     fuentes.append(grupos)
+
+    log.info("Cargando proyectos y contratos de transferencia…")
+    proyectos = cargar_proyectos(
+        ruta_base, árbol_actividades=árbol_actividades, año=año,
+    )
+    log.info("  proyectos: %s filas, %.1f h totales", f"{len(proyectos):,}", proyectos["horas"].sum())
+    fuentes.append(proyectos)
 
     # Cargos: necesita la dedicación previa para calcular horas no docentes
     log.info("Cargando cargos…")
