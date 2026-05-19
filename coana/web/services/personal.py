@@ -552,7 +552,8 @@ def _cargos_de_persona(per_id: int) -> pl.DataFrame:
     if not cat.is_empty():
         cat_min = cat.with_columns(pl.col("cargo").cast(pl.Utf8)).select(
             "cargo", "nombre", "cargo_asimilado",
-            "dedicación", "actividad", "centro",
+            "dedicación_porcentual", "dedicación_horaria",
+            "actividad", "centro",
         )
         sub = sub.join(cat_min, on="cargo", how="left")
 
@@ -670,7 +671,8 @@ _COLS_CARGOS_EXP: list[ColumnSpec] = [
     ColumnSpec(name="nombre", label="Nombre", format="text"),
     ColumnSpec(name="cargo_asimilado", label="Tipo RD", format="id"),
     ColumnSpec(name="importe_rd", label="Importe RD/mes", format="euro"),
-    ColumnSpec(name="dedicación", label="Dedicación", format="float"),
+    ColumnSpec(name="dedicación_porcentual", label="Ded. %", format="float"),
+    ColumnSpec(name="dedicación_horaria", label="Ded. h/año", format="float"),
     ColumnSpec(name="fecha_inicio", label="Inicio", format="date"),
     ColumnSpec(name="fecha_fin", label="Fin", format="date"),
     ColumnSpec(name="días_2025", label="Días en año", format="int"),

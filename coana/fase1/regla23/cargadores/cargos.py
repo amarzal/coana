@@ -1,10 +1,25 @@
 """Cargador cargos → dedicación del PDI a actividades de gestión.
 
-Aplica la *estimación porcentual* del cuadro 9.7 de la regla 23: cada
-cargo aporta un porcentaje de las horas no docentes de la persona,
-prorrateado por los días de cobro en el año natural.
+La dedicación de cada cargo se toma de ``cargos.xlsx``:
 
-    horas_cargo = (días_cargo / 365) × pct_cuadro97 × horas_no_docentes_persona
+- Si ``dedicación_porcentual > 0``: ese porcentaje se aplica sobre las
+  horas no docentes de la persona, prorrateado por los días de cobro
+  en el año natural::
+
+      horas_cargo = (días_cargo / 365) × pct × horas_no_docentes_persona
+
+  El valor del xlsx tiene prioridad frente al cuadro 9.7 del modelo:
+  permite afinar caso a caso (p. ej. un rector con actividad
+  investigadora con < 100 %).
+
+- Si ``dedicación_porcentual`` es nula o cero, se mira
+  ``dedicación_horaria`` y, si es > 0, se interpreta como una cantidad
+  anual absoluta de horas, prorrateada por los días de cobro::
+
+      horas_cargo = (días_cargo / 365) × dedicación_horaria
+
+- Si ambas son nulas o cero, el cargo no aporta horas (la fila no se
+  emite).
 
 Las horas no docentes se calculan a partir de la dedicación ya cargada
 para esa persona (POD + tesis + docencia no oficial cuando exista):
@@ -25,18 +40,7 @@ from pathlib import Path
 
 import polars as pl
 
-# Mapping cargo_asimilado (RD 1086/1989) → porcentaje del cuadro 9.7
-# de la regla 23.
-PCT_CUADRO_97: dict[int, float] = {
-    1: 1.00,    # Rector/a
-    2: 1.00,    # Vicerector/a
-    3: 0.625,   # Degà/ana o director de centre
-    4: 0.375,   # Director/a de Departament
-    5: 0.375,   # Vicedegà o subdirector de centre
-    6: 0.375,   # Director/a d'Institut Universitari
-    7: 0.25,    # Secretari/ària de Departament
-    8: 0.25,    # Coordinador/a de Curs d'Orientació (asimilado)
-}
+from coana.util import read_excel
 
 JORNADA_ANUAL_PDI = 1642.0
 
@@ -46,29 +50,37 @@ def cargar_cargos(
     dedicación_previa: pl.DataFrame,
     jornada_anual: float = JORNADA_ANUAL_PDI,
 ) -> pl.DataFrame:
-    """Genera filas de dedicación a gestión a partir de cargos_uc.parquet.
-
-    ``dedicación_previa`` es la dedicación ya cargada por otras fuentes
-    (POD, tesis, etc.) y se usa para calcular las horas no docentes por
-    persona.
-    """
+    """Genera filas de dedicación a gestión a partir de cargos_uc.parquet."""
     parquet_cargos = ruta_base / "fase1" / "auxiliares" / "nóminas" / "cargos_uc.parquet"
-    if not parquet_cargos.exists():
+    cat_path = ruta_base / "entrada" / "nóminas" / "cargos.xlsx"
+    if not parquet_cargos.exists() or not cat_path.exists():
         return _esquema_vacío()
 
     cargos = pl.read_parquet(parquet_cargos)
     if cargos.is_empty():
         return _esquema_vacío()
 
-    # Porcentaje del cuadro 9.7 por cargo
-    cargos = cargos.with_columns(
-        pl.col("cargo_asimilado")
-          .replace_strict(PCT_CUADRO_97, default=0.0, return_dtype=pl.Float64)
-          .alias("pct_cuadro97")
-    ).filter(pl.col("pct_cuadro97") > 0)
+    # Dedicación del catálogo: porcentual (prioridad) y horaria (fallback).
+    cat = read_excel(cat_path).select(
+        pl.col("cargo").cast(pl.Utf8),
+        pl.col("dedicación_porcentual").cast(pl.Float64),
+        pl.col("dedicación_horaria").cast(pl.Float64),
+    )
+    cargos = cargos.with_columns(pl.col("cargo").cast(pl.Utf8)).join(
+        cat, on="cargo", how="left",
+    )
 
-    # Horas docencia efectiva (con factor) por persona, a partir de las
-    # fuentes ya cargadas en dedicación_pdi.
+    pct = pl.col("dedicación_porcentual")
+    hor = pl.col("dedicación_horaria")
+    tiene_pct = pct.is_not_null() & (pct > 0)
+    tiene_hor = hor.is_not_null() & (hor > 0)
+
+    # Descartar cargos sin dedicación informada: ni porcentaje ni horas.
+    cargos = cargos.filter(tiene_pct | tiene_hor)
+    if cargos.is_empty():
+        return _esquema_vacío()
+
+    # Horas docencia efectiva (con factor) por persona.
     if not dedicación_previa.is_empty():
         doc = (
             dedicación_previa
@@ -84,20 +96,23 @@ def cargar_cargos(
     cargos = cargos.join(doc, on="per_id", how="left").with_columns(
         pl.col("h_doc_efectiva").fill_null(0.0)
     )
-
     cargos = cargos.with_columns(
         pl.max_horizontal(
             pl.lit(jornada_anual) - pl.col("h_doc_efectiva"), pl.lit(0.0)
         ).alias("h_no_docentes")
     )
 
-    cargos = cargos.with_columns(
-        (
-            (pl.col("días").cast(pl.Float64) / 365.0)
-            * pl.col("pct_cuadro97")
-            * pl.col("h_no_docentes")
-        ).alias("horas")
-    ).filter(pl.col("horas") > 0)
+    factor_año = pl.col("días").cast(pl.Float64) / 365.0
+    horas_expr = (
+        pl.when(tiene_pct)
+        .then(factor_año * pct * pl.col("h_no_docentes"))
+        .when(tiene_hor)
+        .then(factor_año * hor)
+        .otherwise(pl.lit(0.0))
+    )
+    cargos = cargos.with_columns(horas_expr.alias("horas")).filter(
+        pl.col("horas") > 0
+    )
 
     anomalía_expr = (
         pl.when(pl.col("_anomalía_patrón").is_not_null())
@@ -105,13 +120,20 @@ def cargar_cargos(
         .otherwise(pl.lit(None, dtype=pl.Utf8))
     )
 
+    # Detalle: refleja qué columna mandó (porcentual u horaria).
     detalle = pl.concat_str([
         pl.lit("Cargo "), pl.col("cargo").cast(pl.Utf8),
         pl.lit(" ("), pl.col("nombre_cargo").fill_null("?"), pl.lit(")"),
-        pl.lit(" · RD "), pl.col("cargo_asimilado").cast(pl.Utf8),
-        pl.lit(" · "), (pl.col("pct_cuadro97") * 100).round(1).cast(pl.Utf8),
-        pl.lit(" % cuadro 9.7 · "),
-        pl.col("días").cast(pl.Utf8), pl.lit(" días"),
+        pl.when(tiene_pct)
+        .then(pl.concat_str([
+            pl.lit(" · "), (pct * 100).round(1).cast(pl.Utf8),
+            pl.lit(" % dedicación"),
+        ]))
+        .otherwise(pl.concat_str([
+            pl.lit(" · "), hor.round(1).cast(pl.Utf8),
+            pl.lit(" h/año dedicación"),
+        ])),
+        pl.lit(" · "), pl.col("días").cast(pl.Utf8), pl.lit(" días"),
     ])
 
     return cargos.select(
@@ -140,5 +162,6 @@ def _esquema_vacío() -> pl.DataFrame:
         "grupo": pl.Utf8,
         "origen": pl.Utf8,
         "origen_id": pl.Utf8,
+        "detalle": pl.Utf8,
         "anomalía": pl.Utf8,
     })

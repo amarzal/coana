@@ -560,14 +560,15 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
         ),
     ),
     "cargos.xlsx": (
-        descripción: [Fichero con los cargos de recursos humanos],
+        descripción: [Fichero con los cargos de recursos humanos.],
         campos: (
             cargo: [Identificador (entero).],
-            nombre: [],
-            cargo_asimilado: [Es el cargo del RD 1086/1989 al que se asimila este a efectos retributivos. Ver #ruta("cargos real decreto.xlsx").],
-            dedicación: [Dedicación del cargo en tanto por uno. Útil para la regla 23.],
-            actividad: [Actividad a la que se asocia el cargo. Puede ser una concreta del árbol de actividaes o un patrón para su cálculo.],
-            centro: [Etiqueta del centro de coste al que se asigna el cargo. Puede ser uno concreta del árbol de centros de coste o un patrón para su cálculo.],
+            nombre: [Nombre del cargo.],
+            cargo_asimilado: [Cargo del RD 1086/1989 al que se asimila a efectos retributivos. Ver #ruta("cargos real decreto.xlsx").],
+            dedicación_porcentual: [Dedicación del cargo expresada como tanto por uno (p. ej. #val("0,375") para un 37,5 %). Tiene prioridad sobre #campo("dedicación_horaria"): si está informada y > 0, se aplica como porcentaje sobre las horas no docentes del PDI en la regla 23.],
+            dedicación_horaria: [Dedicación del cargo expresada como horas anuales absolutas. Solo se utiliza cuando #campo("dedicación_porcentual") es nula o cero. Si ambas son nulas o cero, el cargo no aporta horas en la regla 23.],
+            actividad: [Actividad a la que se asocia el cargo. Puede ser una concreta del árbol de actividades o un patrón para su cálculo.],
+            centro: [Etiqueta del centro de coste al que se asigna el cargo. Puede ser una concreta del árbol de centros de coste o un patrón para su cálculo.],
         ),
     ),
     "cargos real decreto.xlsx": (
@@ -808,16 +809,22 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
 
 Las tablas se almacenan en el directorio #ruta("datos", "entrada", "investigación") y son las siguientes:
 
-#nota[De momento se cargan en la #app pero la fase 1 todavía no consume su contenido en reglas. Se documentan para reflejar el estado actual del repositorio y servir de base a futuras etapas.]
-
 #let ficheros_campos_investigación = (
     "grupos investigación.xlsx": (
-        descripción: [Catálogo de grupos de investigación de la universidad.],
+        descripción: [Catálogo de grupos de investigación de la universidad. Incluye también los institutos de investigación (cuyo identificador es alfabético: #val("IEI"), #val("INAM"), #val("IUDT"), etc.) — éstos se filtran en la fase 1 cuando solo se quieren los grupos *propiamente dichos*.],
         campos: (
-            grupo: [Identificador (entero) del grupo de investigación.],
-            nombre: [Nombre del grupo.],
+            grupo: [Identificador del grupo. Para los grupos de investigación es un código numérico con ceros a la izquierda (#val("003"), #val("034"), #val("335"), …). Para los institutos es un código alfabético (#val("IEI"), #val("INAM"), …).],
+            nombre: [Nombre del grupo (en valenciano o castellano según el caso).],
             fecha_alta: [Fecha de constitución del grupo.],
             activo: [#val("S") o #val("N").],
+        ),
+    ),
+    "grupos a institutos.xlsx": (
+        descripción: [Mapeo de cada grupo de investigación al instituto en el que está adscrito. Los grupos no adscritos a ningún instituto se etiquetan con #val("INVES"). Generado a partir de un fichero auxiliar (`grupos_alternativo.yaml`); solo incluye grupos «de verdad», no institutos.],
+        campos: (
+            id_grupo: [Identificador del grupo (mismo que la columna #campo("grupo") de #ruta("grupos investigación.xlsx")).],
+            nombre_grupo: [Nombre del grupo.],
+            instituto: [Código del instituto al que está adscrito el grupo: #val("INAM"), #val("INIT"), #val("IIDL"), #val("IIEI"), #val("IIFV"), #val("IIG"), #val("IILP"), #val("IMAC"), #val("IUPA"), #val("IUDSP"), #val("IUDT"), #val("IUT"), #val("IUCE"), #val("IUTC"), #val("IULMA"), #val("IUEFG"); o #val("INVES") si el grupo no está adscrito a ningún instituto.],
         ),
     ),
     "investigadores en grupos.xlsx": (
@@ -835,7 +842,7 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "investigaci�
         ),
     ),
     "colaboradores en grupos.xlsx": (
-        descripción: [Igual que #ruta("investigadores en grupos.xlsx") pero para personas en régimen de colaboración (no titulares del grupo).],
+        descripción: [Igual que #ruta("investigadores en grupos.xlsx") pero para personas en régimen de colaboración (no titulares del grupo). No tiene los campos #campo("principal"), #campo("coordinador") ni #campo("interlocutor").],
         campos: (
             per_id: [Identificador (entero) de persona.],
             id_grupo: [Identificador del grupo.],
@@ -846,18 +853,68 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "investigaci�
         ),
     ),
     "tesis.xlsx": (
-        descripción: [Información de tesis doctorales con sus directores, fechas y estado. Se contempla como insumo futuro para la regla 23 (dedicación a investigación del PDI/PVI).],
+        descripción: [Información de tesis doctorales con sus directores, fechas, estado, programa de doctorado y régimen de dedicación. Cada fila es un *periodo de matrícula*: una misma tesis (identificada por #campo("per_id_alumno")) puede tener varios periodos (p. ej. cambios entre tiempo completo y parcial, bajas y reincorporaciones). Es uno de los insumos de la regla 23.],
         campos: (
-            per_id_alumno: [Identificador del doctorando.],
-            fecha_inicio_tiempo: [Fecha de inicio del cómputo de tiempo de tesis.],
-            fecha_inicio_tesis: [Fecha de inicio formal de la tesis.],
-            fecha_fin_tiempo: [Fecha de fin del cómputo de tiempo (vacía si en curso).],
+            per_id_alumno: [Identificador (entero) del doctorando.],
+            fecha_inicio_tiempo: [Fecha de inicio del cómputo de tiempo del periodo.],
+            fecha_inicio_tesis: [Fecha de inicio formal de la tesis (igual o anterior a #campo("fecha_inicio_tiempo")).],
+            fecha_fin_tiempo: [Fecha de fin del cómputo de tiempo del periodo (vacía si el periodo sigue abierto).],
             fecha_lectura_tesis: [Fecha de lectura (vacía si no leída todavía).],
             per_id_director: [Identificador del director principal.],
             per_id_tutor: [Identificador del tutor (cuando aplica).],
             per_id_codirector: [Identificador del codirector (opcional).],
             per_id_codirector2: [Identificador de un segundo codirector (opcional).],
-            estado: [Estado de la tesis (en curso, leída, abandonada…).],
+            estado: [Régimen del periodo: #val("C") tiempo completo · #val("P") tiempo parcial · #val("B") baja · #val("BM") baja por maternidad · #val("BV") baja por otra causa.],
+            estudio: [Código del programa de doctorado (#val("90xxx")). Se cruza con #ruta("data", "entrada", "docencia", "doctorados.xlsx") (nombre) y con #ruta("data", "entrada", "docencia", "doctorados actividad centro.xlsx") (etiqueta de actividad y centro de coste).],
+        ),
+    ),
+    "investigadores en contratos.xlsx": (
+        descripción: [Participación de personas en contratos del SGIT (proyectos de investigación, contratos de transferencia y otros). Una persona puede figurar en varios contratos y un contrato suele tener varios participantes. Insumo del cargador #emph[proyectos] de la regla 23.],
+        campos: (
+            per_id: [Identificador de la persona participante.],
+            contrato: [Identificador interno del contrato en el SGIT. Cruza con #ruta("proyectos en contratos investigación.xlsx") y #ruta("anexos proyectos.xlsx").],
+            horas_contratadas_semana: [Horas/semana con las que está contratada formalmente la persona en el proyecto, cuando se han fijado (puede ser nulo).],
+            principal: [#val("S") o #val("N"), si es el investigador principal del contrato.],
+            interlocutor: [#val("S") o #val("N"), si actúa como interlocutor administrativo.],
+            fecha_inicio_solicitud: [Fecha desde la que la persona figura como participante (según la solicitud original).],
+            fecha_fin_solicitud: [Fecha hasta la que figura como participante.],
+            fecha_inicio_solicitud_alternativa: [Fecha alternativa de incorporación. No se utiliza en la fase 1.],
+            fecha_fin_solicitud_alternativa: [Fecha alternativa de finalización. No se utiliza en la fase 1.],
+        ),
+    ),
+    "proyectos en contratos investigación.xlsx": (
+        descripción: [Líneas presupuestarias de cada contrato: cada contrato puede tener varias líneas con proyectos presupuestarios distintos (o el mismo proyecto en sucesivas anualidades). Lo usamos para conocer la *vigencia* del contrato (mínimo y máximo de fechas entre sus líneas) y el *proyecto presupuestario* asociado (línea de menor número con importe > 0).],
+        campos: (
+            contrato: [Identificador del contrato.],
+            línea: [Número de línea dentro del contrato. La línea de menor número se considera la principal.],
+            proyecto: [Código del proyecto presupuestario asociado a la línea (cruza con #ruta("data", "entrada", "presupuesto", "proyectos.xlsx")).],
+            subproyecto: [Subdivisión del proyecto presupuestario.],
+            fecha_inicio: [Inicio del periodo de la línea.],
+            fecha_fin: [Fin del periodo de la línea.],
+            importe_concedido: [Importe asignado a la línea. Las líneas con importe nulo o cero se descartan en la fase 1.],
+        ),
+    ),
+    "anexos proyectos.xlsx": (
+        descripción: [Caracterización del contrato vista desde la convocatoria de la que procede. Hay exactamente un anexo por contrato. La concatenación #campo("tipo_anexo") + #campo("subtipo_anexo") + #campo("microtipo_anexo") identifica el tipo de financiación (proyecto europeo, nacional, regional, propio, art. 60, cátedra, etc.) y se usa en la fase 1 para determinar la actividad y las horas/semana de cada miembro del contrato.],
+        campos: (
+            contrato: [Identificador del contrato.],
+            codex: [Código externo del expediente de la convocatoria (p. ej. #val("PID2024-159788NB-I00") para proyectos del Ministerio).],
+            id_anexo: [Identificador del anexo dentro del contrato. Solo hay un anexo por contrato, así que su valor es siempre #val("1") en la práctica.],
+            ejercicio_convocatoria: [Año de la convocatoria.],
+            id_convocatoria: [Identificador interno de la convocatoria.],
+            tipo_anexo: [Primer dígito del código del tipo (#val("1"), #val("2"), #val("4"), …).],
+            subtipo_anexo: [Segundo carácter del código (#val("A"), #val("C"), #val("P"), …).],
+            microtipo_anexo: [Tercer carácter del código (#val("A"), #val("E"), #val("L"), #val("N"), #val("U"), #val("V"), …).],
+        ),
+    ),
+    "contratos a departamentos.xlsx": (
+        descripción: [Adscripción administrativa de cada contrato a una unidad estructural de la UJI. El campo clave para la fase 1 es #campo("tuest_id"): los contratos cuya única adscripción es a una unidad de tipo #val("VI") (vicerrectorado), #val("CT") (cátedra) o #val("SE") (servicio) se *excluyen* del cómputo de horas de la regla 23, porque la participación de personas en esos contratos suele venir vinculada a un cargo institucional, no a trabajo investigador efectivo.],
+        campos: (
+            contrato: [Identificador del contrato.],
+            id_dep: [Código alfabético del departamento a efectos presupuestarios (p. ej. #val("AEYM"), #val("TECN")).],
+            uest_id: [Identificador numérico interno de la unidad estructural. Es el código que prima como *servicio* y se tabula en otra fuente.],
+            nombre: [Nombre de la unidad.],
+            tuest_id: [Tipo de unidad estructural: #val("DE") departamento, #val("IN") instituto, #val("VI") vicerrectorado, #val("CT") cátedra, #val("SE") servicio.],
         ),
     ),
 )
@@ -4037,6 +4094,8 @@ La tabla #ruta("entrada", "investigación", "investigadores en contratos.xlsx") 
 
 Es necesario consultar #ruta("entrada", "investigación", "proyectos en contratos investigación.xlsx") para saber si un `contrato` está vivo o no. En esta tabla hay `fecha_inicio` y `fecha_fin` de cada contrato. Así pues, hemos de filtrar para quedarnos primero con los contratos con un día o más activos en el año del análisis. Hemos de eliminar, también, las filas  con `importe_concedido` cero o nulo, se han de suprimir. Y con eso, filtrar también la tabla de investigadores en contratos para quedarnos con las filas de contratos activos.
 
+*Filtro por adscripción.* Antes de seguir, cruzamos con #ruta("entrada", "investigación", "contratos a departamentos.xlsx") para descartar los contratos cuya única adscripción sea a una unidad de tipo #val("VI") (vicerrectorado), #val("CT") (cátedra) o #val("SE") (servicio). En esos contratos la participación de las personas es función del cargo institucional, no de trabajo investigador efectivo, y no debe generar horas de la regla 23. Los contratos con alguna adscripción a departamento (#val("DE")) o instituto (#val("IN")) se mantienen.
+
 La información del proyecto se enriquece con #ruta("entrada", "investigación", "anexos proyectos.xlsx"). En particular, hay un `codex` que permite obtener información sobre el financiador usando los campos `tipo_anexo`,	`subtipo_anexo` y `microtipo_anexo`. Con ellos formamos una cadena que concatenas sus tres valores y usamos este mapeo (el `*` es comodín y el orden importa):
 
 #table(
@@ -4083,31 +4142,23 @@ En la #app, muestra para cada `per_id` su participación en proyectos y contrato
 
 ===== Cargador #emph[cargos académicos]
 
-Lee #ruta("fase1", "auxiliares", "nóminas", "cargos_uc.parquet") (que ya tiene cargo asimilado al RD 1086/1989, días de solape y actividad/centro resueltos) y aplica el porcentaje del cuadro 9.7 de la regla 23 sobre las horas no docentes de la persona:
+Lee #ruta("fase1", "auxiliares", "nóminas", "cargos_uc.parquet") (que ya tiene cargo asimilado al RD 1086/1989, días de solape y actividad/centro resueltos) y cruza con #ruta("entrada", "nóminas", "cargos.xlsx") para obtener la dedicación del cargo. La regla es:
 
-$ "horas_cargo" = ("días_cargo" / 365) dot "pct"_(9.7) dot "horas_no_docentes" $
+- Si #campo("dedicación_porcentual") está informada y > 0: se aplica como porcentaje sobre las horas no docentes de la persona, prorrateado por los días de cobro en el año natural:
 
-donde #campo("horas_no_docentes") = #campo("JORNADA_ANUAL_PDI") − suma de #campo("horas") × #campo("factor") sobre las filas de la persona con #campo("grupo") igual a #val("docencia_oficial") o #val("docencia_no_oficial") ya cargadas. Si la docencia ya supera la jornada, las horas no docentes se ponen a #val("0") y la persona no recibe horas por gestión.
+  $ "horas_cargo" = ("días_cargo" / 365) dot "dedicación_porcentual" dot "horas_no_docentes" $
 
-La asimilación al cuadro 9.7 se calcula así:
+- Si #campo("dedicación_porcentual") es nula o cero pero #campo("dedicación_horaria") > 0: se interpreta como una cantidad anual absoluta de horas, prorrateada por los días de cobro:
 
-#table(
-    columns: (auto, 1fr, auto),
-    stroke: 0.5pt + luma(80%),
-    inset: 6pt,
-    table.header(table.hline(), [*RD 1086*], [*Nombre*], [*pct cuadro 9.7*], table.hline()),
-    [1], [Rector/a], [#val("100 %")],
-    [2], [Vicerector/a], [#val("100 %")],
-    [3], [Degà/ana o director/a de centre], [#val("62,5 %")],
-    [4], [Director/a de Departament], [#val("37,5 %")],
-    [5], [Vicedegà/ana o subdirector/a de centre], [#val("37,5 %")],
-    [6], [Director/a d'Institut Universitari], [#val("37,5 %")],
-    [7], [Secretari/ària de Departament], [#val("25 %")],
-    [8], [Coordinador/a de Curs d'Orientació (asimilado a coord./subdir. de centro)], [#val("25 %")],
-    table.hline(),
-)
+  $ "horas_cargo" = ("días_cargo" / 365) dot "dedicación_horaria" $
 
-El #campo("origen_id") es el #campo("id") de la UC del cargo (#val("CARGO-NNNNN")). El #campo("método") es #val("ep") (estimación porcentual). Los cargos sin asimilación RD no aportan horas todavía: cuando dispongamos de un mapeo cargo→pct más amplio, los incluiremos.
+- Si ambas columnas son nulas o cero: el cargo no aporta horas (no se emite fila), aunque siga teniendo #campo("cargo_asimilado") al RD 1086/1989.
+
+Donde #campo("horas_no_docentes") = #campo("JORNADA_ANUAL_PDI") − suma de #campo("horas") × #campo("factor") sobre las filas de la persona con #campo("grupo") igual a #val("docencia_oficial") o #val("docencia_no_oficial") ya cargadas. Si la docencia ya supera la jornada, las horas no docentes se ponen a #val("0") y la persona no recibe horas por gestión.
+
+El valor de #campo("dedicación_porcentual") del catálogo tiene prioridad sobre el porcentaje orientativo del cuadro 9.7 de la regla 23: permite afinar caso a caso (p. ej. un rector con actividad investigadora figurando con < 100 %). El cuadro 9.7 sirve solo como referencia para rellenar el xlsx.
+
+El #campo("origen_id") es el #campo("id") de la UC del cargo (#val("CARGO-NNNNN")). El #campo("método") es #val("ep") (estimación porcentual).
 
 ===== Cargador #emph[grupos de investigación]
 

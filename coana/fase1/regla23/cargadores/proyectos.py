@@ -87,6 +87,7 @@ def cargar_proyectos(
     proy_path = ruta_base / "entrada" / "investigación" / "proyectos en contratos investigación.xlsx"
     anex_path = ruta_base / "entrada" / "investigación" / "anexos proyectos.xlsx"
     grupos_path = ruta_base / "entrada" / "investigación" / "investigadores en grupos.xlsx"
+    dep_path = ruta_base / "entrada" / "investigación" / "contratos a departamentos.xlsx"
     for p in (inv_path, proy_path, anex_path):
         if not p.exists():
             return _esquema_vacío()
@@ -101,6 +102,33 @@ def cargar_proyectos(
         pl.col("importe_concedido").is_not_null()
         & (pl.col("importe_concedido") > 0)
     )
+
+    # Descartar contratos cuya única adscripción es a VI / CT / SE
+    # (vicerrectorados, cátedras y servicios): la participación allí es
+    # institucional, no trabajo investigador efectivo.
+    if dep_path.exists():
+        dep = read_excel(dep_path).select(
+            pl.col("contrato"),
+            pl.col("tuest_id").cast(pl.Utf8),
+        )
+        if not dep.is_empty():
+            _EXCLUIR_TUEST = {"VI", "CT", "SE"}
+            por_contrato = dep.group_by("contrato").agg(
+                pl.col("tuest_id").unique().alias("_tuests")
+            )
+            # Contratos a descartar: TODAS sus adscripciones están en el
+            # conjunto excluido. Si alguna fila tiene tuest_id DE/IN/etc,
+            # el contrato se mantiene.
+            descartar = (
+                por_contrato.filter(
+                    pl.col("_tuests").list.eval(
+                        ~pl.element().is_in(list(_EXCLUIR_TUEST))
+                    ).list.any().not_()
+                )
+                .get_column("contrato").to_list()
+            )
+            if descartar:
+                proy_raw = proy_raw.filter(~pl.col("contrato").is_in(descartar))
 
     # Vigencia del contrato (uniendo líneas) e importe acumulado (para
     # desempate de tipo).
@@ -158,15 +186,14 @@ def cargar_proyectos(
     df = inv.join(proy, on="contrato", how="inner")
 
     # Periodo efectivo por (per_id, contrato): intersección de fechas
-    # de solicitud (o alternativa), fechas del contrato y año.
+    # de solicitud y fechas del contrato, dentro del año. Las fechas
+    # alternativas no se usan.
     ini_part = pl.coalesce(
         pl.col("fecha_inicio_solicitud"),
-        pl.col("fecha_inicio_solicitud_alternativa"),
         pl.col("contrato_inicio"),
     )
     fin_part = pl.coalesce(
         pl.col("fecha_fin_solicitud"),
-        pl.col("fecha_fin_solicitud_alternativa"),
         pl.col("contrato_fin"),
     )
     df = df.with_columns(
