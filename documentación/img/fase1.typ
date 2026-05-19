@@ -28,16 +28,16 @@
 
 // Renderiza un árbol de ficheros como contenido Typst (no cetz).
 // items: lista de tuplas (profundidad, tipo, etiqueta).
-#let _arbol(items) = {
+#let _arbol(items) = text(size: 7pt, {
     for (depth, kind, name) in items {
         let weight = if kind == "dir" or kind == "key" { "bold" } else { "regular" }
         block(
-            above: 0.35em,
+            above: 0.3em,
             below: 0pt,
-            [#h(depth * 0.9em)#text(fill: _color(kind), weight: weight)[#_icon(kind) #name]],
+            [#h(depth * 0.7em)#text(fill: _color(kind), weight: weight)[#_icon(kind) #name]],
         )
     }
-}
+})
 
 // Caja central con engranaje y dos flechas (con cetz). El ancho de la caja
 // se ajusta a la longitud del título.
@@ -100,9 +100,9 @@
         columns: 3,
         column-gutter: 0.4em,
         align: (top + left, horizon + center, top + left),
-        [#text(size: 11pt, weight: "bold", fill: gray)[#titulo-entradas] #v(0.3em) #_arbol(entradas)],
+        [#text(size: 9pt, weight: "bold", fill: gray)[#titulo-entradas] #v(0.3em) #_arbol(entradas)],
         _proceso(titulo-caja),
-        [#text(size: 11pt, weight: "bold", fill: gray)[#titulo-salida] #v(0.3em) #_arbol(salida)],
+        [#text(size: 9pt, weight: "bold", fill: gray)[#titulo-salida] #v(0.3em) #_arbol(salida)],
     ),
     width: width,
     height: height,

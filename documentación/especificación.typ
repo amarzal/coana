@@ -1147,6 +1147,7 @@ Esta figura ilustra el proceso que parte de los datos de entrada (carpeta #ruta(
 
 #figure(
     align(center, fase1-diagrama(height: 24cm)),
+    placement: top,
     caption: [Proceso de Fase 1: ficheros de entrada (izquierda), transformación y salidas (derecha).],
 )
 
@@ -4146,11 +4147,11 @@ Lee #ruta("fase1", "auxiliares", "nóminas", "cargos_uc.parquet") (que ya tiene 
 
 - Si #campo("dedicación_porcentual") está informada y > 0: se aplica como porcentaje sobre las horas no docentes de la persona, prorrateado por los días de cobro en el año natural:
 
-  $ "horas_cargo" = ("días_cargo" / 365) dot "dedicación_porcentual" dot "horas_no_docentes" $
+    $ "horas_cargo" = ("días_cargo" / 365) dot "dedicación_porcentual" dot "horas_no_docentes" $
 
 - Si #campo("dedicación_porcentual") es nula o cero pero #campo("dedicación_horaria") > 0: se interpreta como una cantidad anual absoluta de horas, prorrateada por los días de cobro:
 
-  $ "horas_cargo" = ("días_cargo" / 365) dot "dedicación_horaria" $
+    $ "horas_cargo" = ("días_cargo" / 365) dot "dedicación_horaria" $
 
 - Si ambas columnas son nulas o cero: el cargo no aporta horas (no se emite fila), aunque siga teniendo #campo("cargo_asimilado") al RD 1086/1989.
 

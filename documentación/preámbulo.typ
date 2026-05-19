@@ -6,7 +6,30 @@
 
 // --- Funciones auxiliares ---
 
-#let cebra = (_, y) => if y == 0 { blue.lighten(80%) } else if calc.odd(y) { gray.lighten(80%) }
+// --- Paleta cromática ---
+//
+// Paleta unificada y accesible (compatible con deuteranopia/protanopia).
+// Los tres colores principales -- actividad, elemento de coste y centro de
+// coste -- se eligen distintos en tono Y en luminosidad para que se
+// distingan también para personas con daltonismo rojo-verde.
+//
+// Inspirada en Tailwind CSS (tonos 700-800) y la paleta científica de
+// Okabe-Ito.
+#let pal = (
+    actividad:      rgb("#3730A3"), // indigo-800
+    elemento:       rgb("#0F766E"), // teal-700
+    centro:         rgb("#B45309"), // amber-700
+    valor:          rgb("#0C4A6E"), // sky-900 (azul gris muy oscuro, distinto a indigo)
+    campo:          rgb("#7E22CE"), // purple-700
+    nota:           rgb("#9F1239"), // rose-800
+    nota-fondo:     rgb("#FFE4E6"), // rose-100
+    cebra:          rgb("#F8FAFC"), // slate-50
+    cebra-cabecera: rgb("#E2E8F0"), // slate-200
+    fichero-fondo:  rgb("#FEF3C7"), // amber-100
+    inexistente:    rgb("#9F1239"), // rose-800 (mismo tono que nota)
+)
+
+#let cebra = (_, y) => if y == 0 { pal.cebra-cabecera } else if calc.odd(y) { pal.cebra }
 
 #let tree2dict(ruta) = {
     let líneas = read(ruta).split("\n")
@@ -60,13 +83,13 @@
 #let cen = tree2dict("data/entrada/estructuras/centros de coste.tree")
 
 #let color = (
-    "act": google.red-berry,
-    "ele": google.dark-green-1,
-    "cen": google.orange.darken(20%),
-    "": red,
+    "act": pal.actividad,
+    "ele": pal.elemento,
+    "cen": pal.centro,
+    "": pal.nota,
 )
 
-#let val(v) = text(fill: blue)[#raw(get.text(v))] // Valor
+#let val(v) = text(fill: pal.valor)[#raw(get.text(v))] // Valor
 
 #let etq(v, clave-color: "") = text(fill: color.at(clave-color))[#raw(get.text(v))] // Etiqueta
 
@@ -89,7 +112,7 @@
 #let etqcen(clave) = etqcod(cen, clave, clave-color: "cen")
 
 #let código(c) = raw(get.text(c)) // Código
-#let inexistente() = highlight(fill: red, text(fill: yellow)[INEXISTENTE])
+#let inexistente() = highlight(fill: pal.inexistente, text(fill: white, weight: "bold")[INEXISTENTE])
 #let nombre-regla(nombre) = [_*#nombre*_ \ ]
 
 
@@ -115,8 +138,8 @@
     }
 }
 
-#let campo(nombre) = text(fill: purple, raw(get.text(nombre)))
-#let nota(texto) = highlight(text(fill: red, size: 0.8em, texto))
+#let campo(nombre) = text(fill: pal.campo, raw(get.text(nombre)))
+#let nota(texto) = highlight(fill: pal.nota-fondo, text(fill: pal.nota, size: 0.8em, texto))
 // --- Formato del documento ---
 #let reglas(body) = {
     show list: it => {
@@ -143,7 +166,7 @@
     fill: cebra,
     table.header(
         table.hline(),
-        table.cell(fill: gray.lighten(20%))[*Fichero/Campo*], table.cell(fill: gray.lighten(20%))[*Descripción*],
+        table.cell(fill: pal.cebra-cabecera)[*Fichero/Campo*], table.cell(fill: pal.cebra-cabecera)[*Descripción*],
         table.hline(),
     ),
 
@@ -151,8 +174,8 @@
         (
             (
                 table.hline(stroke: .5pt),
-                table.cell(fill: green.lighten(70%), ruta(fichero)),
-                table.cell(fill: green.lighten(70%), contenido.descripción),
+                table.cell(fill: pal.fichero-fondo, ruta(fichero)),
+                table.cell(fill: pal.fichero-fondo, contenido.descripción),
                 ..for (c, descripción) in contenido.campos.pairs() {
                     (campo(c), descripción)
                 },
