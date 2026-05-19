@@ -39,6 +39,25 @@ export function Regla23DedicacionPdi() {
                 <>
                     <div className="rounded-md border border-slate-200 bg-white p-4">
                         <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                            Relación laboral de {personaSel || `per_id ${perId}`}
+                        </h2>
+                        <p className="mb-3 text-xs text-slate-500">
+                            Períodos observados en las nóminas del año
+                            analizado: una fila por cada combinación
+                            (expediente, categoría plaza, categoría
+                            RR.HH.) con el primer y último mes de pago en
+                            esa categoría y el nº de meses cobrados.
+                        </p>
+                        <DataTable
+                            key={`laboral-${perId}`}
+                            endpoint={`/api/regla23/dedicacion-pdi/${perId}/laboral`}
+                            queryKey={`regla23:dedicacion-pdi:laboral:${perId}`}
+                            rowKey="expediente"
+                            reorderImportes={false}
+                        />
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-white p-4">
+                        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
                             Reparto por grupo de {personaSel || `per_id ${perId}`}
                             {horasSel !== null
                                 ? ` · ${horasSel.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} h registradas (sin factor)`
@@ -58,6 +77,48 @@ export function Regla23DedicacionPdi() {
                             endpoint={`/api/regla23/dedicacion-pdi/${perId}/resumen`}
                             queryKey={`regla23:dedicacion-pdi:resumen:${perId}`}
                             rowKey="grupo"
+                            reorderImportes={false}
+                        />
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-white p-4">
+                        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                            Totales por actividad y centro
+                        </h2>
+                        <p className="mb-3 text-xs text-slate-500">
+                            Una fila por cada par (actividad, centro de
+                            coste) con las horas finales agregadas (suma
+                            de todos los orígenes) y el porcentaje sobre
+                            la jornada anual (1 642 h). Estos
+                            porcentajes son los que se usarán para
+                            repartir la masa retributiva regla 23 entre
+                            actividades y centros.
+                        </p>
+                        <DataTable
+                            key={`totales-${perId}`}
+                            endpoint={`/api/regla23/dedicacion-pdi/${perId}/totales`}
+                            queryKey={`regla23:dedicacion-pdi:totales:${perId}`}
+                            rowKey="actividad"
+                            reorderImportes={false}
+                        />
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-white p-4">
+                        <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                            Unidades de coste regla 23
+                        </h2>
+                        <p className="mb-3 text-xs text-slate-500">
+                            UC generadas por reparto de la masa regla 23
+                            (retribuciones ordinarias en proyecto general
+                            de PDI/PVI, excluyendo CR 19, 64, 47 y 48).
+                            Cada UC se obtiene multiplicando el importe
+                            total por elemento de coste por el peso
+                            <em> horas_finales / Σ horas_finales</em> de
+                            la persona.
+                        </p>
+                        <DataTable
+                            key={`uc-reparto-${perId}`}
+                            endpoint={`/api/regla23/dedicacion-pdi/${perId}/uc-reparto`}
+                            queryKey={`regla23:dedicacion-pdi:uc-reparto:${perId}`}
+                            rowKey="id"
                             reorderImportes={false}
                         />
                     </div>

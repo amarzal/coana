@@ -333,3 +333,19 @@ export function PersonalCostesSocialesCalculados() {
         </div>
     );
 }
+
+export function PersonalAtrasosNoVinculados() {
+    return (
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title="Personal · Atrasos a no vinculados"
+                subtitle="Personas que en el año analizado solo cobran atrasos (CR 30/87) sin tener relación laboral activa con la UJI. Su importe queda fuera del reparto de costes analíticos."
+            />
+            <DataTable
+                endpoint="/api/personal/atrasos-no-vinculados"
+                queryKey="personal:atrasos-no-vinculados"
+                rowKey="per_id"
+            />
+        </div>
+    );
+}

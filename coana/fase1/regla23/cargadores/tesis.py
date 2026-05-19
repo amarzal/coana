@@ -42,11 +42,15 @@ from pathlib import Path
 import polars as pl
 
 from coana.util import read_excel
+from coana.util.configuración import cfg_float
 
-BASE_HORAS_C: float = 104.0  # tiempo completo: 2 h/sem × 52 sem
-BASE_HORAS_P: float = 52.0   # tiempo parcial: la mitad
-RATIO_TUTOR: float = 0.10
-RATIO_DIRECTORES: float = 0.90
+# Constantes leídas de data/configuración.xlsx (ver
+# coana.util.configuración). Se exponen como módulo-level vars para
+# documentar su nombre y mantener compatibilidad de imports.
+BASE_HORAS_C: float = cfg_float("tesis_horas_tiempo_completo")
+BASE_HORAS_P: float = cfg_float("tesis_horas_tiempo_parcial")
+RATIO_TUTOR: float = cfg_float("tesis_pct_tutor")
+RATIO_DIRECTORES: float = cfg_float("tesis_pct_directores")
 
 
 def cargar_tesis(ruta_base: Path, año: int = 2025) -> pl.DataFrame:

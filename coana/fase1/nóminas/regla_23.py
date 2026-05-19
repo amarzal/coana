@@ -648,11 +648,10 @@ _CONCEPTOS_CARGOS = ("19", "64")
 # TABLA-PROYECTOS-GENERALES (ver spec): proyectos que NO se consideran
 # "proyecto específico" a efectos de la regla de cargos académicos. Las filas
 # con estos proyectos y concepto retributivo 19 o 64 NO generan UC de cargos
-# y siguen la vía de retribuciones normales.
-_PROYECTOS_GENERALES = (
-    "23G019", "00000", "1G019", "02G041", "1G046", "11G006",
-    "07G011", "1I235", "22G010", "11G003",
-)
+# y siguen la vía de retribuciones normales. Origen:
+# data/configuración.xlsx (clave `proyectos_generales_cargos`).
+from coana.util.configuración import cfg_tuple as _cfg_tuple
+_PROYECTOS_GENERALES = _cfg_tuple("proyectos_generales_cargos")
 
 
 def _clasificar_y_construir_uc(

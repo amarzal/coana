@@ -38,6 +38,7 @@ _FUENTES_UC: list[tuple[str, Path]] = [
     ("despidos",        DIR_NOMINAS / "uc_despidos.parquet"),
     ("indemnizaciones", DIR_NOMINAS / "uc_indemnizaciones_asistencias.parquet"),
     ("cargos",          DIR_NOMINAS / "uc_cargos.parquet"),
+    ("regla-23",        DIR_FASE1 / "regla23" / "uc_reparto_regla_23.parquet"),
     ("seguridad-social", DIR_NOMINAS / "persona_ss.parquet"),
 ]
 
@@ -109,20 +110,31 @@ def resumen() -> KpiPanel:
     n_total = df.height
     imp_total = float(df["importe"].sum() or 0)
     kpis: list[Kpi] = [
-        Kpi(label="UC totales", value=n_total, format="int"),
-        Kpi(label="Importe total", value=imp_total, format="euro"),
+        Kpi(label="UC totales", value=n_total, format="int",
+            hint=f"importe total = {imp_total:,.2f} €"),
+        Kpi(label="Importe total", value=imp_total, format="euro",
+            hint=f"{n_total:,} UC"),
     ]
-    # Desglose por origen
+    # Una tarjeta por fuente con el importe como valor principal y el
+    # número de UC como pista al pasar el ratón. Mantenemos el orden
+    # declarado en `_FUENTES_UC` para que las fuentes aparezcan
+    # agrupadas conceptualmente (presupuesto, inventario, nóminas…).
     if not df.is_empty():
-        agreg = (
-            df.group_by("_origen")
-            .agg(pl.len().alias("n"), pl.col("importe").sum().alias("imp"))
-            .sort("imp", descending=True)
-        )
-        for row in agreg.iter_rows(named=True):
+        por_origen = {
+            row["_origen"]: (row["n"], row["imp"])
+            for row in df.group_by("_origen").agg(
+                pl.len().alias("n"),
+                pl.col("importe").sum().alias("imp"),
+            ).iter_rows(named=True)
+        }
+        for fuente, _ in _FUENTES_UC:
+            if fuente not in por_origen:
+                continue
+            n, imp = por_origen[fuente]
+            pct = (100.0 * float(imp) / imp_total) if imp_total else 0.0
             kpis.append(Kpi(
-                label=f"  {row['_origen']}", value=row["n"], format="int",
-                hint=f"importe = {row['imp']:,.2f} €",
+                label=fuente, value=float(imp), format="euro",
+                hint=f"{n:,} UC · {pct:.1f} % del total",
             ))
     return KpiPanel(kpis=kpis)
 

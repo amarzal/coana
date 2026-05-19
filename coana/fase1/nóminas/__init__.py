@@ -58,6 +58,12 @@ class ResultadoNóminas:
     uc_indemnizaciones_asistencias: pl.DataFrame = field(default_factory=pl.DataFrame)
     # UC generadas a partir de cargos PDI/PVI (conceptos 19, 64).
     uc_cargos: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # Datos necesarios para el reparto de seguridad social (que se
+    # ejecuta en el orquestador, tras la regla 23, para poder incluir
+    # también las UC por reparto regla 23 en la base de cálculo).
+    nóminas: pl.DataFrame = field(default_factory=pl.DataFrame)
+    expedientes: pl.DataFrame = field(default_factory=pl.DataFrame)
+    ss_calculados: pl.DataFrame = field(default_factory=pl.DataFrame)
 
 
 def _mapear_sector(expedientes: pl.DataFrame) -> pl.DataFrame:
@@ -501,22 +507,24 @@ def _generar_uc_pdi_pvi_extras(
     cr = pl.col("concepto_retributivo").cast(pl.Utf8)
     es_proy_gen = pl.col("proyecto").cast(pl.Utf8).is_in(list(_PROYECTOS_GENERALES))
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    # CR 47 (despidos) solo se considera UC definida cuando el proyecto
-    # es general: los de proyecto específico son coste del propio
-    # proyecto y se procesan como retribuciones extras normales. CR 48
-    # (indemnizaciones por asistencia) genera UC en todos los casos.
+    # Conceptos retributivos especiales que tienen su propio flujo de
+    # UC (no entran en `uc_pdi` / `uc_pvi` extras):
+    #   - CR 19, 64 → cargos académicos (uc_cargos en proy específico,
+    #                 cargos_uc en proy general).
+    #   - CR 47 ∩ proy general → uc_despidos.
+    #   - CR 48 → uc_indemnizaciones_asistencias.
+    # El resto de CR especiales (47 en proy específico) sí entran a
+    # extras como retribución ordinaria.
     es_uc_definida = (
-        (cr == "47") & es_proy_gen
+        cr.is_in(["19", "64"])
+        | ((cr == "47") & es_proy_gen)
         | (cr == "48")
-        | (cr.is_in(["19", "64"]) & ~es_proy_gen)
     )
 
-    # «Extras» = proyecto NO general. La masa en proyecto general queda
-    # apartada para regla 23 (no genera UC retributivas individuales),
-    # excepto los CR 19/64 que de momento se mantienen aquí como UC
-    # retributivas (TODO: descartar cuando estén las UC calculadas por
-    # departamento — Fase B).
-    es_extra = ~es_proy_gen | cr.is_in(["19", "64"])
+    # «Extras» = retribuciones imputables línea a línea: solo proyecto
+    # NO general. La masa en proyecto general (excluidos los CRs
+    # especiales) se aparta para la regla 23.
+    es_extra = ~es_proy_gen
     extras = registros.filter(~es_ss & ~es_uc_definida & es_extra)
 
     if extras.is_empty():
@@ -701,36 +709,31 @@ def _generar_uc_pvi(
     )
 
 
-# Constantes para costes sociales calculados (régimen de clases pasivas).
-# Valores para 2025. TODO: parametrizar por año mediante un xlsx de
-# configuración (también el % MEI, que varía con los años).
-_BASE_MÁXIMA_SS = 59_094.0
-_TIPO_CONTINGENCIAS_COMUNES = 0.236
-_TIPO_REDUCCIÓN_CC_TRABAJADOR = 0.065
-_TIPO_MEI = 0.0067
-_TIPO_FORMACIÓN_PROF = 0.0070
-_FACTOR_TRAMO1_SOL = 1.1
-_FACTOR_TRAMO2_SOL = 1.5
-_TIPO_SOL_TRAMO1 = 0.0092
-_TIPO_SOL_TRAMO2 = 0.0100
-_TIPO_SOL_TRAMO3 = 0.0117
+# Constantes para costes sociales calculados (régimen de clases
+# pasivas). Se leen de `data/configuración.xlsx` para que un cambio de
+# ejercicio analizado no requiera tocar código (ver
+# `coana.util.configuración`).
+from coana.util.configuración import cfg_float, cfg_tuple
 
-_CATEGORÍAS_PDI_FUNCIONARIO = ("CU", "TU", "TEU", "CEU")
+
+def _ss_const(nombre: str) -> float:
+    return cfg_float(nombre)
 
 
 def _calcular_coste_social_persona(total: float) -> dict[str, float]:
     """Aplica la fórmula de coste social calculado para clases pasivas."""
-    base = min(total, _BASE_MÁXIMA_SS)
-    cc_bruto = _TIPO_CONTINGENCIAS_COMUNES * base
-    reducción_cc = _TIPO_REDUCCIÓN_CC_TRABAJADOR * cc_bruto
+    bm = _ss_const("ss_base_máxima")
+    base = min(total, bm)
+    cc_bruto = _ss_const("ss_tipo_contingencias_comunes") * base
+    reducción_cc = _ss_const("ss_tipo_reducción_cc_trabajador") * cc_bruto
     cc = cc_bruto - reducción_cc
-    mei = _TIPO_MEI * base
-    fp = _TIPO_FORMACIÓN_PROF * base
-    t1 = _BASE_MÁXIMA_SS * _FACTOR_TRAMO1_SOL
-    t2 = _BASE_MÁXIMA_SS * _FACTOR_TRAMO2_SOL
-    sol1 = max(0.0, min(total, t1) - _BASE_MÁXIMA_SS) * _TIPO_SOL_TRAMO1
-    sol2 = max(0.0, min(total, t2) - t1) * _TIPO_SOL_TRAMO2
-    sol3 = max(0.0, total - t2) * _TIPO_SOL_TRAMO3
+    mei = _ss_const("ss_tipo_mei") * base
+    fp = _ss_const("ss_tipo_formación_profesional") * base
+    t1 = bm * _ss_const("ss_cuota_solidaridad_factor_tramo1")
+    t2 = bm * _ss_const("ss_cuota_solidaridad_factor_tramo2")
+    sol1 = max(0.0, min(total, t1) - bm) * _ss_const("ss_cuota_solidaridad_tipo_tramo1")
+    sol2 = max(0.0, min(total, t2) - t1) * _ss_const("ss_cuota_solidaridad_tipo_tramo2")
+    sol3 = max(0.0, total - t2) * _ss_const("ss_cuota_solidaridad_tipo_tramo3")
     solidaridad = sol1 + sol2 + sol3
     return {
         "total_retribuido": total,
@@ -767,7 +770,7 @@ def _generar_costes_sociales_calculados(
     """
     exp_per = expedientes.select("expediente", "per_id")
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    es_func = pl.col("categoría").cast(pl.Utf8).is_in(list(_CATEGORÍAS_PDI_FUNCIONARIO))
+    es_func = pl.col("categoría").cast(pl.Utf8).is_in(list(cfg_tuple("categorías_pdi_funcionario")))
 
     nóminas_per = nóminas.join(exp_per, on="expediente", how="inner")
 
@@ -927,6 +930,33 @@ def _generar_multiexpediente(
     result.write_parquet(dir_salida / "multiexpediente.parquet")
 
 
+def generar_reparto_ss_persona(
+    resultado: ResultadoNóminas,
+    dir_salida: Path,
+    uc_por_persona: list[pl.DataFrame] | None = None,
+) -> None:
+    """Wrapper público del reparto de SS por persona.
+
+    Toma los datos en `resultado` (nóminas, expedientes, UC por sector,
+    ss_calculados) y, opcionalmente, UC adicionales que ya vienen con
+    `per_id` (p. ej. el reparto regla 23). Escribe `persona_ss.parquet`
+    y `persona_uc.parquet` en `dir_salida`.
+    """
+    _generar_reparto_ss_persona(
+        resultado.nóminas, resultado.expedientes,
+        resultado.uc_ptgas, resultado.uc_pvi, resultado.uc_pdi,
+        [resultado.uc_despidos, resultado.uc_indemnizaciones_asistencias,
+         resultado.uc_cargos],
+        {},
+        dir_salida,
+        ss_calculados_por_persona=(
+            resultado.ss_calculados
+            if not resultado.ss_calculados.is_empty() else None
+        ),
+        uc_por_persona=uc_por_persona,
+    )
+
+
 def _generar_reparto_ss_persona(
     nóminas: pl.DataFrame,
     expedientes: pl.DataFrame,
@@ -937,6 +967,7 @@ def _generar_reparto_ss_persona(
     uc_por_expediente: dict[int, pl.DataFrame],
     dir_salida: Path,
     ss_calculados_por_persona: pl.DataFrame | None = None,
+    uc_por_persona: list[pl.DataFrame] | None = None,
 ) -> None:
     """Genera el reparto de SS por persona agrupando UC por (actividad, centro de coste).
 
@@ -991,6 +1022,15 @@ def _generar_reparto_ss_persona(
     # Añadir per_id vía expediente
     todas_uc = todas_uc.join(exp_per, on="expediente", how="left")
 
+    # Incorporar UC que ya vienen con per_id (p. ej. reparto regla 23).
+    if uc_por_persona:
+        bloques_pp = [
+            df for df in uc_por_persona if df is not None and not df.is_empty()
+        ]
+        if bloques_pp:
+            extra_pp = pl.concat(bloques_pp, how="diagonal")
+            todas_uc = pl.concat([todas_uc, extra_pp], how="diagonal_relaxed")
+
     # Marcar como retributivas
     todas_uc = todas_uc.with_columns(pl.lit("retributiva").alias("tipo"))
 
@@ -1040,16 +1080,17 @@ def _generar_reparto_ss_persona(
         .agg(pl.col("importe_uc").sum().alias("total_uc"))
     )
 
-    # Calcular porcentaje y reparto de SS
+    # Calcular porcentaje y reparto de SS. Evitamos divisiones por cero
+    # cuando total_uc == 0 (puede ocurrir si todos los importes de la
+    # persona se cancelan): esa persona no contribuye al reparto.
     reparto = (
         agrup
         .join(total_por_persona, on="per_id", how="left")
         .join(ss_por_persona, on="per_id", how="left")
+        .with_columns(pl.col("ss_total").fill_null(0.0))
+        .filter(pl.col("total_uc").abs() > 1e-9)
         .with_columns(
             (pl.col("importe_uc") / pl.col("total_uc") * 100).round(2).alias("pct"),
-            pl.col("ss_total").fill_null(0.0),
-        )
-        .with_columns(
             (pl.col("importe_uc") / pl.col("total_uc") * pl.col("ss_total"))
             .round(2)
             .alias("ss_proporcional"),
@@ -1137,6 +1178,86 @@ def _generar_reparto_ss_persona(
         f"  Reparto SS por persona: {n_personas:,} personas, {len(reparto):,} pares act/CC, "
         f"{n_uc_ss:,} UC de costes sociales"
     )
+
+
+_CR_ATRASOS: tuple[str, ...] = ("30", "87")
+
+
+def per_ids_solo_atrasos(
+    nóminas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+) -> set[int]:
+    """Personas cuyas nóminas del año son exclusivamente atrasos (CR
+    30/87) y, por tanto, ya no están vinculadas a la UJI en el año.
+
+    Una persona se etiqueta «solo atrasos» si:
+    1. Tiene al menos una línea con #campo("concepto_retributivo") en
+       #val("30") o #val("87").
+    2. NO tiene ninguna línea con un CR distinto y no nulo (líneas con
+       CR nulo, como las cotizaciones SS de aplicación 12*, no cuentan
+       como vinculación: las paga el empleador).
+    """
+    if nóminas.is_empty() or expedientes.is_empty():
+        return set()
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    j = nóminas.join(
+        expedientes.select("expediente", "per_id"), on="expediente", how="inner",
+    )
+    if j.is_empty():
+        return set()
+    con_atrasos = set(
+        j.filter(cr.is_in(list(_CR_ATRASOS)))
+        .get_column("per_id").unique().to_list()
+    )
+    con_otros = set(
+        j.filter(cr.is_not_null() & ~cr.is_in(list(_CR_ATRASOS)))
+        .get_column("per_id").unique().to_list()
+    )
+    return con_atrasos - con_otros
+
+
+def _filtrar_atrasos_no_vinculados(
+    nóminas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    dir_salida: Path,
+) -> tuple[pl.DataFrame, int, float]:
+    """Persiste los atrasos a personas no vinculadas y los filtra de
+    las nóminas del año.
+
+    Escribe #ruta("auxiliares", "nóminas", "atrasos_no_vinculados.parquet")
+    con (per_id, n_meses, n_líneas, importe_total, expedientes,
+    sectores) y devuelve (nóminas_sin_esos_per_id, n_personas, importe).
+    """
+    pids = per_ids_solo_atrasos(nóminas, expedientes)
+    if not pids:
+        return nóminas, 0, 0.0
+
+    exp_per = expedientes.select("expediente", "per_id", "sector")
+    sub = nóminas.join(exp_per, on="expediente", how="inner").filter(
+        pl.col("per_id").is_in(list(pids))
+    )
+    detalle = (
+        sub.group_by("per_id")
+        .agg(
+            pl.col("fecha").dt.month().n_unique().alias("n_meses"),
+            pl.len().alias("n_líneas"),
+            pl.col("importe").sum().round(2).alias("importe_total"),
+            pl.col("expediente").unique().sort().cast(pl.List(pl.Utf8)).list.join(", ").alias("expedientes"),
+            pl.col("sector").unique().sort().str.join(", ").alias("sectores"),
+        )
+        .sort("importe_total", descending=True)
+    )
+    importe_total = float(detalle["importe_total"].sum())
+    dir_salida.mkdir(parents=True, exist_ok=True)
+    detalle.write_parquet(dir_salida / "atrasos_no_vinculados.parquet")
+
+    # Identificar expedientes a excluir (los de esas personas).
+    exp_excluir = (
+        expedientes.filter(pl.col("per_id").is_in(list(pids)))
+        .get_column("expediente").to_list()
+    )
+    nóminas_filtradas = nóminas.filter(~pl.col("expediente").is_in(exp_excluir))
+    return nóminas_filtradas, detalle.height, importe_total
 
 
 def _aplicar_extras_cargos_al_cr68(
@@ -1315,6 +1436,21 @@ def preprocesar_nóminas(
 
     print(f"  Registros de nómina: {len(nóminas):,}")
 
+    # Filtro: atrasos a personal no vinculado. Personas cuyas nóminas
+    # del año son exclusivamente atrasos (CR 30 / 87) sin ninguna línea
+    # de otra retribución se consideran personal *no vinculado* en el
+    # año analizado: ya no trabajan en la UJI, pero cobran un atraso de
+    # un ejercicio anterior. Esos importes NO entran al reparto de
+    # costes; se persisten aparte para reporte.
+    nóminas, n_no_vinc, imp_no_vinc = _filtrar_atrasos_no_vinculados(
+        nóminas, expedientes, dir_salida,
+    )
+    if n_no_vinc:
+        print(
+            f"  Filtrados atrasos a personal no vinculado: "
+            f"{n_no_vinc:,} personas · {imp_no_vinc:,.2f} €"
+        )
+
     # Resta de la extra de cargos al CR 68 (paga adicional CE PDI) en
     # proyecto general. Devuelve el dict de extras realmente aplicadas.
     extras_aplicadas: dict[int, float] = {}
@@ -1323,6 +1459,12 @@ def preprocesar_nóminas(
             nóminas, expedientes, extras_cargos_por_persona, dir_salida,
         )
     ctx._extras_aplicadas_por_persona = extras_aplicadas  # type: ignore[attr-defined]
+
+    # Persistir la nómina tras los filtros y descuentos, de modo que
+    # las etapas posteriores (uc_reparto regla 23, visor de cuadre)
+    # operen con la misma masa que el preprocesamiento — sin duplicidad
+    # CR 68 entre regla 23 y cargos_uc.
+    nóminas.write_parquet(dir_salida / "nominas_aplicadas.parquet")
 
     _reset_etiquetas_ec_faltantes()
 
@@ -1473,17 +1615,9 @@ def preprocesar_nóminas(
         nóminas, expedientes, dir_salida,
     )
 
-    # -- Reparto de SS por persona (cotizada + calculada): incluye
-    #    PTGAS + PVI + PDI + UC definidas (despidos, indemnizaciones
-    #    por asistencias, cargos) --
-    _generar_reparto_ss_persona(
-        nóminas, expedientes,
-        uc_ptgas, uc_pvi, uc_pdi,
-        [uc_despidos, uc_indemn, uc_cargos],
-        {},
-        dir_salida,
-        ss_calculados_por_persona=ss_calculados,
-    )
+    # El reparto de SS se difiere al orquestador: se ejecuta tras la
+    # regla 23 para incluir también las UC del reparto regla 23 en la
+    # base de cálculo de los porcentajes (actividad, centro_de_coste).
 
     return ResultadoNóminas(
         uc_despidos=uc_despidos,
@@ -1494,4 +1628,7 @@ def preprocesar_nóminas(
         uc_ptgas=uc_ptgas,
         uc_pvi=uc_pvi,
         uc_pdi=uc_pdi,
+        nóminas=nóminas,
+        expedientes=expedientes,
+        ss_calculados=ss_calculados,
     )

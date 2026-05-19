@@ -30,12 +30,14 @@ from coana.util.excel_cache import read_excel
 # efectos de los cargos académicos, se consideran «generales». Su CR 19/64
 # entra al reparto por persona (en lugar de generar UC propia como sí
 # hacen los proyectos específicos vía `generar_uc_cargos`).
-# La constante análoga en código es `_PROYECTOS_GENERALES` de
-# `coana.fase1.nóminas.regla_23`.
-_PROYECTOS_GENERALES: tuple[str, ...] = (
-    "07G011", "1I235", "22G010", "11G003",
-    "1G019", "23G019", "02G041", "11G006", "1G046", "00000",
-)
+# Origen: data/configuración.xlsx (clave `proyectos_generales_cargos`).
+from coana.util.configuración import cfg_float as _cfg_float, cfg_tuple as _cfg_tuple
+_PROYECTOS_GENERALES: tuple[str, ...] = _cfg_tuple("proyectos_generales_cargos")
+
+# Número de pagas extras anuales del cargo «ocultas» en el CR 68 que
+# hay que estimar para evitar duplicidad. Origen:
+# data/configuración.xlsx (clave `pagas_extra_cargo`).
+_PAGAS_EXTRA_CARGO: float = _cfg_float("pagas_extra_cargo")
 
 
 # Mapeo de categoría PDI → XXX del elemento de coste (replica
@@ -150,7 +152,8 @@ def calcular_extras_cargos_por_persona(
         .with_columns(_dias_solape_2025_expr(año).alias("días"))
         .filter(pl.col("días") > 0)
         .with_columns(
-            (2 * pl.col("importe_rd") * pl.col("días") / 365.0).alias("extra")
+            (pl.lit(_PAGAS_EXTRA_CARGO) * pl.col("importe_rd") * pl.col("días") / 365.0)
+            .alias("extra")
         )
         .group_by("per_id")
         .agg(pl.col("extra").sum().alias("extra_total"))

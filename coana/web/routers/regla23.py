@@ -134,3 +134,24 @@ def dedicacion_pdi_detalle(
 def dedicacion_pdi_resumen(per_id: int) -> ListResponse:
     """Resumen por grupo (docencia/investigación/gestión/extensión + HND)."""
     return svc.listar_resumen_grupo_persona(per_id)
+
+
+@router.get("/dedicacion-pdi/{per_id}/laboral", response_model=ListResponse)
+def dedicacion_pdi_laboral(per_id: int) -> ListResponse:
+    """Histórico de relación laboral (categoría, sector, meses) observado en nómina."""
+    return svc.listar_relación_laboral_persona(per_id)
+
+
+@router.get("/dedicacion-pdi/{per_id}/totales", response_model=ListResponse)
+def dedicacion_pdi_totales(per_id: int) -> ListResponse:
+    """Totales por (actividad, centro de coste) tras el reparto."""
+    return svc.listar_totales_actividad_centro(per_id)
+
+
+@router.get("/dedicacion-pdi/{per_id}/uc-reparto", response_model=ListResponse)
+def dedicacion_pdi_uc_reparto(
+    per_id: int,
+    p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """UC por reparto de la masa regla 23 de la persona."""
+    return svc.listar_uc_reparto_persona(per_id, p)

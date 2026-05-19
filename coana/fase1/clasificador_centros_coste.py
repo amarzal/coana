@@ -305,10 +305,10 @@ _CENTRO_PLAZA_CC: dict[str, tuple[str, str]] = {
 
 # Proyectos ordinarios: si el proyecto está en esta lista, se aplica
 # la regla de servicio para asignar centro de coste en presupuesto
-# y se consideran retribuciones ordinarias en nóminas PTGAS.
-PROYECTOS_ORDINARIOS: list[str] = [
-    "1G019", "23G019", "02G041", "11G006", "1G046", "00000",
-]
+# y se consideran retribuciones ordinarias en nóminas PTGAS. Origen:
+# data/configuración.xlsx (clave `proyectos_generales_nómina`).
+from coana.util.configuración import cfg_tuple as _cfg_tuple
+PROYECTOS_ORDINARIOS: list[str] = list(_cfg_tuple("proyectos_generales_nómina"))
 
 
 # ======================================================================

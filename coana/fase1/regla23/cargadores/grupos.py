@@ -107,9 +107,11 @@ def cargar_grupos(
         .alias("días_solape")
     ).filter(pl.col("días_solape") > 0)
 
-    # 2 h/semana × días/7
+    # h/semana × días/7 (h/semana del coordinador desde configuración).
+    from coana.util.configuración import cfg_float
+    h_sem = cfg_float("grupos_horas_coordinador_semana")
     coord = coord.with_columns(
-        (pl.lit(2.0) * pl.col("días_solape").cast(pl.Float64) / 7.0).alias("horas")
+        (pl.lit(h_sem) * pl.col("días_solape").cast(pl.Float64) / 7.0).alias("horas")
     ).filter(pl.col("horas") > 0)
 
     # Insertar nodos `dag-grupo-investigación-XXX` en el árbol de

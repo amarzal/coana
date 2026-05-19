@@ -23,7 +23,9 @@ from coana.fase1.cargos import (
 )
 from coana.fase1.inventario import ContextoInventario, procesar_inventario
 from coana.fase1.investigación import enriquecer_árbol_cc_con_grupos
-from coana.fase1.nóminas import ContextoNóminas, preprocesar_nóminas
+from coana.fase1.nóminas import (
+    ContextoNóminas, generar_reparto_ss_persona, preprocesar_nóminas,
+)
 from coana.fase1.presupuesto import ContextoPresupuesto, TraductorPresupuesto
 from coana.fase1.regla23 import generar_dedicación_pdi
 from coana.fase1.suministros import generar_uc_suministros
@@ -248,6 +250,43 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
         f"{dedicación['horas'].sum():,.0f} h, "
         f"{dedicación['per_id'].n_unique():,} personas"
     )
+
+    # UC por reparto de la masa regla 23 ya escritas por el módulo
+    # `generar_dedicación_pdi`; las agregamos al combinado.
+    uc_r23_path = ruta_base / "fase1" / "regla23" / "uc_reparto_regla_23.parquet"
+    uc_r23 = pl.DataFrame()
+    if uc_r23_path.exists():
+        uc_r23 = pl.read_parquet(uc_r23_path)
+        if not uc_r23.is_empty():
+            todas_uc.append(uc_r23.select(
+                "id", "elemento_de_coste", "centro_de_coste", "actividad",
+                "importe", "origen", "origen_id", "origen_porción",
+            ))
+            print(
+                f"  UC reparto regla 23: {len(uc_r23):,} UC, "
+                f"{float(uc_r23['importe'].sum()):,.2f} €"
+            )
+
+    # -- Reparto de seguridad social (cotizada + calculada) por persona --
+    # Lo ejecutamos aquí, una vez que ya están todas las UC retributivas
+    # (PTGAS / PVI / PDI / despidos / indemnizaciones / cargos / reparto
+    # regla 23). Así los porcentajes (actividad, centro_de_coste) que
+    # se aplican a la SS reflejan el total real del coste retributivo
+    # de cada persona, incluida la masa regla 23.
+    print("Repartiendo seguridad social entre actividades/centros…")
+    generar_reparto_ss_persona(
+        resultado_nom, dir_nominas,
+        uc_por_persona=[uc_r23] if not uc_r23.is_empty() else None,
+    )
+    ss_parquet = dir_nominas / "persona_ss.parquet"
+    if ss_parquet.exists():
+        ss_df = pl.read_parquet(ss_parquet)
+        if not ss_df.is_empty():
+            ss_válidas = ss_df.filter(~pl.col("ss_proporcional").is_nan())
+            print(
+                f"  SS repartida: {ss_válidas.height:,} filas, "
+                f"{float(ss_válidas['ss_proporcional'].sum()):,.2f} €"
+            )
 
     # -- Fichero combinado --
     if todas_uc:

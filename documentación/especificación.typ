@@ -1,6 +1,6 @@
 #import "preámbulo.typ": *
 #import "img/fase1.typ": (
-    etapa-amortizaciones, etapa-cargos, etapa-nominas, etapa-presupuesto, etapa-ss, etapa-suministros, fase1-diagrama,
+    etapa-amortizaciones, etapa-cargos, etapa-nominas, etapa-presupuesto, etapa-regla23, etapa-ss, etapa-suministros, fase1-diagrama,
 )
 #show: formato
 
@@ -26,6 +26,263 @@ El fichero #ruta("documentación", "especificación.typ"), que es el que estás 
 Este es un _work in progress_, así que es posible que los documentos cambien sobre la marcha.
 
 = Arquitectura
+
+== Glosario
+
+A lo largo del documento usamos un vocabulario específico que es importante fijar para evitar ambigüedades:
+
+/ Unidad de coste (UC): : Registro atómico del sistema. Cada UC tiene un #campo("id"), un #campo("elemento_de_coste"), un #campo("centro_de_coste"), una #campo("actividad"), un #campo("importe") en euros, y los campos de trazabilidad #campo("origen"), #campo("origen_id"), #campo("origen_porción"). La fase 1 produce decenas de miles de UC desde fuentes diversas (presupuesto, amortizaciones, suministros, nóminas, regla 23, seguridad social…); la fase 2 las consolida en informes.
+
+/ Expediente: : Identificador interno (entero) de una relación laboral concreta con la UJI. Cada persona (#campo("per_id")) puede tener varios expedientes a lo largo del tiempo y simultáneamente (mono o multiexpediente). Es la clave por la que se relacionan nóminas y RR.HH.
+
+/ Sector: : Clasificación funcional del personal: #val("PDI") (Personal Docente e Investigador), #val("PTGAS") (Personal Técnico, de Gestión y Administración), #val("PVI") (Personal Vinculado a Investigación) u #val("Otros"). Cada expediente tiene un sector. Una persona con varios expedientes puede tener varios sectores; el algoritmo de seguridad social usa una *prelación* (PTGAS > PVI > PDI > Otros) para elegir el sector principal de la persona.
+
+/ Proyecto general: : Proyecto presupuestario que no se imputa a una actividad concreta sino que sostiene el funcionamiento general de la universidad. Hay *dos tablas* de proyectos generales (centralizadas en #ruta("data", "configuración.xlsx")):
+
+  - *TABLA-PROYECTOS-GENERALES-NÓMINA* (constante #campo("proyectos_generales_nómina")): #val("00000"), #val("02G041"), #val("11G006"), #val("1G019"), #val("1G046"), #val("23G019"). Las retribuciones ordinarias de PDI/PVI imputadas a estos proyectos entran en la masa regla 23.
+  - *TABLA-PROYECTOS-GENERALES* (constante #campo("proyectos_generales_cargos")): la anterior más #val("07G011"), #val("11G003"), #val("1I235"), #val("22G010") (cuatro proyectos adicionales que financian cargos académicos). Los CR 19/64 en estos proyectos NO generan UC de cargo línea a línea sino que se reparten entre los cargos vigentes de la persona.
+
+/ Regla 23: : Regla del Modelo de Contabilidad Analítica para Universidades (cuadro 9.7) que reparte la masa retributiva ordinaria del PDI/PVI en proyecto general entre las actividades en que cada persona participa, proporcionalmente a sus *horas* de dedicación. El reparto se hace en horas, no en euros: primero se determinan las horas y luego se traducen a coste mediante el cociente $#campo("horas_finales") / #campo("jornada_anual_pdi")$.
+
+/ Masa regla 23: : Subconjunto de las nóminas PDI/PVI que satisface a la vez: #campo("aplicación") NO empieza por #val("12") (no es seguridad social), #campo("proyecto") está en TABLA-PROYECTOS-GENERALES-NÓMINA y #campo("concepto_retributivo") NO es #val("19"), #val("64"), #val("47") ni #val("48"). Es lo que se reparte vía regla 23.
+
+/ Factor (×2,5): : Coeficiente por el que se multiplican las horas de impartición efectiva para obtener *horas efectivas* docentes (incluye preparación, evaluación, tutorías, dirección académica). Solo se aplica a la docencia. Se define en #ruta("data", "configuración.xlsx") como #campo("factor_impartición_docente").
+
+/ Horas efectivas, horas iniciales, horas finales: : *Horas efectivas* o *iniciales*: producto #campo("horas") × #campo("factor") en la tabla #campo("dedicación_pdi"). *Horas finales*: las que devuelve la fase de reparto (5-7 de la regla 23) tras normalizar a la jornada anual; aparecen en #campo("dedicación_pdi_normalizada") y son las que se usan para repartir el coste.
+
+/ HND (horas no distribuidas): : Holgura $T - H_"DO" - H_"DNO" - H_G - H_I$ cuando la docencia, la gestión y la investigación iniciales no llenan la jornada anual del PDI. Se reparte entre gestión e investigación (o íntegramente a investigación si el PDI tiene un *sexenio vivo*).
+
+/ Sexenio vivo: : Sexenio de investigación cuya #campo("fecha_fin_sexenio") está a menos de #campo("sexenio_vivo_años") (6) años del fin del año analizado. Indica que la persona tiene actividad investigadora reciente acreditada; activa la regla de imputar toda la HND a investigación.
+
+/ Profesor asociado: : PDI con categoría de plaza entre las listadas en #campo("categorías_asociado_plaza") (#val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("36"), #val("44"), #val("46")). Recibe tratamiento especial en la regla 23: toda su jornada (#val("1 642 h")) se imputa a docencia, sin gestión ni investigación.
+
+/ Retribuciones «extra» o «extras»: : Líneas de nómina en proyecto NO general (es decir, fuera de TABLA-PROYECTOS-GENERALES-NÓMINA), o líneas con conceptos retributivos especiales (CR 19/64 que no quepan en el reparto de cargos, CR 47 de despidos en proyecto específico, etc.). Generan UC línea a línea (clasificadas por los módulos de actividad y centro), en contraposición a la masa regla 23 que se reparte por horas.
+
+/ #campo("origen_porción"): : Campo de las UC que cuantifica qué parte del registro originario corresponde a esa UC (por ejemplo, si una amortización se reparte entre tres centros con pesos 0,5 / 0,3 / 0,2, cada UC lleva esa fracción como #campo("origen_porción")). Permite trazar de la UC al apunte original y reconstruir importes proporcionales.
+
+/ #app: : Aplicación web de inspección/depuración (FastAPI + React). Es solo herramienta de análisis: no afecta al cálculo, lee los parquets producidos por la fase 1.
+
+== Stack tecnológico y arranque
+
+La aplicación se desarrolla en Python 3.14 (gestionado con #raw("uv")). La librería de procesamiento de datos es #raw("polars") (nunca pandas). Los datos se modelan con #raw("pydantic v2"). La aplicación web es FastAPI (backend) + React/Vite + Tailwind (frontend, compilado y servido estáticamente desde el backend). La documentación se compila con Typst desde #ruta("documentación", "especificación.typ"). Hay un editor gráfico (tkinter) para los ficheros #raw(".tree") de los árboles de la contabilidad analítica.
+
+=== Dependencias principales
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Componente*], [*Para qué*], table.hline()),
+    [Python 3.14], [Lenguaje del backend y de las fases.],
+    [#raw("uv")], [Gestor de entornos y dependencias.],
+    [#raw("polars")], [DataFrames; lectura/escritura de Parquet.],
+    [#raw("fastexcel"), #raw("openpyxl"), #raw("xlsxwriter")], [Lectura y escritura de Excel.],
+    [#raw("pydantic v2")], [Modelos (UC, esquemas de respuesta API).],
+    [#raw("typer")], [CLI principal (#raw("coana ...")).],
+    [#raw("fastapi"), #raw("uvicorn[standard]")], [Backend web y servidor ASGI.],
+    [#raw("streamlit"), #raw("streamlit-antd-components")], [Visor heredado (visor_legacy, en transición).],
+    [#raw("tkinter")], [Editor gráfico de árboles (parte de la biblioteca estándar).],
+    [#raw("typst")], [Compilador de la especificación a PDF.],
+    [Node.js, npm, Vite], [Bundling del frontend React (#ruta("web", "frontend")).],
+    table.hline(),
+)
+
+=== Layout del proyecto
+
+#raw("
+coana/                          # paquete Python principal
+  cli.py                        # CLI Typer: coana visor / editor-tree / web / version
+  apps/
+    editor_tree.py              # editor gráfico (tkinter) de ficheros .tree
+    gen_especificacion.py       # compila documentación/especificación.typ
+    visor_entradas.py           # visor heredado en Streamlit
+  fase1/                        # generación de UC
+    __init__.py                 # orquestador `ejecutar()` con las 11 etapas
+    presupuesto/                # ContextoPresupuesto + TraductorPresupuesto
+    inventario/                 # ContextoInventario + procesamiento
+    nóminas/                    # preprocesar_nóminas, _generar_reparto_ss_persona
+    regla23/                    # dedicación PDI, fases 5-7 y UC de reparto
+      cargadores/               # pod, tesis, cargos, proyectos, grupos
+      reparto.py                # fases 5-7 de la regla 23
+      uc_reparto.py             # reparto de la masa a UC por persona
+    amortizaciones.py           # UC de amortización a partir de inventario
+    suministros.py              # energía / agua / gas por presencia
+    cargos.py                   # reparto CR 19/64 en proyecto general
+    investigación.py            # CC para grupos de investigación
+    clasificador_actividades.py # módulo de reglas para asignar actividad
+    clasificador_centros_coste.py # idem para centros de coste
+  util/
+    arbol.py                    # NodoÁrbol + Árbol (formato .tree)
+    excel_cache.py              # read_excel con caché Parquet transparente
+    euro.py                     # tipo Euro (céntimos como int)
+    configuración.py            # acceso tipado a data/configuración.xlsx
+    unidad_de_coste.py          # modelo UC + OrigenUC (enum)
+  web/                          # backend FastAPI
+    app.py                      # registra routers, sirve dist estático
+    routers/                    # un fichero por bloque (presupuesto, regla23…)
+    services/                   # lógica de consulta sobre parquets
+    schemas/                    # respuestas tipadas (ListResponse, KpiPanel…)
+    dist/                       # frontend compilado (Vite)
+
+web/frontend/                   # código fuente React/Vite (npm)
+  src/
+  package.json
+
+data/
+  configuración.xlsx            # constantes anuales y de política
+  entrada/                      # datos crudos (Excel y .tree)
+    consumos/, docencia/, estructuras/, inventario/,
+    investigación/, nóminas/, presupuesto/, superficies/
+  fase1/                        # salidas
+    uc presupuesto.parquet, uc amortizaciones.parquet,
+    uc suministros.parquet, unidades de coste.xlsx,
+    actividades.tree, centros de coste.tree,
+    elementos de coste.tree
+    auxiliares/                 # parquets intermedios para depurar/auditar
+    regla23/                    # dedicación_pdi, normalizada, uc_reparto_regla_23
+documentación/
+  especificación.typ            # fuente única de la spec
+  especificación.pdf            # generado por `uv run especificación`
+")
+
+=== Comandos de bootstrap
+
+#raw("# instalación del paquete y dependencias (Python)
+uv sync                                # crea el venv y resuelve dependencias
+uv pip install -e .                    # opcional: instalación editable
+
+# compilación del frontend (una sola vez tras clonar)
+cd web/frontend && npm install && npm run build
+
+# verificación
+uv run coana version                   # versión del paquete
+uv run especificación                  # compila el PDF
+")
+
+=== Entry points
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Comando*], [*Qué hace*], table.hline()),
+    [#raw("uv run coana")], [Lanza el visor web (FastAPI + frontend compilado) en #raw("http://127.0.0.1:8765"). Atajo de #raw("coana web").],
+    [#raw("uv run coana web --port 8000")], [Variante con flags (#raw("--reload"), #raw("--dev"), puerto, etc.).],
+    [#raw("uv run coana editor-tree")], [Editor gráfico tkinter para los #raw(".tree") (actividades, centros de coste, elementos de coste, ingresos). Permite mover, renombrar, ver/editar identificadores y reasignar códigos automáticamente.],
+    [#raw("uv run coana visor-legacy")], [Visor antiguo en Streamlit. En transición; se mantiene mientras se cierran las vistas del visor nuevo.],
+    [#raw("uv run especificación")], [Compila #ruta("documentación", "especificación.typ") a PDF. Equivale a #raw("typst compile documentación/especificación.typ").],
+    [#raw("uv run editor_de_arboles")], [Lanza directamente #ruta("coana", "apps", "editor_tree.py") (alias del comando anterior).],
+    table.hline(),
+)
+
+=== Ejecución de la fase 1
+
+La fase 1 se dispara desde la #app: en el menú lateral, *Resultados Fase 1 · Ejecutar fase 1* abre una página con un botón que ejecuta #campo("coana.fase1.ejecutar()"). Alternativamente, desde Python:
+
+#raw("uv run python -c \"from pathlib import Path; from coana.fase1 import ejecutar; ejecutar(Path('data'), año=2025)\"")
+
+El año analizado se lee también de #ruta("data", "configuración.xlsx") (clave #campo("año_analizado")); el argumento de #campo("ejecutar") lo sobrescribe.
+
+== Invariantes del sistema
+
+Esta lista enumera las propiedades que el sistema debe cumplir en todas sus ejecuciones. Un implementador puede usarla como suite de aceptación de su reconstrucción.
+
+=== Cuadre por persona (Δ)
+
+Para toda persona del sector PDI o PVI debe cumplirse, con tolerancia #val("0,01") €:
+
+$ "Bruto cobrado" + "SS cotizada" + "SS calculada" = sum "UC retributivas" + sum "UC SS" $
+
+Donde:
+
+- *Bruto cobrado*: suma de #campo("importe") de las líneas de nómina del año en cualquier expediente de la persona con #campo("aplicación") NO empezando por #val("12") (es decir, todo lo retributivo: incluye despidos, indemnizaciones, paga extra, etc.).
+- *SS cotizada*: suma de #campo("importe") de líneas con #campo("aplicación") empezando por #val("12").
+- *SS calculada*: importe de #ruta("auxiliares", "nóminas", "costes_sociales_calculados.parquet") para la persona (solo PDI funcionario en clases pasivas).
+- *Σ UC retributivas*: suma de #campo("importe") de las UC de la persona en #ruta("uc_ptgas"), #ruta("uc_pdi"), #ruta("uc_pvi"), #ruta("uc_despidos"), #ruta("uc_indemnizaciones_asistencias"), #ruta("uc_cargos") (proyecto específico), #ruta("cargos_uc") (reparto general) y #ruta("regla23", "uc_reparto_regla_23.parquet").
+- *Σ UC SS*: suma de #campo("ss_proporcional") de #ruta("auxiliares", "nóminas", "persona_ss.parquet") para la persona.
+
+La pantalla *Personal · PDI/PVI* expone este cuadre en su columna #campo("delta") del master y desglosado por concepto en la pestaña *Resumen / Cuadre* del detalle. Cualquier persona con $|Δ| ≥ 0{,}01$ € es una anomalía a depurar (típicamente apunta a un servicio sin mapeo en #ruta("data", "entrada", "inventario", "servicios.xlsx"), a una extra-paga del cargo que no se ha podido descontar del CR 68 por falta de masa disponible, o a discrepancias de redondeo en cálculos de SS).
+
+=== Conservación de masas
+
++ La suma de los importes de las UC presupuestarias (#ruta("uc presupuesto.parquet")) más los importes de los apuntes filtrados (#ruta("auxiliares", "filtrados_presupuesto.parquet")) más los apuntes sin clasificar (#ruta("presupuesto sin uc.parquet")) coincide con la suma de los importes de los apuntes de entrada (#ruta("data", "entrada", "presupuesto", "apuntes presupuesto de gasto.xlsx")).
+
++ La suma de los importes amortizados (#ruta("uc amortizaciones.parquet")) más los descartados por estado/cuenta/fecha (los parquets de #ruta("auxiliares", "amortizaciones")) coincide con la base de cálculo derivada de #ruta("data", "entrada", "inventario", "inventario.xlsx") aplicando los años de amortización.
+
++ La suma de los importes de #ruta("auxiliares", "nóminas", "uc_ptgas.parquet") + #ruta("uc_pvi.parquet") + #ruta("uc_pdi.parquet") + #ruta("uc_despidos.parquet") + #ruta("uc_indemnizaciones_asistencias.parquet") + #ruta("uc_cargos.parquet") + #ruta("fase1", "regla23", "uc_reparto_regla_23.parquet") coincide con la masa retributiva total no de seguridad social (#campo("aplicación") no empieza por #val("12"), categoría no en CR 48 si proyecto no es general, etc.) de PDI + PVI + PTGAS para el año analizado, salvo el residual de personas con masa pero sin reparto (los avisos del log).
+
++ La suma de los importes de las UC de seguridad social (filas de #ruta("auxiliares", "nóminas", "persona_ss.parquet")) coincide con la SS cotizada del año (#campo("aplicación") empezando por #val("12")) más los costes sociales calculados de los PDI funcionarios en clases pasivas.
+
+=== Reparto de la regla 23
+
++ Para todo #campo("per_id") presente en #ruta("regla23", "dedicación_pdi_normalizada.parquet"), la suma de #campo("horas_finales") debe ser #campo("jornada_anual_pdi") (#val("1 642")) salvo dos casos:
+    - el PDI tiene categoría de profesor asociado pero ninguna fila de docencia (caso patológico: dirige tesis pero no imparte) → suma 0;
+    - la docencia + gestión iniciales del PDI exceden la jornada (#campo("anomalía") = #val("docencia + gestión exceden la jornada anual")) → la suma puede ser inferior a #val("1 642").
+
++ La suma de #campo("horas_finales") sobre los grupos #val("docencia_oficial") y #val("docencia_no_oficial") es igual a la suma de #campo("horas_iniciales") de los mismos grupos (la docencia es intocable: nunca recibe horas adicionales por HND).
+
++ Toda persona con #campo("sexenio_vivo") = #val("true") y HND > 0 imputa toda su HND al grupo #val("investigación").
+
++ Toda persona con #campo("es_asociado") = #val("true") tiene #campo("horas_finales") > 0 únicamente en filas del grupo #val("docencia_oficial") o #val("docencia_no_oficial"); las de #val("gestión") e #val("investigación") quedan a #val("0").
+
++ Para cada (#campo("per_id"), #campo("actividad"), #campo("centro_de_coste")) la suma de #campo("origen_porción") de las UC de #ruta("regla23", "uc_reparto_regla_23.parquet") iguala (con redondeo) la proporción de #campo("horas_finales") en ese par sobre el total de la persona.
+
++ Para cada #campo("per_id") en #ruta("regla23", "uc_reparto_regla_23.parquet"), la suma de #campo("importe") iguala la masa regla 23 de esa persona (las nóminas que cumplen el filtro de §«Reparto de la masa regla 23 → unidades de coste»), salvo por redondeo a céntimos.
+
+=== Integridad referencial
+
++ Toda etiqueta de #campo("elemento_de_coste") que aparezca en cualquier UC debe existir como identificador del árbol final de elementos de coste (#ruta("elementos de coste.tree") tras el proceso). Lo mismo para #campo("centro_de_coste") y #campo("actividad") respecto de sus árboles. Las excepciones (#val("pendiente")) están explícitas y se reportan en la vista de Anomalías.
+
++ Toda referencia a #campo("expediente") en una UC debe existir en #ruta("data", "entrada", "nóminas", "expedientes recursos humanos.xlsx").
+
++ Toda referencia a #campo("per_id") en una UC debe existir en #ruta("data", "entrada", "nóminas", "personas.xlsx").
+
++ Para cada par (#campo("actividad"), #campo("centro_de_coste")) con UC asignadas, ambos identificadores deben pertenecer al árbol final correspondiente. La #app, en la pantalla «Resultados Fase 1 · Anomalías UC», muestra cualquier violación.
+
+=== Constantes año a año
+
++ Cambiar #ruta("data", "configuración.xlsx") y volver a ejecutar la fase 1 debe producir resultados coherentes sin tocar código: cambiar #campo("ss_base_máxima"), #campo("año_analizado"), #campo("jornada_anual_pdi"), etc. no debe requerir modificaciones en Python.
+
+=== Verificación rápida (cifras de referencia 2025)
+
+A modo de checkpoint, una ejecución completa sobre los datos de 2025 debe producir aproximadamente:
+
+#table(
+    columns: (auto, auto, auto),
+    align: (left, right, right),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Fuente*], [*UC*], [*Importe (€)*], table.hline()),
+    [presupuesto],     val("68 169"), val("29 637 337,19"),
+    [amortizaciones],  val("85 401"), val("6 347 526,73"),
+    [suministros],     val("936"),    val("2 622 111,61"),
+    [nóminas-PTGAS],   val("7 156"),  val("26 257 593,97"),
+    [nóminas-PVI],     val("1 340"),  val("9 899 442,92"),
+    [nóminas-PDI],     val("1 161"),  val("2 199 432,47"),
+    [despidos],        val("104"),    val("195 588,03"),
+    [indemnizaciones], val("361"),    val("295 959,24"),
+    [cargos],          val("46"),     val("165 020,83"),
+    [regla-23],        val("54 821"), val("50 989 760,52"),
+    [seguridad-social], val("11 204"), val("21 529 118,93"),
+    table.hline(),
+    [*Total*],         val("≈ 230 700"), val("≈ 150 138 892,43"),
+    table.hline(),
+)
+
+Anomalías esperadas en 2025: #val("190") personas con masa regla 23 sin dedicación calculada (≈ #val("347 894 €") repartidos a #etqact("pendiente") / #etqcen("pendiente")) y #val("2") asociados sin docencia.
+
+=== Procedimiento de verificación de la reconstrucción
+
+Quien quiera reconstruir el sistema desde cero puede seguir esta secuencia para validar que sus cifras coinciden con las de referencia:
+
++ *Instalar* la pila (Python 3.14, uv, dependencias del pyproject, npm, Vite). Compilar el frontend.
++ *Copiar* la carpeta #ruta("data", "entrada") tal cual del repositorio canónico.
++ *Ejecutar* la fase 1: #raw("uv run python -c \"from pathlib import Path; from coana.fase1 import ejecutar; ejecutar(Path('data'), año=2025)\"")
++ *Comparar* la salida combinada (`Total UC` y el desglose por fuente que imprime el log) con la tabla del apartado anterior. Las cifras deben coincidir hasta el céntimo (las pequeñas variaciones en SS por redondeos compuestos quedan acotadas a < #val("100 €")).
++ *Inspeccionar* la pantalla «Resultados Fase 1 · Anomalías UC» y verificar que el número de anomalías por integridad referencial coincide con el esperado.
++ *Repetir* la ejecución cambiando #campo("año_analizado") en #ruta("data", "configuración.xlsx") (con los datos correspondientes en #ruta("data", "entrada")) para confirmar que la parametrización por año funciona.
+
+Si en alguno de los puntos las cifras divergen, los logs de la fase 1 incluyen avisos con el número de registros descartados en cada filtro, lo que permite localizar la divergencia con bisección por etapa (presupuesto, amortizaciones, suministros, nóminas, cargos, regla 23, SS).
 
 == Convenios tipográficos
 
@@ -60,6 +317,34 @@ La carpeta #ruta("datos", "entrada") contiene los datos que se van a procesar pa
 En las siguientes secciones los describimos y describimos también algunos filtros y preprocesos sobre ellos, de modo que lleguen a la fase de generación de unidades de coste con los datos preparados. En algunos casos, se generan tablas intermedias que pueden ser útiles para depurar el proceso, y que se describen también en estas secciones.
 
 Los filtros se expresan con reglas que son ítems de listas. Si empiezan con un texto entre corchetes, ese texto es el nombre o descripción de la regla, que se puede usar para identificar su aplicación en la #app.
+
+=== Configuración
+
+El fichero #ruta("data", "configuración.xlsx") centraliza las constantes anuales y de política del sistema. Tiene tres columnas: #campo("nombre"), #campo("valor") y #campo("descripción"). Al cambiar de ejercicio analizado (o al cambiar una norma — base máxima de cotización, tipos de SS, jornada anual…) debería bastar con editar este Excel; el código no contiene literales para ninguna de estas constantes (las lee vía #campo("coana.util.configuración")).
+
+Las constantes están agrupadas conceptualmente:
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(
+        table.hline(),
+        [*Grupo*], [*Constantes*],
+        table.hline(),
+    ),
+    [*Ejercicio*], [#campo("año_analizado")],
+    [*Regla 23*], [#campo("jornada_anual_pdi") · #campo("factor_impartición_docente") · #campo("sexenio_vivo_años")],
+    [*Tesis*], [#campo("tesis_horas_tiempo_completo") · #campo("tesis_horas_tiempo_parcial") · #campo("tesis_pct_tutor") · #campo("tesis_pct_directores")],
+    [*Grupos de investigación*], [#campo("grupos_horas_coordinador_semana")],
+    [*Seguridad social calculada*], [#campo("ss_base_máxima") · #campo("ss_tipo_contingencias_comunes") · #campo("ss_tipo_reducción_cc_trabajador") · #campo("ss_tipo_mei") · #campo("ss_tipo_formación_profesional") · #campo("ss_cuota_solidaridad_factor_tramo1") · #campo("ss_cuota_solidaridad_factor_tramo2") · #campo("ss_cuota_solidaridad_tipo_tramo1") · #campo("ss_cuota_solidaridad_tipo_tramo2") · #campo("ss_cuota_solidaridad_tipo_tramo3")],
+    [*Categorías*], [#campo("categorías_asociado_plaza") · #campo("categorías_pdi_funcionario")],
+    [*Proyectos generales*], [#campo("proyectos_generales_nómina") · #campo("proyectos_generales_cargos")],
+    [*Cargos académicos*], [#campo("pagas_extra_cargo")],
+    table.hline(),
+)
+
+Para las constantes cuyo valor es una lista (categorías, proyectos generales), la celda contiene los códigos separados por comas. El loader (#campo("cfg_set"), #campo("cfg_tuple")) se encarga de descomponerla.
 
 === Estructuras de la contabilidad analítica
 
@@ -227,6 +512,20 @@ Las estructuras, descritas en ficheros `.tree`, son:
 
 #nota[El de elementos de ingreso lo definiremos más tarde. Los alternativos a centros de coste (por comportamiento) y actividades los veremos más tarde.]
 
+==== Editor gráfico de árboles
+
+Los ficheros `.tree` se pueden editar como texto (un editor convencional respeta la sintaxis de sangrado e identificadores), pero hay también un editor gráfico dedicado que se lanza con #raw("uv run coana editor-tree"). Está implementado con tkinter (sin dependencias externas, parte de la biblioteca estándar).
+
+Funciones del editor:
+
+- Carga cualquier `.tree` y muestra el árbol con codificación incremental (los códigos #código("01.02.03") se recalculan automáticamente conforme se mueven o renombran los nodos).
+- Búsqueda por subcadena en descripciones e identificadores; se resaltan las coincidencias.
+- Detección de identificadores duplicados (colisiones): se marcan en rojo.
+- Mueve/copia/borra nodos respetando la jerarquía.
+- Soporta operaciones de teclado y ratón habituales (deshacer, copiar, pegar, arrastrar).
+
+El comando equivalente directo (sin pasar por el CLI principal) es #raw("uv run editor_de_arboles").
+
 
 === Inventario
 
@@ -358,6 +657,16 @@ Los ficheros de entrada sobre ubicaciones están en el directorio #ruta("data", 
         campos: (
             tipo_ubicación: [Un identificador único de tipo de dependencia],
             descripción: [Una descripción del tipo de dependencia],
+        ),
+    ),
+    "corrector superficie.xlsx": (
+        descripción: [Tabla de coeficientes correctores que se aplican a las superficies de zonas/edificaciones cuyo prefijo de ubicación encaja con una de las filas. Permite ajustar el reparto de costes (energía, limpieza, otros) en espacios que no se comportan como un aula o despacho típico: pistas deportivas al aire libre, galerías de servicios, etc. El loader del contexto de inventario aplica cada coeficiente como factor multiplicativo sobre la superficie nominal en el cálculo de los pesos por centro.],
+        campos: (
+            prefijo: [Prefijo del código de ubicación al que aplica el corrector. Se hace match por prefijo (#val("DC"), #val("DA"), #val("A"), …), de modo que todas las ubicaciones cuyo código empiece por ese prefijo reciben el coeficiente.],
+            corrector_energía: [Coeficiente multiplicativo sobre la superficie a efectos de reparto del coste energético (entre #val("0") y #val("1") típicamente: #val("0,1") para una pista deportiva descontará 90 % del peso de su superficie).],
+            corrección_limpieza: [Coeficiente análogo para el reparto del coste de limpieza.],
+            corrección_otros: [Coeficiente para otros gastos de reparto por superficie (puede estar vacío si no aplica).],
+            descripción: [Descripción libre del tipo de espacio al que se aplica el corrector.],
         ),
     ),
 )
@@ -917,6 +1226,17 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "investigaci�
             tuest_id: [Tipo de unidad estructural: #val("DE") departamento, #val("IN") instituto, #val("VI") vicerrectorado, #val("CT") cátedra, #val("SE") servicio.],
         ),
     ),
+    "sexenios.xlsx": (
+        descripción: [Sexenios de investigación reconocidos al PDI. Cada fila es un sexenio (o transferencia) concedido a una persona. Lo usamos en la fase de reparto de la regla 23 para identificar quién tiene un *sexenio vivo* (PDI con un sexenio finalizado hace menos de seis años respecto al fin del año analizado): en esas personas, las horas no distribuidas (HND) se imputan íntegramente al grupo de investigación.],
+        campos: (
+            per_id: [Identificador (entero) de la persona.],
+            fecha_inicio_sexenio: [Inicio del sexenio (los seis años de investigación que se evaluaron).],
+            fecha_fin_sexenio: [Fin del sexenio. Es la fecha relevante para determinar si está #emph[vivo]: #campo("fecha_fin_sexenio") $gt.eq$ fin_año $-$ 6 años.],
+            fecha_efecto: [Fecha desde la que el sexenio tiene efectos retributivos.],
+            cantidad: [Importe ligado al sexenio (puede ser 0 si es transferencia o si está pendiente de cobro).],
+            es_transferencia: [#val("S") si el sexenio es de transferencia, #val("N") si es de investigación clásica.],
+        ),
+    ),
 )
 
 #tabula_ficheros_y_campos(ficheros_campos_investigación)
@@ -959,14 +1279,22 @@ Desde el punto de vista de su implementación, una unidad de coste es un registr
 
 == Proceso secuencial
 
-El programa trabaja secuencialmente en varias fases y cada fase tiene una serie de tareas. El objetivo de cada fase es generar un conjunto de datos que, o bien son parte del producto final, o bien alimentan a otras fases:
+El programa trabaja secuencialmente en dos fases. Cada fase tiene una serie de etapas y cada etapa genera un conjunto de datos que, o bien forma parte del producto final, o bien alimenta a las etapas siguientes:
 
-- *Fase 1*: generación de unidades de coste a partir de datos extraídos de la base de datos corporativa y de otras fuentes de datos. Tiene tres etapas:
-    - *Etapa 1*: filtrado de los registros presupuestarios y generación de unidades de coste a partir de apuntes presupuestarios de gasto mediante reglas y edición de las estructuras de elementos de coste, centros de coste y actividades si es necesario.
-    - *Etapa 2*: filtrado de los registros de inventario, cálculo de la amortización anual de los bienes y generación de unidades de coste por amortizaciones mediante reglas a partir de registros de inventario y descripciones de espacios para el cálculo de amortizaciones, y edición de las estructuras de elementos de coste, centros de coste y actividades si es necesario.
-    - *Etapa 3*: separación de los registros de nómina por sector del personal  y generación de unidades de coste por nómina mediante reglas a partir de registros de pago por nómina, y edición de las estructuras de elementos de coste, centros de coste y actividades si es necesario.
+- *Fase 1*: generación de unidades de coste a partir de los datos de entrada. El orquestador (#campo("coana.fase1.ejecutar")) ejecuta las etapas en este orden:
+    + *Inventario y superficies* — enriquece el inventario, calcula las matrices de presencia por centro y prepara la distribución de superficies necesaria para suministros y amortizaciones.
+    + *Enriquecimiento del árbol de centros de coste con los grupos de investigación* — añade un nodo por grupo de #ruta("entrada", "investigación", "grupos a institutos.xlsx") bajo su instituto o bajo el nodo virtual #etqcen("inves").
+    + *Presupuesto* — filtra los apuntes presupuestarios de gasto, aplica las reglas de clasificación de elementos de coste, centros de coste y actividades, y produce las UC presupuestarias.
+    + *Suministros (energía, agua, gas)* — reparte el coste de los apuntes especiales de SC001 entre los centros con presencia en cada zona/edificio/complejo.
+    + *Amortizaciones* — calcula la amortización anual de los bienes inventariables vivos y los reparte entre centros de coste según presencia.
+    + *Cargos académicos: pre-cálculo* — estima la extra «camuflada» en CR 68 antes del preprocesamiento de nóminas (necesario para evitar duplicar la masa de cargos).
+    + *Nóminas — preprocesamiento* — agrupa nóminas por expediente, separa por sector y produce las UC retributivas «extras» (PTGAS, PVI extras, PDI extras), las UC de despidos, indemnizaciones por asistencias y costes sociales calculados (clases pasivas).
+    + *Cargos académicos: reparto* — reparte la masa CR 19/64 en proyecto general entre los cargos de cada persona, ponderando por días×cuantía mensual del RD asimilado.
+    + *Regla 23 — dedicación PDI* — ejecuta los cinco cargadores (POD, tesis, cargos, proyectos, grupos), normaliza a la jornada anual mediante las fases 5-7 del modelo y reparte la masa regla 23 en UC con peso #emph[horas_finales / Σ horas_finales] por persona.
+    + *Reparto de seguridad social* — distribuye la SS (cotizada + calculada) entre los pares (#campo("actividad"), #campo("centro_de_coste")) de cada persona, ponderando por importe total de UC retributivas (incluyendo las del reparto regla 23 que acaban de generarse).
+    + *Consolidación* — agrega todas las UC de las etapas anteriores en #ruta("fase1", "unidades de coste.xlsx") y serializa los árboles finales modificados.
 
-Los resultados de esta fase alimentarán a la fase 2, que es la generación de informes. El objetivo principal es generar lo que denominamos unidades de coste, que son registros que contienen información sobre el coste de una actividad o centro de coste en el período analizado.
+- *Fase 2*: generación de informes consolidados a partir de las UC de la fase 1 (pendiente de especificar en detalle).
 
 == Especificación mediante reglas
 
@@ -1137,6 +1465,145 @@ Por convención, cualquier vista de anomalía indica el número de registros afe
 La sección *Resultados Fase 1 → Resumen* recoge contadores agregados (UC totales por origen, importes por sector, número de nodos añadidos a cada árbol…). La sub-sección *Todas las UC* permite ver y descargar el conjunto completo de unidades de coste (presupuesto, amortizaciones, suministros y todas las variantes de nómina) tras la fase 1.
 
 Los árboles finales (con los nodos creados dinámicamente por las reglas) se exponen en *Presupuesto → Árbol: …* y se persisten en #ruta("data/fase1/") en formato `.tree` para que la fase 2 los consuma.
+
+== Catálogo de pantallas
+
+La estructura del menú lateral refleja las grandes etapas. Para cada bloque, la lista de entradas y los parquets que consumen es:
+
+=== Bloque «Entradas» (dinámico)
+
+Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirectorio (consumos, docencia, estructuras, inventario, investigación, nóminas, presupuesto, superficies) y, dentro, una entrada por fichero (Excel o `.tree`). Cada entrada abre el contenido tabular del fichero con búsqueda y exportación.
+
+=== Bloque «Presupuesto»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Resumen], [KPIs sobre #ruta("uc presupuesto.parquet") y filtros.],
+    [Unidades de coste], [#ruta("uc presupuesto.parquet").],
+    [Sin clasificar], [#ruta("auxiliares", "sin_clasificar_presupuesto.parquet").],
+    [Apuntes filtrados], [#ruta("auxiliares", "filtrados_presupuesto.parquet"), con la regla que descartó cada apunte.],
+    [Suministros], [#ruta("uc suministros.parquet") (energía, agua, gas).],
+    [Distribución mantenimientos OTOP], [Matriz por centro de presencia para los apuntes con #campo("centro") = #val("SC001").],
+    [Reglas de actividad / CC / EC], [#ruta("auxiliares", "conteo_reglas_presupuesto.parquet"), #ruta("conteo_cc_presupuesto.parquet"), #ruta("conteo_ec_presupuesto.parquet").],
+    [Árbol: actividades / centros / elementos], [Árboles finales tras la traducción presupuestaria (nodos dinámicos resaltados).],
+    table.hline(),
+)
+
+=== Bloque «Amortizaciones»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Resumen], [KPIs sobre #ruta("uc amortizaciones.parquet").],
+    [Inventario con amortización], [#ruta("auxiliares", "amortizaciones", "inventario_enriquecido.parquet").],
+    [Descartados / Filtrados por …], [Los parquets de descarte de #ruta("auxiliares", "amortizaciones") (estado, cuenta, fecha, sin cuenta, sin fecha alta).],
+    [UC generadas], [#ruta("uc amortizaciones.parquet").],
+    [Sin centro], [#ruta("auxiliares", "amortizaciones", "sin_uc.parquet") (bienes con cuenta y fecha pero sin ubicación con centro).],
+    table.hline(),
+)
+
+=== Bloque «Personal»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Resumen], [KPIs y contadores por sector.],
+    [PDI / PVI *(vista 360º)*], [Master por persona del sector con la métrica clave *Δ cuadre* = (bruto + SS) − UC. Detalle en cinco pestañas: *Resumen / Cuadre* (KPIs + desglose por concepto), *Relación laboral* (categoría y meses), *Nómina* (líneas crudas por expediente), *Dedicación regla 23* (reparto por grupo, totales por actividad/centro, detalle por actividad), *UC generadas* (todas las UC vinculadas con cabecera de importe). Endpoint base: #raw("/api/persona360/{PDI|PVI}/personas").],
+    [Expedientes PTGAS / Otros], [Los parquets sectoriales (por expediente, no por persona): PTGAS no tiene regla 23, así que mantiene la vista clásica por expediente con pestañas por grupo conceptual de nómina.],
+    [Multiexpediente], [#ruta("auxiliares", "nóminas", "multiexpediente.parquet").],
+    [Costes sociales calculados], [#ruta("auxiliares", "nóminas", "costes_sociales_calculados.parquet").],
+    [Atrasos a no vinculados], [#ruta("auxiliares", "nóminas", "atrasos_no_vinculados.parquet"): personas que solo cobran atrasos (CR 30/87) en el año, sin vinculación laboral activa. Su importe queda fuera del reparto y la pantalla cuantifica cuántas personas y cuánto dinero.],
+    [Despidos], [#ruta("auxiliares", "nóminas", "uc_despidos.parquet").],
+    [Indemnizaciones asistencias], [#ruta("auxiliares", "nóminas", "uc_indemnizaciones_asistencias.parquet").],
+    [Anomalías PDI], [Subconjuntos de los parquets sectoriales con marcas de anomalía.],
+    table.hline(),
+)
+
+#nota[
+*Vista 360º PDI/PVI — diseño*: el master está por #campo("per_id") (no por expediente), porque la regla 23 y el reparto de SS también lo están. Una persona se considera del sector PDI/PVI si tiene al menos un expediente del sector activo en el año; sus cifras se calculan sobre TODOS sus expedientes (PDI + cualquier otro), porque el cuadre exige que todo lo cobrado y cotizado de la persona termine en alguna UC. Las personas multisector aparecen en las dos vistas (PDI y PVI) con las mismas cifras de cuadre.
+
+La columna *Δ cuadre* se calcula como
+$ Delta = ("Bruto cobrado" + "SS cotizada" + "SS calculada") − (sum "UC retributivas" + sum "UC SS") $
+y debería ser #val("0") (con tolerancia #val("0,01") €) para toda persona. Cualquier descuadre es síntoma de un problema: un servicio sin mapeo, una UC duplicada, un dato faltante en los catálogos auxiliares.
+]
+
+=== Bloque «Regla 23»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Resumen], [KPIs de la regla 23.],
+    [Dedicación docente], [#ruta("auxiliares", "nóminas", "regla_23_dedicación_titulaciones.parquet") + #ruta("regla_23_dedicación_estudios.parquet") (vista legacy en transición).],
+    [Docencia no oficial], [#ruta("auxiliares", "nóminas", "regla_23_horas_no_oficiales.parquet").],
+    [Estructura estudios], [#ruta("auxiliares", "nóminas", "regla_23_estructura_estudios.parquet").],
+    [Cargos], [Vista heredada que precede a «Cargos académicos» del nuevo flujo.],
+    [Asignaturas sin titulación], [#ruta("auxiliares", "nóminas", "regla_23_asignaturas_sin_titulación.parquet").],
+    [Anomalías], [Anomalías de resolución de POD y desambiguación múltiple.],
+    table.hline(),
+)
+
+#nota[La antigua entrada *Regla 23 · Dedicación PDI* ha sido absorbida en *Personal · PDI/PVI*. La URL antigua redirige a la nueva.]
+
+=== Bloque «Investigación»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Grupos], [#ruta("data", "entrada", "investigación", "grupos investigación.xlsx") enriquecido con instituto (#ruta("grupos a institutos.xlsx")) y miembros (#ruta("investigadores en grupos.xlsx")). Permite ver qué grupos generaron CC.],
+    table.hline(),
+)
+
+=== Bloque «Cargos académicos»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Resumen], [KPIs.],
+    [Por persona], [#ruta("auxiliares", "nóminas", "cargos_uc.parquet") (master-detail).],
+    [Personas cargos], [#ruta("data", "entrada", "nóminas", "personas cargos.xlsx") filtrado al año.],
+    [Catálogo de cargos], [#ruta("data", "entrada", "nóminas", "cargos.xlsx") + RD 1086.],
+    table.hline(),
+)
+
+=== Bloque «Superficies»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Resumen], [Superficies totales y reparto.],
+    [Totales], [Por complejo, edificación y zona.],
+    [Presencia centros], [Matriz de presencia (#ruta("auxiliares", "amortizaciones", "inventario_enriquecido.parquet")).],
+    table.hline(),
+)
+
+=== Bloque «Resultados Fase 1»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Resumen], [KPIs por fuente con importe absoluto y porcentaje del total (12 fuentes incluida regla-23 y SS).],
+    [Todas las UC], [Lista consolidada con clic-para-ficha sobre cada UC.],
+    [Actividades / Centros de coste / Elementos de coste], [Para cada nodo del árbol final correspondiente, importe desglosado por origen y total.],
+    [Anomalías UC], [UC que referencian nodos inexistentes en los árboles finales (integridad referencial).],
+    table.hline(),
+)
 
 
 = Fase 1: Obtención de unidades de coste
@@ -3609,6 +4076,20 @@ Cada una de las unidades generadas comparte el mismo #campo("origen_id") (el ide
 
 === Preprocesamiento nóminas
 
+==== Filtro previo: atrasos a personal no vinculado
+
+Antes de agrupar nada, hay un filtro de saneamiento. Una persona se considera *no vinculada* a la UJI en el año analizado si todas sus líneas de nómina del año caen en concepto retributivo #val("30") o #val("87") (atrasos) y no tiene ninguna línea con otro CR no nulo. Son típicamente personas que ya no trabajan en la UJI pero cobran un pago retroactivo por un ejercicio anterior. Sus importes:
+
+- NO entran al reparto de costes de la fase 1 (no generan UC retributivas ni masa regla 23).
+- Se persisten en #ruta("auxiliares", "nóminas", "atrasos_no_vinculados.parquet") con detalle (per_id, sectores, expedientes, nº meses, nº líneas, importe total).
+- Se exponen en la #app bajo *Personal · Atrasos a no vinculados* para reporte (cuántas personas y cuánto dinero queda fuera de la analítica por este motivo).
+
+Adicionalmente, los cargadores de la regla 23 (POD, tesis, cargos, proyectos, grupos) descartan al final cualquier #campo("per_id") sin nómina vinculada en el año, de modo que no aparecen en #ruta("regla23", "dedicación_pdi.parquet") personas que se hayan colado por POD u otras fuentes sin tener cobro activo en el año.
+
+En 2025, los importes filtrados por este criterio rondan los #val("8 800 €") en #val("≈ 110") personas, lo que coincide con la magnitud esperable (≈ 1,5 % del último sueldo de personal que se va, multiplicado por los pocos casos en que el atraso se procesa al año siguiente).
+
+==== Agrupamiento por expediente y sector
+
 En primer lugar, vamos a agrupar todas la entradas de #ruta("nóminas y seguridad social.xlsx") por #campo("expediente"). Los expedientes se van a clasificar en una lista (o tabla) de PDI y PVI (el PVI está codificado como sector PI) y otra de PTGAS. Solo han de considerarse expedientes con alguna retribución en el ejercicio que estamos considerando.
 
 En la #app, quiero poder ver, por separado, los expedientes de cada uno de estos sectores. Si aparece algún expediente que no se pueda clasificar en ninguno de estos sectores, quiero poder verlo también para analizarlo.
@@ -3939,9 +4420,23 @@ En la #app hemos de poder ver todas las personas que tienen costes sociales calc
 El agrupamiento de registros es común al de PTGAS (véase la sección «Preprocesamiento nóminas / Agrupamiento de los registros»).
 Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y actividades. Primero habrá unas unidades (de poco importe normalmente) que irán a unidades completamente definidas y luego nos quedará una masa económica normalmente grande que irá a unas reglas de reparto complejas: lo que denominamos Regla 23.
 
-/ Primero.- Retribuciones extras: : En primer lugar, para todos los conceptos retributivos de las retribuciones extras en las que el proyecto es distinto al #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), salvo los conceptos #val("19") y #val("64") de los proyectos #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003"), el centro de coste y la actividad se han de determinar usando el módulo de clasificación de actividades (que ya has usado para el presupuesto).
+Es crucial distinguir las *dos* tablas de proyectos generales involucradas, ya documentadas en el glosario:
 
-/ Segundo.- Retribuciones ordinarias, es decir, todos los gastos de cualquier concepto retributivo de los proyectos #val("1G019"), #val("23G019"), #val("02G041"), #val("11G006"), #val("1G046") o #val("00000"), y los gastos de los conceptos #val("19") y #val("64") en los proyectos #val("07G011"), #val("1I235"), #val("22G010") y #val("11G003").: Hay que seguir los siguientes pasos:
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Tabla*], [*Contenido y uso*], table.hline()),
+    [TABLA-PROYECTOS-GENERALES-NÓMINA], [#val("00000"), #val("02G041"), #val("11G006"), #val("1G019"), #val("1G046"), #val("23G019"). Determina si una línea de nómina entra en la *masa regla 23* (proyecto general + CR distinto de 19/64/47/48 + no es SS).],
+    [TABLA-PROYECTOS-GENERALES], [Lo anterior más #val("07G011"), #val("11G003"), #val("1I235"), #val("22G010") (cuatro proyectos adicionales que financian cargos académicos). Determina si los CR #val("19") y #val("64") se reparten por persona entre cargos (proyectos generales) o generan UC línea a línea (proyectos específicos).],
+    table.hline(),
+)
+
+El criterio se aplica fila a fila:
+
+/ Primero.- Retribuciones extras (UC línea a línea): : Una línea de nómina genera UC retributiva extra si su proyecto NO está en TABLA-PROYECTOS-GENERALES-NÓMINA y su CR no es ni #val("19") ni #val("64") (cargos académicos, tienen su flujo propio: #ruta("uc_cargos.parquet") en proyecto específico, #ruta("cargos_uc.parquet") en proyecto general) ni #val("48") (indemnizaciones por asistencia, generan #ruta("uc_indemnizaciones_asistencias.parquet") siempre). Las despidos (CR #val("47")) en proyecto NO general sí entran aquí como retribuciones extras ordinarias; las de proyecto general van a #ruta("uc_despidos.parquet"). Para las líneas que encajan en este bloque, el centro de coste y la actividad se determinan con el módulo de clasificación de actividades (el mismo que se usa para presupuesto). Estas UC se escriben en #ruta("auxiliares", "nóminas", "uc_pvi.parquet") o #ruta("uc_pdi.parquet").
+
+/ Segundo.- Retribuciones ordinarias (con tratamientos especiales y reparto final por regla 23): : Las líneas con proyecto en TABLA-PROYECTOS-GENERALES-NÓMINA, junto con los CR #val("19") y #val("64") de los cuatro proyectos adicionales de TABLA-PROYECTOS-GENERALES, siguen los pasos siguientes:
 
     - *Tratamiento de atrasos*: Los atrasos (concepto_retributivo igual a #val("30") u #val("87")) son cuantías relativamente pequeñas que, al final, se repartirán con la misma distribución promedio que el resto de la masa de regla 23. Por simplicidad, no los separamos en una bolsa propia: las líneas con CR #val("30") u #val("87") en proyectos de TABLA-PROYECTOS-GENERALES-NÓMINA se integran directamente en la bolsa de #emph[Retribuciones ordinarias para regla 23] y se reparten junto con el resto cuando se cierre la fase de reparto por dedicación.
 
@@ -3982,7 +4477,10 @@ Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y a
 
             *Ajuste al CR 68*: para no contar dos veces el mismo dinero, antes del preprocesamiento de nóminas se descuenta `Σ_c extra(c)` de las líneas CR 68 en proyecto general de la persona, repartiendo el descuento proporcionalmente entre esas líneas. Si la suma del CR 68 disponible es menor que la extra estimada, el descuento se acota a 0 y la diferencia se reporta como anomalía «extra estimada > CR 68 disponible» en #ruta("auxiliares", "nóminas", "cargos_extras_aplicadas.parquet").
 
-            *Elemento de coste*: `ZZZ-XXX-cargos` con `ZZZ` por sector principal de la persona (#val("pdi") o #val("piyotper")) y `XXX` por categoría última de la persona en CR 19/64.
+            *Elemento de coste*: depende del sector principal de la persona:
+            - *PDI*: `pdi-XXX-cargos`, donde `XXX` se deriva de la última categoría RR.HH. en CR 19/64 de la persona vía la tabla de mapeo de categorías PDI (Apéndice §«Mapeo categoría → XXX del elemento de coste PDI»). Si la categoría no encaja con ninguna entrada de la tabla, el elemento queda vacío y se reporta anomalía.
+            - *PVI*: `piyotper-pid-cargos`. Para PVI el campo de categoría no determina por sí solo el XXX (haría falta cruzar perceptor + provisión, lo que añadiría complejidad sin ganancia: los cargos de PVI son muy infrecuentes), así que se usa por defecto `pid` (personal investigador docente).
+            - Otros sectores: no aplica (los cargos académicos solo existen en PDI y PVI).
 
             *Centro de coste y actividad*: campos #campo("centro") y #campo("actividad") de la fila del cargo en #ruta("cargos.xlsx"). Cuando estos campos contengan patrones (en lugar de etiquetas concretas del árbol), se resolverán siguiendo reglas que se definirán en una sección aparte. #nota[Reglas de resolución de patrones de actividad y centro pendientes de definir.]
 
@@ -4005,6 +4503,11 @@ Vamos a generar ahora las dos unidades de coste pendientes: centros de coste y a
 // ---- XXXX ----
 
 ==== Regla 23 — invariante #campo("dedicación_pdi")
+
+#figure(
+    align(center, etapa-regla23()),
+    caption: [Etapa de Regla 23: ficheros de entrada y salidas que produce.],
+)
 
 La regla 23 del Modelo de Contabilidad Analítica para Universidades (cuadro 9.7 del modelo) reparte los costes del PDI entre las actividades en que cada persona participa. El reparto se hace en *horas*, no en euros: primero se determinan las horas que cada PDI dedica a cada actividad concreta, y solo después se traduce esa dedicación al coste imputado a cada actividad, en proporción a la jornada anual.
 
@@ -4182,80 +4685,54 @@ El #campo("origen_id") es el #campo("id_grupo"). El centro de coste es el del gr
 
 En el menú lateral, bloque #emph[Regla 23], la entrada #emph[Dedicación PDI] abre una pantalla master-detail con tres áreas:
 
-+ *Lista de personas* (master): per_id, persona, horas totales, horas docencia oficial, horas investigación, nº actividades y nº filas con anomalía.
-+ *Reparto por grupo y origen* (panel resumen al seleccionar persona): una fila por cada par (grupo, origen) con horas registradas, factor medio aplicado, horas efectivas y porcentaje sobre la jornada anual; fila final #emph[Sin asignación (HND)] con las horas que falta cargar.
-+ *Detalle por actividad*: las filas crudas de #campo("dedicación_pdi") para la persona, con #campo("origen_id"), #campo("método"), #campo("factor") y anomalías.
++ *Lista de personas* (master): per_id, persona, *% docencia*, *% gestión*, *% investigación* y *% jornada cubierta* (los cuatro calculados sobre las horas finales tras el reparto), nº actividades y nº filas con anomalía. Los porcentajes deben sumar #val("100 %") salvo en casos anómalos (exceso de docencia + gestión, asociados sin docencia registrada).
++ *Relación laboral* (panel al seleccionar persona): una fila por cada combinación (expediente, categoría plaza, categoría RR.HH.) observada en las nóminas del año, con el primer y último mes de cobro, el número de meses y si es funcionario. Permite ver al vuelo qué categoría tiene la persona, durante cuánto tiempo y si ha habido cambios de plaza en el año.
++ *Reparto por grupo y origen* (panel resumen al seleccionar persona): una fila por cada par (grupo, origen) con horas registradas, factor medio, horas iniciales efectivas, horas finales tras el reparto y porcentaje sobre la jornada anual (calculado sobre las horas finales). Si la jornada no llega a #val("1 642 h") aparece una fila #emph[Sin asignación (HND)] con el déficit.
++ *Detalle por actividad*: las filas de #campo("dedicación_pdi") para la persona, con #campo("origen_id"), #campo("método"), #campo("factor"), las *horas finales* repercutidas y el *% jornada* de cada actividad concreta, además de las anomalías. Las filas sintéticas con #campo("origen") = #val("reparto") aparecen al final cuando ha sido necesario crear una actividad #etqact("ai") para absorber la HND.
 
-El usuario puede así ver de un vistazo no solo cuántas horas dedica cada PDI a cada grupo de la regla 23, sino *de dónde vienen* (POD, tesis, coordinación de grupo, cargo) y qué fracción de jornada queda todavía sin asignar.
+El usuario puede así ver de un vistazo no solo cuántas horas dedica cada PDI a cada grupo de la regla 23, sino *de dónde vienen* (POD, tesis, coordinación de grupo, cargo) y *qué porcentaje* de su jornada se imputará a cada actividad y centro de coste.
 
-===== Fase de reparto (pendiente)
+===== Fase de reparto (fases 5-7 de la regla 23)
 
-Una vez completada la tabla #campo("dedicación_pdi"), el reparto efectivo a las actividades concretas seguirá las siete fases del modelo (jornada anual, descuento de docencia, cargos, extensión, investigación inicial, HND, repercusión a actividades concretas), con tratamiento especial del sexenio "vivo" (toda la HND a investigación) y del profesor asociado (toda la dedicación a docencia).
+Una vez completada la tabla #campo("dedicación_pdi"), un módulo final (#campo("reparto.py")) normaliza las horas registradas a la *jornada anual* de cada PDI (#val("1 642 h")) y obtiene la dedicación que se llevará a coste. La salida es #ruta("fase1", "regla23", "dedicación_pdi_normalizada.parquet") con el mismo grano que la tabla origen y una columna añadida #campo("horas_finales") (las que se usarán para repartir el coste retributivo).
 
-==== Regla 23 — borrador previo
+*Horas efectivas iniciales por grupo.* Para cada persona se calculan, a partir de #campo("dedicación_pdi"), las horas efectivas (#campo("horas") $times$ #campo("factor")) agregadas en cuatro grupos: $H_"DO"$ (docencia oficial), $H_"DNO"$ (docencia no oficial), $H_G$ (gestión, ya prorrateada por el cargador de cargos) y $H_I$ (investigación + transferencia). No hay $H_E$ (extensión) en la UJI: si en el futuro se incorporan registros de extensión, se sumarán a docencia para el reparto.
 
-Lo primero es asociar a cada expediente una dedicación a diferentes palos. #nota[Vamos a empezar con los asociados (PAA y PAL) porque tienen un tratamiento singular para lo que no es docencia y su regla 23 es más sencilla.]
+*Caso especial: profesor asociado.* Si la categoría de plaza vigente en el año está entre las once asociadas a profesor asociado (códigos #val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("36"), #val("44"), #val("46") en #ruta("entrada", "nóminas", "categorías plazas.xlsx")), la jornada $T$ entera se imputa a sus actividades docentes proporcionalmente a las horas iniciales efectivas. No hay gestión ni investigación.
 
-Para cada expediente se va a construir una serie de diccionarios de actividades (no en el sentido de la analítica, sino en uno pragmático: por ejemplo, 5 créditos en la actividad titulación _tal_). Esos diccionarios servirán para hacer una serie de cálculos que se acaban traduciendo en horas. Y con esas horas vamos a tener porcentajes de distribución de su masa salarial indiferenciada a actividades y centro de la contabilidad analítica.
+*Caso general.* Para el resto del PDI:
 
-Nos vamos a centrar en esos diccionarios que son heterogéneos en origen por sus unidades (créditos, proyectos final de grado dirigidos, tesis dirigidas, proyectos de investigación en los que se participa...). Es información instrumental para la dedicación en horas, pero es importante que esté bien calculada y la vamos a querer visulizar en la app frecuentemente.
++ *Docencia intocable.* $H_"DO"^"def" = H_"DO"$ y $H_"DNO"^"def" = H_"DNO"$. La docencia impartida no se ajusta proporcionalmente: las horas son las que son.
++ *Gestión fija.* $H_G^"def" = H_G$ (ya viene calculada por el cargador de cargos, con su dedicación porcentual u horaria del catálogo).
++ *Pendientes para investigación.* $P_I = T - H_"DO" - H_"DNO" - H_G$.
++ *Investigación final.*
+  - Si $H_I > P_I > 0$: se ESCALA la investigación a $P_I$ (la persona declara más horas de investigación de las que caben). $H_I^"def" = P_I$, $H_"ND" = 0$.
+  - Si $0 < H_I lt.eq P_I$: $H_I^"def" = H_I$, $H_"ND" = P_I - H_I$.
+  - Si $P_I lt.eq 0$ (docencia + gestión exceden $T$): $H_I^"def" = 0$, $H_"ND" = 0$, y se marca la anomalía #val("docencia + gestión exceden la jornada anual").
++ *Reparto de $H_"ND"$ (cuando > 0):*
+  - La docencia es *intocable* y nunca recibe horas adicionales por HND.
+  - Si la persona tiene *sexenio vivo* (#ruta("entrada", "investigación", "sexenios.xlsx"): max(#campo("fecha_fin_sexenio")) hace menos de 6 años respecto al fin del año analizado): $H_"ND"$ se imputa íntegramente a investigación.
+  - Si no tiene sexenio vivo: $H_"ND"$ se reparte entre *gestión* e *investigación* proporcionalmente a sus horas iniciales efectivas ($H_G$ y $H_I$).
+  - Si la persona no tiene horas iniciales ni en gestión ni en investigación, $H_"ND"$ va por defecto a investigación (toda persona del PDI investiga). Si no hay ninguna fila de investigación todavía, se sintetiza una nueva con actividad #etqact("ai") (umbrella) y el centro del grupo principal de la persona (o #val("pendiente") si no se conoce).
 
-El siguiente apartado se dedica a ir construyendo esos diccionarios.
+*Caso especial vicerrectorados.* Los vicerrectores tienen #val("75 %") de dedicación al cargo. El #val("25 %") restante se imputa a investigación automáticamente vía el algoritmo anterior (porque su $H_I$ inicial absorbe ese hueco). El rector, con dedicación #val("100 %") al cargo, no tiene espacio para investigación: $P_I = 0$ y queda con cero horas de investigación.
 
-==== Construcción del diccionario de registro de actividades reales a las que dedica tiempo el PDI o PVI
+*Repercusión a actividades concretas.* Una vez determinadas las horas finales por grupo, se reparten entre las actividades concretas que la persona aportó a ese grupo (con sus distintos #campo("origen_id")) en proporción a las horas iniciales efectivas. Las dos categorías docentes (oficial y no oficial) comparten total: si la docencia oficial era 200 h y la no oficial 50 h, se conservan ambos números íntegros.
 
-Filtro previo. Al cargar #ruta("entrada", "docencia", "pod.xlsx"), las asignatura con 0 créditos impartido y 0 créditos computables se filtran y no se tienen en cuentan.
+La tabla resultante #campo("dedicación_pdi_normalizada") se usa después para repartir el coste de las retribuciones de regla 23 entre actividades y centros de coste: cada euro de masa salarial regla 23 se distribuye con la proporción $#campo("horas_finales") / T$.
 
-==== Dedicación docente en créditos a las distintas titulaciones en las que tiene docencia
+===== Reparto de la masa regla 23 → unidades de coste
 
-===== Información de dedicación a titulaciones segun POD
+La «masa regla 23» es el subconjunto de las nóminas PDI/PVI que satisface a la vez: #campo("aplicación") que NO empieza por #val("12") (no es seguridad social), #campo("proyecto") en #campo("TABLA-PROYECTOS-GENERALES-NÓMINA") y #campo("concepto_retributivo") NO en #val("19"), #val("64"), #val("47") ni #val("48") (esos conceptos generan sus propias UC: cargos, despidos, indemnizaciones por asistencia).
 
-A partir del  #campo("per_id") del expediente hemos de ir a la tabla de #ruta("entrada", "docencia", "pod.xlsx") y averiguar las asignaturas (columna  #campo("asignatura")) en las que tiene docencia. Si la asignatura tiene más de una titulación asociada, para averiguar la titulación efectiva, dejamos de buscar en #ruta("entrada", "docencia", "pod.xlsx") y consideramos #ruta("entrada", "docencia", "pod másteres.xlsx"). Todas las titulaciones vinculadas a esa asignatura _múltiple_ deben ser másteres; en caso contrario, marca un error.
+El módulo #campo("uc_reparto.py") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")) realiza el reparto en dos pasos:
 
-De cada asignatura nos interesa cuántos créditos imparte el profesor (columna `créditos_impartidos`). Anotemos esa información en un diccionario de la forma `{asignatura: créditos impartidos}`. Asegúrate de que la suma de créditos de ese diccionario coincide con el total de créditos impartidos por ese profesor según #ruta("entrada", "docencia", "pod.xlsx"), para detectar posibles errores en la asignación de créditos a asignaturas.
++ Por cada persona se agrega su masa por #campo("elemento_de_coste") (calculado con la misma función `_elemento_coste_pdi` / `_elemento_coste_pvi` que las UC extras). Los registros sin elemento de coste resoluble se descartan con aviso.
++ Para cada (per_id, elemento_de_coste) se distribuye el importe entre los pares (#campo("actividad"), #campo("centro_de_coste")) de la persona con peso #emph[horas_finales] / Σ #emph[horas_finales] (esto es, equivalente al #emph[% de jornada] que devuelve la #app). Cada combinación (per_id, ec, actividad, centro) genera una unidad de coste con origen #val("regla_23") y origen_id codificando los cuatro campos.
 
-Ahora vamos con otro diccionario `créditos_impartidos_por_titulación` que dice cuantos créditos imparte en cada titulación. Ojo que la clave será una tupla (código de titulación, nombre de titulación). Este diccionario es el bueno teniendo en cuenta que la unidad de actividad docente es la titulación, no la asignatura que es un mero vehículo para llegar a la titulación.
+Las personas con masa regla 23 pero sin ninguna fila en #campo("dedicación_pdi_normalizada") (PDI/PVI sin POD, tesis, cargos ni proyectos en el año) reciben su masa íntegra en una UC con #etqact("pendiente") / #etqcen("pendiente") y aparecen reportadas como aviso en la salida de fase 1.
 
-En la #app ha de haber un grupo de páginas que se llame Regla 23 y es ahí donde vamos a visualizar estos diccionarios. Una de ellas contendrá la información docente y este diccionario es parte de lo docente.
-
-===== Información de decicación a titulaciones no oficiales según retribuciones
-
-Vamos a crear otro diccionario similar al anterior: indexado por titulación y con valor de créditos. Su cálculo provendrá #ruta("estimación horas docencia propia.xlsx").
-
-De esa tabla filtramos las filas de cosas con financiación genérica. Es decir, de la columna #campo("proyecto") averiguamos el tipo de proyecto y nos quedamos solo con los de tipo
-#val("07G"),
-#val("EPM"),
-#val("EPDE"),
-#val("EPDEX"),
-#val("EPC"),
-#val("EPMI"),
-#val("CUID"),
-#val("CUEX") u
-#val("OAD").
-
-Ahora, para cada fila hemos de ver la verosimilitud del valor del campo #campo("importe"). Si ese valro es mayor que #val("130"), estimamos el número de horas (#campo("unidad")) en #campo("total") dividido por #val("130") y nos quedamos con el máximo de #campo("unidad") y esa estimación.
-
-Toda esta información va a un diccionario nuevo que se llama `horas_no_oficiales` que tiene como clave un proyecto y como valor unas horas.
-
-En la #app se ha de mostrar también esta información, para tenerla controlada y ver si es verosímil o no. En la página de Regla 23 habrá una sección dedicada a docencia no oficial, con el detalle de cada proyecto.
-
-#nota[Cuidado que podemos duplicar dedicación al tener en los dos diccionarios las mismas horas (en un caso créitos, en el otro horas) para la misma titulación/proyecto.]
-
-
-// Las titulaciones y estudios sin créditos activos en el año analizado se muestran en una hoja aparte, de modo que su código y nombre no contaminen las páginas con la información que sí sirve para la analítica.
-
-// Si la asignatura está en la tabla #ruta("asignaturas grados") (columna  #campo("asignatura")) podemos averiguar su nombre ( #campo("nombre")) y el grado al que pertenece ( #campo("grado")). Para saber la titulación hay que ir a la tabla #ruta("grados") y ver si ese código tiene un valor en la columna  #campo("grado"). Si es así, la columna  #campo("estudio") nos da otro número. ¡Es número conduce, por fin, a la titulación con la columna  #campo("estudio") de la tabla  #campo("estudio"): es el que dice su columna  #campo("nombre").
-
-// Para los másteres hay que hacer lo mismo, pero con la tabla #ruta("asignaturas másteres") en lugar de #ruta("asignaturas grados").
-
-// La #app ha de mostrar la tabla con las asignaturas en las que tiene docencia, los créditos que imparte de cada una, el grado al que pertenece cada asignatura y la titulación a la que pertenece cada grado, sumarizando la información por titulación y el total. Todo eso en un desplegable «Docencia».
-
-// Para tener controlados los casos raros, quiero que haya una opción en «Personal» llamada «Anomalías PDI». Se recogerán las siguientes anomalías:
-
-// - Asignaturas sin titulación conocida (código y nombre), con todos los  #campo("per_id") (y nombre) de profesorado que tengan asignaturas sin titulación conocida, con el número de créditos que imparte en cada una de esas asignaturas. Se ha de mostrar, también el total de créditos anómales sobre el total de créditos impartidos por el profesorado, para tener una idea de la magnitud del problema.
-
-// #nota[Con el doctorado no sabemos qué hacer aún. ¿Asignaturas? Por otra parte, se considera actividad de investigación.]
-
+La salida es #ruta("fase1", "regla23", "uc_reparto_regla_23.parquet") con esquema UC estándar (#campo("id"), #campo("elemento_de_coste"), #campo("centro_de_coste"), #campo("actividad"), #campo("importe"), #campo("origen") = #val("regla_23"), #campo("origen_id"), #campo("origen_porción")) más una columna adicional #campo("per_id") para trazabilidad. Estas UC se incorporan al combinado de fase 1 y bajan a la fase 2 como cualquier otra UC retributiva.
 
 == Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social
 
@@ -4294,6 +4771,140 @@ En la #app, ha de haber un desplegable «Resultados» con las siguientes entrada
 - Elementos de coste: lo mismo, pero con elementos de coste.
 
 Al pinchar en una actividad, se verán las unidades de coste de cada tipo que se le han asignado en una tabla adicional.
+
+
+= Apéndice: tablas de mapeo críticas
+
+Las siguientes tablas se mantienen en código (no en #ruta("data", "configuración.xlsx")) porque son mapeos «estructurales» del modelo que no varían año a año, sino con cambios de norma o de catálogo administrativo. Se documentan aquí en una única pasada para que un implementador pueda reconstruir la lógica sin tener que leer Python.
+
+== Mapeo categoría → XXX del elemento de coste PTGAS
+
+(constante `_PTGAS_CAT_XXX` en #ruta("coana", "fase1", "nóminas", "__init__.py"))
+
+#table(
+    columns: 3,
+    align: (center, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Categoría*], [*XXX*], [*Significado*], table.hline()),
+    val("FC"), val("func"), [Funcionario de carrera],
+    val("FI"), val("func"), [Funcionario interino (mismo subárbol que carrera)],
+    val("E"),  val("ev"),   [Personal eventual],
+    val("LF"), val("labfijo"), [Laboral fijo],
+    val("LT"), val("labtemp"), [Laboral temporal],
+    val("LE"), val("labtemp"), [Laboral eventual (comparte subárbol con LT)],
+    table.hline(),
+)
+
+Excepción: cuando la categoría es #val("FC") y el #campo("per_id") coincide con el valor #campo("_PTGAS_PER_ID_DIR") (gerente actual: #val("65214")), XXX = #val("dir") en lugar de #val("func"). Es un caso singular que se actualiza con cada cambio de gerencia.
+
+== Mapeo categoría → XXX del elemento de coste PDI
+
+(constante `_PDI_CAT_XXX` en #ruta("coana", "fase1", "nóminas", "__init__.py"))
+
+#table(
+    columns: 3,
+    align: (center, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Categorías*], [*XXX*], [*Significado*], table.hline()),
+    [#val("CU")], val("cu"), [Catedrático de universidad],
+    [#val("TU"), #val("TUI")], val("tu"), [Titular de universidad (titular e interino)],
+    [#val("CEU")], val("ceu"), [Catedrático de escuela universitaria],
+    [#val("TEU")], val("teu"), [Titular de escuela universitaria],
+    [#val("AJ"), #val("AJD"), #val("AJDII")], val("aj"), [Ayudante doctor (todas sus variantes)],
+    [#val("PAA"), #val("PAL")], val("as"), [Profesor asociado (asistencial y normal)],
+    [#val("PS")], val("ps"), [Profesor sustituto],
+    [#val("PEME")], val("em"), [Profesor emérito],
+    [#val("PPL"), #val("PPLV")], val("pl"), [Profesor permanente laboral],
+    [#val("PVI")], val("pv"), [Profesor vinculado a la investigación],
+    [#val("PD")], val("pd"), [Profesor distinguido],
+    [#val("PCD")], val("pcd"), [Profesor contratado doctor],
+    [#val("PC")], val("pc"), [Profesor contratado],
+    table.hline(),
+)
+
+== Mapeo concepto_retributivo → YYY del elemento de coste
+
+(constante `_PTGAS_CR_YYY`; aplica también al PDI y al PVI vía las funciones `_elemento_coste_*`)
+
+#table(
+    columns: 5,
+    align: (center, center, center, center, center),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*CR*], [*YYY*], [*CR*], [*YYY*], [*CR*], table.hline()),
+    val("01"), val("sueldo"),    val("32"), val("prod"),     val("62"),
+    val("03"), val("trienios"),  val("34"), val("otfij"),    val("64"),
+    val("04"), val("paga-extra"), val("35"), val("otvars"),  val("67"),
+    val("05"), val("esp"),       val("43"), val("otvars"),   val("68"),
+    val("06"), val("esp"),       val("44"), val("trienios"), val("70"),
+    val("10"), val("dst"),       val("47"), val("otvars"),   val("71"),
+    val("12"), val("dst"),       val("53"), val("otvars"),   val("72"),
+    val("13"), val("otvars"),    val("55"), val("otvars"),   val("75"),
+    val("15"), val("esp"),       val("56"), val("esp"),      val("76"),
+    val("17"), val("otfij"),     val("57"), val("otfij"),    val("77"),
+    val("18"), val("esp"),       val("59"), val("dst"),      val("78"),
+    val("19"), val("cargos"),    val("---"), val("---"),     val("80"),
+    val("20"), val("quin"),      val("---"), val("---"),     val("82"),
+    val("24"), val("dst"),       val("---"), val("---"),     val("83"),
+    val("25"), val("otvars"),    val("---"), val("---"),     val("86"),
+    val("26"), val("sexinv"),    val("---"), val("---"),     val("87"),
+    val("30"), val("cargos"),    val("---"), val("---"),     val("90"),
+    table.hline(),
+)
+
+Tabla resumida; el código fuente contiene la lista completa con todas las correspondencias. Los CR #val("47") (despidos), #val("48") (indemnizaciones por asistencias), #val("19")/#val("64") (cargos) y #val("30")/#val("87") (atrasos) tienen tratamiento especial fuera de la simple traducción a YYY.
+
+== Mapeo sector en RR.HH. → sector canónico del modelo
+
+(constante `_MAPEO_SECTOR` en #ruta("coana", "fase1", "nóminas", "__init__.py"))
+
+#table(
+    columns: 3,
+    align: (center, center, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Sector RR.HH.*], [*Sector canónico*], [*Notas*], table.hline()),
+    val("PDI"), val("PDI"), [Personal docente e investigador.],
+    val("PAS"), val("PTGAS"), [Personal de administración y servicios; el código canónico es PTGAS desde la reforma LOSU.],
+    val("PI"), val("PVI"), [Personal investigador (vinculado a investigación).],
+    table.hline(),
+)
+
+Cualquier otro código se canaliza a #val("Otros") (becarios, jubilados, etc.). La prelación por la que se elige el *sector principal* de una persona con varios expedientes es #val("PTGAS") > #val("PVI") > #val("PDI") > #val("Otros") (constante `_PRELACIÓN_SECTOR`).
+
+== Reglas de tipo de anexo de proyecto → actividad y h/semana
+
+(constante `_REGLAS` en #ruta("coana", "fase1", "regla23", "cargadores", "proyectos.py"))
+
+La concatenación #campo("tipo_anexo") + #campo("subtipo_anexo") + #campo("microtipo_anexo") clasifica cada contrato de SGIT. Las reglas se aplican en orden de primera coincidencia. El símbolo #val("*") es un comodín.
+
+#table(
+    columns: 3,
+    align: (center, left, right),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Patrón*], [*Actividad*], [*h/sem*], table.hline()),
+    val("2PE"), etqact("ai-internacional"), val("10"),
+    val("2PN"), etqact("ai-nacional"), val("10"),
+    val("2PV"), etqact("ai-regional"), val("10"),
+    val("2PA"), etqact("ai-nacional"), val("10"),
+    val("2PI"), etqact("ai-internacional"), val("10"),
+    val("2PU"), etqact("ai-plan-propio"), val("3"),
+    val("1CE"), etqact("cátedras-aulas-empresa"), val("2"),
+    val("1AA"), etqact("transf"), val("1"),
+    val("1**"), etqact("transf"), val("8"),
+    table.hline(),
+)
+
+== Tipos del Real Decreto 1086/1989 (cargos académicos)
+
+(catálogo en #ruta("data", "entrada", "nóminas", "cargos real decreto.xlsx"))
+
+Los #val("8") tipos del RD 1086/1989 con su importe mensual de referencia en el año analizado. El campo #campo("cargo_asimilado") de #ruta("data", "entrada", "nóminas", "cargos.xlsx") asocia cada cargo institucional a uno de estos ocho tipos (o queda nulo si el cargo no está asimilable, en cuyo caso no se le imputan retribuciones por la regla de reparto). La cuantía mensual se usa como peso para repartir la masa CR 19/64 en proyecto general entre los cargos vigentes de cada persona.
+
+#nota[El detalle de los importes y los nombres de los tipos vive en el Excel #ruta("cargos real decreto.xlsx"); aquí no se transcribe para evitar duplicar la fuente de verdad.]
 
 
 = Apéndice: artefactos generados por la fase 1
@@ -4415,6 +5026,34 @@ Convenciones del apéndice:
         "multiexpediente_actividad.parquet",
     ): información de actividad sobreescrita para esas personas (asignada al expediente principal).
 
+/ #ruta(
+        "auxiliares",
+        "categoría_última_pdi_pvi.parquet",
+    ): por #campo("per_id"), categoría RR.HH. más reciente observada en nóminas (PDI/PVI), usada por el cargador de cargos académicos para componer el elemento de coste `pdi-XXX-cargos` o `piyotper-XXX-cargos`. Producido durante el preprocesamiento.
+
+/ #ruta(
+        "auxiliares",
+        "cargos_departamentos.parquet",
+    ): mapeo de cargos a (centro, actividad) cuando el patrón de #ruta("data", "entrada", "nóminas", "cargos.xlsx") incluye placeholders dependientes del departamento del cargo. Producido durante el preprocesamiento de cargos académicos.
+
+/ #ruta(
+        "auxiliares",
+        "nóminas",
+        "costes_sociales_calculados.parquet",
+    ): por persona del PDI funcionario en régimen de clases pasivas, el detalle del cálculo de su coste social simulado (base, contingencias comunes, MEI, formación profesional, cuotas de solidaridad por tramos y total). Producido por #campo("_generar_costes_sociales_calculados") con las constantes de SS de #ruta("data", "configuración.xlsx"). Es la entrada que se suma al SS cotizado en el reparto por persona.
+
+/ #ruta(
+        "auxiliares",
+        "nóminas",
+        "atrasos_no_vinculados.parquet",
+    ): personas cuyas nóminas del año son exclusivamente atrasos (CR 30/87). Una fila por persona con #campo("per_id"), #campo("sectores"), #campo("expedientes"), #campo("n_meses"), #campo("n_líneas") e #campo("importe_total"). Sus líneas se filtran al inicio del preprocesamiento y NO entran a UC retributivas ni a la masa regla 23. Producido por #campo("_filtrar_atrasos_no_vinculados"). En 2025 son #val("≈ 110") personas con un total #val("≈ 8 800 €").
+
+/ #ruta(
+        "auxiliares",
+        "nóminas",
+        "nominas_aplicadas.parquet",
+    ): nóminas del año tras los filtros y descuentos del preprocesamiento: se han quitado las líneas de personas con solo atrasos, y a las líneas CR 68 (paga adicional CE PDI) en proyecto general se les ha restado la extra estimada del cargo (para evitar duplicidad con #ruta("cargos_uc.parquet")). Es el insumo que usan #ruta("regla23", "uc_reparto_regla_23.parquet") y el visor *Personal · PDI/PVI* para que las masas reflejen exactamente lo que termina en UC.
+
 == Nóminas: UC retributivas
 
 / #ruta(
@@ -4515,6 +5154,27 @@ Convenciones del apéndice:
         "regla_23_múltiples_con_grado.parquet",
     ): asignaturas con varias titulaciones donde alguna no es máster (incumple la regla del catálogo de pod de másteres). Solo se genera si hay anomalías.
 
+/ #ruta(
+        "auxiliares",
+        "nóminas",
+        "regla_23_múltiples_oficiales.parquet",
+    ): asignaturas con varias titulaciones oficiales (todas grados o todas másteres) sin información para desambiguar. Solo se genera si hay anomalías.
+
+/ #ruta(
+        "regla23",
+        "dedicación_pdi.parquet",
+    ): tabla maestra de la nueva regla 23: una fila por (#campo("per_id"), #campo("actividad"), #campo("centro_de_coste"), #campo("origen"), #campo("origen_id")) con #campo("horas"), #campo("factor"), #campo("método"), #campo("grupo") (docencia_oficial / docencia_no_oficial / gestión / investigación / extensión), #campo("detalle") y #campo("anomalía"). Producido por los cinco cargadores (POD, tesis, grupos, proyectos, cargos). Origen: §«Regla 23 — invariante #campo("dedicación_pdi")».
+
+/ #ruta(
+        "regla23",
+        "dedicación_pdi_normalizada.parquet",
+    ): tabla anterior tras aplicar las fases 5-7 de la regla 23. Misma granularidad más #campo("horas_iniciales") (= #campo("horas") × #campo("factor")), #campo("horas_finales") (normalizadas a la jornada anual del PDI), #campo("es_asociado") y #campo("sexenio_vivo"). Producido por #campo("coana.fase1.regla23.reparto"). Para los PDI cuyas horas iniciales no llegan a #campo("jornada_anual_pdi") y carecen de fila de investigación, se sintetiza una fila con #etqact("ai") y centro #etqcen("pendiente") (o el centro del grupo de investigación principal) para absorber la HND repercutida. Origen: §«Fase de reparto (fases 5-7 de la regla 23)».
+
+/ #ruta(
+        "regla23",
+        "uc_reparto_regla_23.parquet",
+    ): unidades de coste generadas al repartir la masa regla 23 por persona. Una fila por (#campo("per_id"), #campo("elemento_de_coste"), #campo("actividad"), #campo("centro_de_coste")) con #campo("importe"), #campo("origen") = #val("regla_23"), #campo("origen_id") (con per_id, ec, act y cc) y #campo("origen_porción") (peso del par actividad/centro sobre el total de horas finales de la persona). Origen: §«Reparto de la masa regla 23 → unidades de coste».
+
 == Cargos académicos
 
 / #ruta(
@@ -4535,13 +5195,13 @@ Convenciones del apéndice:
         "auxiliares",
         "nóminas",
         "persona_uc.parquet",
-    ): consolidado por persona de todas las UC retributivas (de nómina y de presupuesto vinculadas a un expediente suyo) con #campo("actividad") y #campo("centro_de_coste"). Es el insumo del reparto de SS. Producido a partir de los parquets de UC de nóminas y de #ruta("uc presupuesto.parquet") cuando cita un expediente.
+    ): consolidado por persona de todas las UC retributivas (de nómina y de presupuesto vinculadas a un expediente suyo) con #campo("actividad") y #campo("centro_de_coste"). Es el insumo del reparto de SS. Incluye también las UC del reparto regla 23 (#ruta("fase1", "regla23", "uc_reparto_regla_23.parquet")), de modo que el peso de cada par (actividad, centro_de_coste) en el cálculo del porcentaje refleja el coste retributivo total de la persona, no solo el de los proyectos no generales.
 
 / #ruta(
         "auxiliares",
         "nóminas",
         "persona_ss.parquet",
-    ): UC de seguridad social, una por persona y par (#campo("actividad"), #campo("centro_de_coste")). Producido a partir del anterior, repartiendo proporcionalmente los costes de SS. Origen: §«Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social».
+    ): UC de seguridad social, una por persona y par (#campo("actividad"), #campo("centro_de_coste")). Producido a partir del anterior, repartiendo proporcionalmente los costes de SS. La inclusión de la masa regla 23 en la base de cálculo asegura que la SS de los PDI/PVI cuyas retribuciones van íntegramente por proyecto general también se reparta entre las actividades y centros donde se devenga (antes quedaba huérfana porque no había otras UC en las que apoyar el reparto). Origen: §«Tratamiento de las personas (mono o multiexpediente) para creación de unidades de coste de seguridad social».
 
 == Resultados consolidados
 
@@ -4550,3 +5210,182 @@ Convenciones del apéndice:
     ): fichero único Excel con todas las UC de la fase 1 (presupuesto, suministros, amortizaciones, nóminas en todas sus variantes, cargos, SS). Es la salida principal que consume la fase 2.
 
 / #ruta("actividades.tree"), #ruta("centros de coste.tree"), #ruta("elementos de coste.tree"): árboles finales tras aplicar las reglas que añaden nodos dinámicos (cátedras por proyecto, departamentos en categorías PDI/PVI, etc.). Se persisten para que la fase 2 los consuma con la misma estructura que la fase 1.
+
+== Esquemas tipados de los parquets
+
+Cada parquet listado arriba se persiste con un esquema determinado. Esta sección lista los esquemas de los parquets relevantes (las UC consumidas por la fase 2 y los artefactos intermedios más usados por la #app).
+
+=== Esquema común de las UC
+
+Todas las UC (cualquiera que sea su origen) cumplen el esquema mínimo:
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Columna*], [*Tipo*], [*Significado*], table.hline()),
+    [#campo("id")], [String], [Identificador único de la UC, con prefijo que indica el origen (#val("P-…"), #val("A-…"), #val("S-…"), #val("T-…"), #val("D-…"), #val("V-…"), #val("CARGO-…"), #val("R23-…"), #val("SS-…")).],
+    [#campo("elemento_de_coste")], [String], [Etiqueta del nodo del árbol de elementos de coste.],
+    [#campo("centro_de_coste")], [String], [Etiqueta del nodo del árbol de centros de coste.],
+    [#campo("actividad")], [String], [Etiqueta del nodo del árbol de actividades.],
+    [#campo("importe")], [Float64], [Importe en euros (positivo o negativo).],
+    [#campo("origen")], [String], [Categoría de procedencia (#val("presupuesto"), #val("amortización"), #val("nómina"), #val("regla_23"), etc.).],
+    [#campo("origen_id")], [String], [Identificador del registro originario (apunte, expediente, contrato, persona…).],
+    [#campo("origen_porción")], [Float64], [Fracción del registro originario que corresponde a esta UC (1.0 cuando la UC absorbe todo el registro).],
+    table.hline(),
+)
+
+Cada origen añade columnas propias documentadas a continuación.
+
+=== Esquemas específicos
+
+==== #ruta("uc presupuesto.parquet")
+
+Columnas adicionales a las comunes:
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Columna*], [*Tipo*], [*Significado*], table.hline()),
+    [#campo("regla_actividad")], [String], [Nombre de la regla que asignó la actividad.],
+    [#campo("regla_cc")], [String], [Nombre de la regla que asignó el centro.],
+    [#campo("regla_ec")], [String], [Nombre de la regla que asignó el elemento de coste.],
+    table.hline(),
+)
+
+==== #ruta("auxiliares", "nóminas", "uc_ptgas.parquet"), #ruta("uc_pdi.parquet"), #ruta("uc_pvi.parquet")
+
+Columna adicional #campo("expediente") (Int64) que enlaza con #ruta("data", "entrada", "nóminas", "expedientes recursos humanos.xlsx").
+
+==== #ruta("auxiliares", "nóminas", "uc_despidos.parquet"), #ruta("uc_indemnizaciones_asistencias.parquet"), #ruta("uc_cargos.parquet")
+
+Mismas columnas comunes más:
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Columna*], [*Tipo*], [*Significado*], table.hline()),
+    [#campo("expediente")], [Int64], [Expediente origen.],
+    [#campo("per_id")], [Int64], [Persona (clave de #ruta("data", "entrada", "nóminas", "personas.xlsx")).],
+    [#campo("proyecto")], [String], [Proyecto presupuestario al que se imputó.],
+    [#campo("tipo_proyecto")], [String], [Tipo del proyecto (mismo dominio que en presupuesto).],
+    table.hline(),
+)
+
+==== #ruta("auxiliares", "nóminas", "cargos_uc.parquet")
+
+Tabla maestra del reparto de cargos académicos. Una fila por (#campo("per_id"), #campo("cargo")) remunerado:
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Columna*], [*Tipo*], [*Significado*], table.hline()),
+    [#campo("id")], [String], [Identificador #val("CARGO-NNNN").],
+    [#campo("per_id")], [Int64], [Persona.],
+    [#campo("cargo")], [String], [Código del cargo (#ruta("cargos.xlsx")).],
+    [#campo("nombre_cargo")], [String], [Nombre legible.],
+    [#campo("cargo_asimilado")], [Int64], [Tipo del RD 1086/1989 (1-8).],
+    [#campo("importe_rd")], [Float64], [Cuantía mensual del RD asimilado (€/mes).],
+    [#campo("fecha_inicio_cobra"), #campo("fecha_fin_cobra")], [Date], [Periodo de cobro del cargo.],
+    [#campo("días")], [Int64], [Días del periodo dentro del año analizado.],
+    [#campo("peso")], [Float64], [Peso del cargo en el reparto: días × importe_rd.],
+    [#campo("importe_uc_ord")], [Float64], [Parte ordinaria imputada al cargo.],
+    [#campo("extra_estimada")], [Float64], [Parte extra estimada (2 pagas × importe_rd × días / 365).],
+    [#campo("importe_uc_extra")], [Float64], [Parte extra realmente aplicada (acotada por CR 68 disponible).],
+    [#campo("importe_uc")], [Float64], [#campo("importe_uc_ord") + #campo("importe_uc_extra").],
+    [#campo("extra_no_aplicada")], [Float64], [Diferencia entre la extra estimada y la aplicada (anomalía).],
+    [#campo("elemento_de_coste"), #campo("centro_de_coste"), #campo("actividad")], [String], [Resolución del patrón de #ruta("cargos.xlsx").],
+    [#campo("_anomalía_patrón")], [String], [Texto explicativo cuando el patrón no se resuelve.],
+    [#campo("categoría_última")], [String], [Categoría RR.HH. usada para el elemento de coste.],
+    table.hline(),
+)
+
+==== #ruta("auxiliares", "nóminas", "persona_uc.parquet")
+
+Consolidado de UC retributivas por persona:
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Columna*], [*Tipo*], [*Significado*], table.hline()),
+    [esquema común], [—], [Las 8 columnas comunes de UC.],
+    [#campo("expediente")], [Int64], [Expediente origen (nullable para las UC sintéticas de regla 23 y SS).],
+    [#campo("per_id")], [Int64], [Persona.],
+    [#campo("proyecto"), #campo("tipo_proyecto")], [String], [Cuando proceda.],
+    [#campo("tipo")], [String], [#val("retributiva") o #val("coste social").],
+    table.hline(),
+)
+
+==== #ruta("auxiliares", "nóminas", "persona_ss.parquet")
+
+UC de seguridad social: una fila por (#campo("per_id"), #campo("actividad"), #campo("centro_de_coste")):
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Columna*], [*Tipo*], [*Significado*], table.hline()),
+    [#campo("per_id")], [Int64], [Persona.],
+    [#campo("actividad")], [String], [Actividad.],
+    [#campo("centro_de_coste")], [String], [Centro de coste.],
+    [#campo("importe_uc")], [Float64], [Suma de UC retributivas de esa persona en ese par (sirve de denominador).],
+    [#campo("ss_total")], [Float64], [SS total cotizada + calculada de la persona (mismo valor en todas sus filas).],
+    [#campo("pct")], [Float64], [Porcentaje del par sobre el total de la persona (0-100).],
+    [#campo("ss_proporcional")], [Float64], [SS imputada a ese par. La suma sobre la persona = #campo("ss_total").],
+    table.hline(),
+)
+
+==== #ruta("regla23", "dedicación_pdi.parquet")
+
+Tabla maestra de la regla 23 antes del reparto:
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Columna*], [*Tipo*], [*Significado*], table.hline()),
+    [#campo("per_id")], [Int64], [Persona.],
+    [#campo("actividad")], [String], [Actividad (o #val("pendiente")).],
+    [#campo("centro_de_coste")], [String], [Centro de coste (o #val("pendiente")).],
+    [#campo("horas")], [Float64], [Horas registradas sin factor ×2,5.],
+    [#campo("método")], [String], [#val("md") medición directa · #val("ep") estimación porcentual · #val("et") estimación por tipología · #val("pr") peso relativo.],
+    [#campo("factor")], [Float64], [#val("2.5") para impartición de docencia, #val("1.0") para el resto.],
+    [#campo("grupo")], [String], [#val("docencia_oficial") · #val("docencia_no_oficial") · #val("gestión") · #val("investigación") · #val("extensión").],
+    [#campo("origen")], [String], [#val("POD") · #val("tesis") · #val("cargo") · #val("proyecto") · #val("grupo").],
+    [#campo("origen_id")], [String], [Identificador del registro origen.],
+    [#campo("detalle")], [String], [Texto explicativo libre.],
+    [#campo("anomalía")], [String], [Texto cuando hay dato pendiente o nulo (nullable).],
+    table.hline(),
+)
+
+==== #ruta("regla23", "dedicación_pdi_normalizada.parquet")
+
+Igual que el anterior, sin #campo("horas"), #campo("método") ni #campo("factor"), y añadiendo:
+
+#table(
+    columns: (auto, auto, 1fr),
+    align: (left, left, left),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Columna*], [*Tipo*], [*Significado*], table.hline()),
+    [#campo("horas_iniciales")], [Float64], [#campo("horas") × #campo("factor") en la tabla origen.],
+    [#campo("horas_finales")], [Float64], [Horas tras las fases 5-7 de la regla 23. Suman #campo("jornada_anual_pdi") por persona (salvo casos anómalos).],
+    [#campo("es_asociado")], [Boolean], [La persona tiene categoría de plaza de profesor asociado en el año.],
+    [#campo("sexenio_vivo")], [Boolean], [La persona tiene un sexenio finalizado en los últimos #campo("sexenio_vivo_años") años.],
+    table.hline(),
+)
+
+==== #ruta("regla23", "uc_reparto_regla_23.parquet")
+
+UC generadas por reparto de la masa regla 23. Esquema común de UC más #campo("per_id") (Int64) para trazabilidad. #campo("origen") = #val("regla_23"); #campo("origen_id") codifica (per_id, ec, act, cc); #campo("origen_porción") es el peso del par sobre el total de horas finales de la persona.

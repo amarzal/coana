@@ -40,6 +40,31 @@ from coana.fase1.regla23.cargadores.grupos import cargar_grupos
 from coana.fase1.regla23.cargadores.pod import cargar_pod
 from coana.fase1.regla23.cargadores.proyectos import cargar_proyectos
 from coana.fase1.regla23.cargadores.tesis import cargar_tesis
+from coana.fase1.regla23.reparto import aplicar_reparto_regla_23
+from coana.fase1.regla23.uc_reparto import generar_uc_reparto_regla_23
+
+
+def _per_ids_vinculados(ruta_base: Path, año: int) -> set[int] | None:
+    """Personas con nómina «vinculada» en el año (tienen al menos una
+    línea con CR distinto de 30/87). Devuelve `None` si los datos
+    necesarios no están disponibles (no filtra entonces).
+    """
+    from coana.fase1.nóminas import per_ids_solo_atrasos
+    from coana.util import read_excel
+
+    nom_path = ruta_base / "entrada" / "nóminas" / "nóminas y seguridad social.xlsx"
+    exp_path = ruta_base / "entrada" / "nóminas" / "expedientes recursos humanos.xlsx"
+    if not (nom_path.exists() and exp_path.exists()):
+        return None
+    nom = read_excel(nom_path).filter(pl.col("fecha").dt.year() == año)
+    exp = read_excel(exp_path)
+    if nom.is_empty() or exp.is_empty():
+        return None
+    no_vinc = per_ids_solo_atrasos(nom, exp)
+    # Per_ids con al menos una línea en nómina del año.
+    j = nom.join(exp.select("expediente", "per_id"), on="expediente", how="inner")
+    todos = set(j["per_id"].to_list())
+    return todos - no_vinc
 
 log = logging.getLogger(__name__)
 
@@ -106,6 +131,21 @@ def generar_dedicación_pdi(
 
     dedicación = pl.concat(fuentes, how="vertical_relaxed").select(list(SCHEMA.keys()))
 
+    # Filtro: descartar personas sin nómina «vinculada» en el año
+    # analizado (sin nómina alguna o solo con CR 30/87). Su dedicación
+    # — si existiera vía POD, tesis o proyectos — no se imputa, porque
+    # no han generado coste retributivo en el año.
+    pids_validos = _per_ids_vinculados(ruta_base, año)
+    if pids_validos is not None:
+        n_antes = dedicación["per_id"].n_unique()
+        dedicación = dedicación.filter(pl.col("per_id").is_in(list(pids_validos)))
+        n_despues = dedicación["per_id"].n_unique()
+        if n_antes != n_despues:
+            log.info(
+                "Filtradas %s personas sin nómina vinculada (atrasos puros o sin nómina)",
+                f"{n_antes - n_despues:,}",
+            )
+
     dir_salida = ruta_base / "fase1" / "regla23"
     dir_salida.mkdir(parents=True, exist_ok=True)
     dedicación.write_parquet(dir_salida / "dedicación_pdi.parquet")
@@ -114,6 +154,22 @@ def generar_dedicación_pdi(
         f"{len(dedicación):,}",
         dedicación["horas"].sum(),
         dedicación["per_id"].n_unique(),
+    )
+
+    log.info("Aplicando reparto (fases 5-7 de la regla 23)…")
+    normalizada = aplicar_reparto_regla_23(ruta_base, año=año)
+    log.info(
+        "dedicación_pdi_normalizada.parquet: %s filas, %.1f h finales",
+        f"{len(normalizada):,}",
+        normalizada["horas_finales"].sum(),
+    )
+
+    log.info("Generando UC por reparto de la masa regla 23…")
+    uc_reparto = generar_uc_reparto_regla_23(ruta_base, año=año)
+    log.info(
+        "uc_reparto_regla_23.parquet: %s UC, %.2f €",
+        f"{len(uc_reparto):,}",
+        float(uc_reparto["importe"].sum()) if not uc_reparto.is_empty() else 0.0,
     )
 
     return dedicación

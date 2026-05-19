@@ -129,3 +129,13 @@ def costes_sociales_calculados(
 ) -> ListResponse:
     """Detalle por persona del coste social calculado (clases pasivas)."""
     return svc.listar_costes_sociales_calculados(p)
+
+
+@router.get("/atrasos-no-vinculados", response_model=ListResponse)
+def atrasos_no_vinculados(
+    p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Personas que solo cobraron atrasos (CR 30/87) en el año
+    analizado y, por tanto, ya no están vinculadas. Sus importes
+    quedan fuera del reparto de costes."""
+    return svc.listar_atrasos_no_vinculados(p)

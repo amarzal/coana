@@ -20,6 +20,12 @@ from pathlib import Path
 import polars as pl
 
 from coana.util import read_excel
+from coana.util.configuración import cfg_float
+
+# Factor ×2,5 de la regla 23 sobre las horas de impartición de
+# docencia. Origen: data/configuración.xlsx
+# (clave `factor_impartición_docente`).
+_FACTOR_DOCENTE: float = cfg_float("factor_impartición_docente")
 
 
 def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
@@ -119,7 +125,7 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
         pl.col("centro").fill_null("pendiente").alias("centro_de_coste"),
         pl.col("horas").cast(pl.Float64),
         pl.lit("md").alias("método"),
-        pl.lit(2.5).alias("factor"),
+        pl.lit(_FACTOR_DOCENTE).alias("factor"),
         pl.lit("docencia_oficial").alias("grupo"),
         pl.lit("POD").alias("origen"),
         pl.concat_str(

@@ -215,6 +215,8 @@
     (3, "file", "persona_uc.parquet"),
     (3, "file", "persona_ss.parquet"),
     (3, "file", "multiexpediente.parquet"),
+    (3, "file", "costes_sociales_calculados.parquet"),
+    (3, "file", "cargos_uc.parquet"),
     (2, "dir", "amortizaciones/"),
     (3, "file", "inventario_enriquecido.parquet"),
     (3, "file", "filtrados_*.parquet"),
@@ -225,6 +227,10 @@
     (2, "file", "sin_clasificar_presupuesto.parquet"),
     (2, "file", "conteo_*_presupuesto.parquet"),
     (2, "file", "resumen.json"),
+    (1, "dir", "regla23/"),
+    (2, "file", "dedicación_pdi.parquet"),
+    (2, "file", "dedicación_pdi_normalizada.parquet"),
+    (2, "file", "uc_reparto_regla_23.parquet"),
 )
 
 // ----- Etapa: Presupuesto -----------------------------------------------------
@@ -390,6 +396,41 @@
     (2, "file", "categoría_última_pdi_pvi.parquet"),
 )
 
+// ----- Etapa: Regla 23 (dedicación PDI/PVI) ----------------------------------
+#let _entradas-regla23 = (
+    (0, "dir", "entradas/"),
+    (1, "dir", "docencia/"),
+    (2, "key", "pod.xlsx"),
+    (2, "file", "pod másteres.xlsx"),
+    (2, "file", "asignaturas grados.xlsx"),
+    (2, "file", "asignaturas másteres.xlsx"),
+    (2, "file", "titulaciones actividad centro.xlsx"),
+    (2, "file", "doctorados actividad centro.xlsx"),
+    (1, "dir", "investigación/"),
+    (2, "file", "tesis.xlsx"),
+    (2, "file", "investigadores en grupos.xlsx"),
+    (2, "file", "grupos a institutos.xlsx"),
+    (2, "file", "investigadores en contratos.xlsx"),
+    (2, "file", "proyectos en contratos investigación.xlsx"),
+    (2, "file", "anexos proyectos.xlsx"),
+    (2, "file", "contratos a departamentos.xlsx"),
+    (2, "file", "sexenios.xlsx"),
+    (1, "dir", "nóminas/"),
+    (2, "file", "cargos.xlsx"),
+    (2, "file", "personas cargos.xlsx"),
+    (2, "file", "nóminas y seguridad social.xlsx"),
+    (2, "file", "expedientes recursos humanos.xlsx"),
+    (0, "dir", "data/"),
+    (1, "file", "configuración.xlsx"),
+)
+
+#let _salida-regla23 = (
+    (0, "dir", "fase1/regla23/"),
+    (1, "file", "dedicación_pdi.parquet"),
+    (1, "file", "dedicación_pdi_normalizada.parquet"),
+    (1, "file", "uc_reparto_regla_23.parquet"),
+)
+
 // ----- Etapa: Seguridad Social ------------------------------------------------
 #let _entradas-ss = (
     (0, "dir", "entradas/"),
@@ -401,7 +442,11 @@
     (1, "file", "uc_pvi.parquet"),
     (1, "file", "uc_pdi.parquet"),
     (1, "file", "uc_despidos.parquet"),
+    (1, "file", "uc_indemnizaciones_asistencias.parquet"),
     (1, "file", "uc_cargos.parquet"),
+    (1, "file", "costes_sociales_calculados.parquet"),
+    (0, "dir", "fase1/regla23/"),
+    (1, "file", "uc_reparto_regla_23.parquet"),
 )
 
 #let _salida-ss = (
@@ -446,6 +491,12 @@
 #let etapa-cargos(width: auto, height: auto) = _flujo(
     _entradas-cargos, _salida-cargos,
     titulo-caja: "Cargos académicos",
+    width: width, height: height,
+)
+
+#let etapa-regla23(width: auto, height: auto) = _flujo(
+    _entradas-regla23, _salida-regla23,
+    titulo-caja: "Regla 23 (dedicación PDI)",
     width: width, height: height,
 )
 

@@ -42,6 +42,7 @@ PATH_SS = DIR_NOMINAS / "persona_ss.parquet"
 PATH_ANOM_PDI = DIR_NOMINAS / "regla_23_asignaturas_sin_titulación.parquet"
 PATH_COSTES_SOC_CALC = DIR_NOMINAS / "costes_sociales_calculados.parquet"
 PATH_NOMINAS_RAW = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+PATH_ATRASOS_NO_VINCULADOS = DIR_NOMINAS / "atrasos_no_vinculados.parquet"
 
 _SECTOR_PATHS = {
     "PDI": PATH_PDI,
@@ -1305,6 +1306,42 @@ def listar_costes_sociales_calculados(params: QueryParams) -> ListResponse:
     df, total, stats = apply_query(df, params, search_columns=["persona"])
     return ListResponse(
         columns=_COLS_COSTES_SOC_CALC,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )
+
+
+# ----------------------------------------------------------------------
+# Atrasos a personal no vinculado
+# ----------------------------------------------------------------------
+
+_COLS_ATRASOS_NO_VINC: list[ColumnSpec] = [
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="sectores", label="Sectores", format="text"),
+    ColumnSpec(name="expedientes", label="Expedientes", format="text"),
+    ColumnSpec(name="n_meses", label="Nº meses", format="int"),
+    ColumnSpec(name="n_líneas", label="Nº líneas", format="int"),
+    ColumnSpec(name="importe_total", label="Importe", format="euro"),
+]
+
+
+def listar_atrasos_no_vinculados(params: QueryParams) -> ListResponse:
+    """Personas que cobraron solo atrasos (CR 30/87) en el año analizado.
+
+    Su nómina queda fuera del cómputo de costes (no entra a UC retributivas
+    ni a la masa regla 23), pero se persiste su detalle para reporte.
+    """
+    df = _safe_read(PATH_ATRASOS_NO_VINCULADOS)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_ATRASOS_NO_VINC, rows=[], total=0)
+    df = _enriquecer_per_id(df)
+    nombres = [c.name for c in _COLS_ATRASOS_NO_VINC if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(df, params, search_columns=["persona", "sectores"])
+    return ListResponse(
+        columns=_COLS_ATRASOS_NO_VINC,
         rows=_serialize(df.to_dicts()),
         total=total,
         column_stats=stats,

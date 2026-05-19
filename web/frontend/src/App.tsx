@@ -1,4 +1,4 @@
-import { BrowserRouter, Outlet, Route, Routes } from "react-router";
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MainNav } from "@/components/MainNav";
 import { EjecutarFase1 } from "@/components/EjecutarFase1";
@@ -46,11 +46,12 @@ import {
     PersonalPersona,
     PersonalAnomaliasPdi,
     PersonalCostesSocialesCalculados,
+    PersonalAtrasosNoVinculados,
 } from "@/routes/personal";
+import { PersonaPdi, PersonaPvi } from "@/routes/personal/PersonaPdiPvi";
 import {
     Regla23Resumen,
     Regla23DedicacionDocente,
-    Regla23DedicacionPdi,
     Regla23DocenciaNoOficial,
     Regla23EstructuraEstudios,
     Regla23Despidos,
@@ -139,18 +140,21 @@ export function App() {
                         <Route path="amortizaciones/uc" element={<AmortUc />} />
                         <Route path="amortizaciones/sin-centro" element={<AmortSinCentro />} />
                         <Route path="personal/resumen" element={<PersonalResumen />} />
-                        <Route path="personal/pdi" element={<ExpedientesPDI />} />
+                        <Route path="personal/pdi" element={<PersonaPdi />} />
+                        <Route path="personal/pvi" element={<PersonaPvi />} />
+                        <Route path="personal/pdi-expedientes" element={<ExpedientesPDI />} />
+                        <Route path="personal/pvi-expedientes" element={<ExpedientesPVI />} />
                         <Route path="personal/ptgas" element={<ExpedientesPTGAS />} />
-                        <Route path="personal/pvi" element={<ExpedientesPVI />} />
                         <Route path="personal/otros" element={<ExpedientesOtros />} />
                         <Route path="personal/multiexpediente" element={<PersonalMultiexpediente />} />
                         <Route path="personal/persona" element={<PersonalPersona />} />
-                        <Route path="personal/costes-sociales-calculados" element={<PersonalCostesSocialesCalculados />} />
+                        <Route path="personal/atrasos-no-vinculados" element={<PersonalAtrasosNoVinculados />} />
+                    <Route path="personal/costes-sociales-calculados" element={<PersonalCostesSocialesCalculados />} />
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
                         <Route path="personal/despidos" element={<Regla23Despidos />} />
                         <Route path="personal/indemnizaciones" element={<Regla23IndemnizacionesAsistencias />} />
                         <Route path="regla23/resumen" element={<Regla23Resumen />} />
-                        <Route path="regla23/dedicacion-pdi" element={<Regla23DedicacionPdi />} />
+                        <Route path="regla23/dedicacion-pdi" element={<Navigate to="/personal/pdi" replace />} />
                         <Route path="regla23/dedicacion" element={<Regla23DedicacionDocente />} />
                         <Route path="regla23/no-oficial" element={<Regla23DocenciaNoOficial />} />
                         <Route path="regla23/estructura" element={<Regla23EstructuraEstudios />} />

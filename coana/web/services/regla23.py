@@ -30,6 +30,8 @@ PATH_PERSONAS = DIR_ENTRADA / "nóminas" / "personas.xlsx"
 
 # Parquet nuevo: dedicación PDI (regla 23 reescrita)
 PATH_DEDICACIÓN_PDI = DIR_REGLA23 / "dedicación_pdi.parquet"
+PATH_DEDICACIÓN_PDI_NORM = DIR_REGLA23 / "dedicación_pdi_normalizada.parquet"
+PATH_UC_REPARTO_R23 = DIR_REGLA23 / "uc_reparto_regla_23.parquet"
 
 # Parquets de la regla 23 (legacy: reparto de masa indiferenciada PDI/PVI)
 PATH_DED_DOCENTE = DIR_NOMINAS / "regla_23_dedicación_docente.parquet"
@@ -408,12 +410,62 @@ def listar_multiples_con_grado(p: QueryParams) -> ListResponse:
 _COLS_DED_PERSONAS: list[ColumnSpec] = [
     ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
-    ColumnSpec(name="horas_total", label="Horas registradas", format="float"),
-    ColumnSpec(name="horas_docencia_oficial", label="Docencia oficial", format="float"),
-    ColumnSpec(name="horas_investigación", label="Investigación", format="float"),
+    ColumnSpec(name="categoría", label="Categoría", format="text"),
+    ColumnSpec(name="régimen_ss", label="Régimen", format="text"),
+    ColumnSpec(name="sexenio_vivo", label="Sexenio vivo", format="text"),
+    ColumnSpec(name="pct_docencia", label="% docencia", format="float"),
+    ColumnSpec(name="pct_gestión", label="% gestión", format="float"),
+    ColumnSpec(name="pct_investigación", label="% investigación", format="float"),
+    ColumnSpec(name="pct_jornada", label="% jornada cubierta", format="float"),
     ColumnSpec(name="n_actividades", label="Nº actividades", format="int"),
     ColumnSpec(name="n_anomalías", label="Con anomalía", format="int"),
 ]
+
+
+def _per_ids_clases_pasivas() -> set[int]:
+    """Devuelve el conjunto de per_id en régimen de clases pasivas.
+
+    Es el conjunto sobre el que `_generar_costes_sociales_calculados`
+    ha emitido un coste social calculado (PDI funcionarios CU/TU/TEU/CEU
+    sin aplicación 12* en su nómina).
+    """
+    p = DIR_NOMINAS / "costes_sociales_calculados.parquet"
+    df = _safe_read(p)
+    if df is None or df.is_empty() or "per_id" not in df.columns:
+        return set()
+    return set(df["per_id"].to_list())
+
+
+@lru_cache(maxsize=2)
+def _categorias_por_persona_cached(
+    nom_path_str: str, exp_path_str: str, nom_mtime: int, exp_mtime: int, año: int,
+) -> pl.DataFrame:
+    """Mapa per_id → categorías (RR.HH.) observadas en nómina ese año."""
+    del nom_mtime, exp_mtime
+    nom_p = Path(nom_path_str)
+    exp_p = Path(exp_path_str)
+    if not (nom_p.exists() and exp_p.exists()):
+        return pl.DataFrame(schema={"per_id": pl.Int64, "categoría": pl.Utf8})
+    nom = read_excel(nom_p).filter(pl.col("fecha").dt.year() == año)
+    exp = read_excel(exp_p)
+    j = nom.join(exp.select("expediente", "per_id"), on="expediente", how="inner")
+    j = j.with_columns(pl.col("categoría").cast(pl.Utf8))
+    return (
+        j.group_by("per_id")
+        .agg(
+            pl.col("categoría")
+            .drop_nulls().unique().sort()
+            .str.join("; ").alias("categoría"),
+        )
+    )
+
+
+def _categorias_por_persona(año: int = 2025) -> pl.DataFrame:
+    nom_p = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+    exp_p = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+    return _categorias_por_persona_cached(
+        str(nom_p), str(exp_p), _mtime_ns(nom_p), _mtime_ns(exp_p), año,
+    )
 
 _COLS_DED_DETALLE: list[ColumnSpec] = [
     ColumnSpec(name="grupo", label="Grupo", format="text"),
@@ -421,6 +473,8 @@ _COLS_DED_DETALLE: list[ColumnSpec] = [
     ColumnSpec(name="centro_de_coste", label="Centro de coste", format="text"),
     ColumnSpec(name="horas", label="Horas", format="float"),
     ColumnSpec(name="factor", label="Factor", format="float"),
+    ColumnSpec(name="horas_finales", label="Horas finales", format="float"),
+    ColumnSpec(name="pct_jornada", label="% jornada", format="float"),
     ColumnSpec(name="método", label="Método", format="text"),
     ColumnSpec(name="origen", label="Origen", format="text"),
     ColumnSpec(name="origen_id", label="Origen id", format="text"),
@@ -430,30 +484,75 @@ _COLS_DED_DETALLE: list[ColumnSpec] = [
 ]
 
 
-def _resumen_personas_dedicación(df: pl.DataFrame) -> pl.DataFrame:
-    """Agrega dedicación por persona para la vista master."""
-    return (
-        df.group_by("per_id").agg(
-            pl.col("horas").sum().alias("horas_total"),
-            pl.col("horas")
-              .filter(pl.col("grupo") == "docencia_oficial")
-              .sum().alias("horas_docencia_oficial"),
-            pl.col("horas")
-              .filter(pl.col("grupo") == "investigación")
-              .sum().alias("horas_investigación"),
+def _resumen_personas_dedicación(
+    df: pl.DataFrame, norm: pl.DataFrame | None,
+) -> pl.DataFrame:
+    """Agrega dedicación por persona para la vista master.
+
+    Los porcentajes se calculan sobre la jornada anual a partir de las
+    horas finales (después del reparto fases 5-7). Si la normalizada
+    no está disponible, se cae a las horas iniciales efectivas.
+    """
+    base = (
+        df.with_columns(
+            (pl.col("horas") * pl.col("factor")).alias("_h_eff"),
+        )
+        .group_by("per_id")
+        .agg(
             pl.len().alias("n_actividades"),
             pl.col("anomalía").is_not_null().sum().alias("n_anomalías"),
         )
     )
+    if norm is None or norm.is_empty():
+        return base.with_columns(
+            pl.lit(0.0).alias("pct_docencia"),
+            pl.lit(0.0).alias("pct_gestión"),
+            pl.lit(0.0).alias("pct_investigación"),
+            pl.lit(0.0).alias("pct_jornada"),
+            pl.lit("").alias("sexenio_vivo"),
+        )
+    DOC = ["docencia_oficial", "docencia_no_oficial"]
+    por_grupo = (
+        norm.group_by("per_id").agg(
+            pl.col("horas_finales").filter(pl.col("grupo").is_in(DOC)).sum().alias("h_doc"),
+            pl.col("horas_finales").filter(pl.col("grupo") == "gestión").sum().alias("h_ges"),
+            pl.col("horas_finales").filter(pl.col("grupo") == "investigación").sum().alias("h_inv"),
+            pl.col("horas_finales").sum().alias("h_total"),
+            pl.col("sexenio_vivo").any().alias("_sex"),
+        )
+        .with_columns(
+            (100.0 * pl.col("h_doc") / JORNADA_ANUAL_PDI).round(2).alias("pct_docencia"),
+            (100.0 * pl.col("h_ges") / JORNADA_ANUAL_PDI).round(2).alias("pct_gestión"),
+            (100.0 * pl.col("h_inv") / JORNADA_ANUAL_PDI).round(2).alias("pct_investigación"),
+            (100.0 * pl.col("h_total") / JORNADA_ANUAL_PDI).round(2).alias("pct_jornada"),
+            pl.when(pl.col("_sex")).then(pl.lit("Sí")).otherwise(pl.lit("")).alias("sexenio_vivo"),
+        )
+        .drop("h_doc", "h_ges", "h_inv", "h_total", "_sex")
+    )
+    return base.join(por_grupo, on="per_id", how="left")
 
 
 def listar_personas_dedicación(p: QueryParams) -> ListResponse:
     df = _safe_read(PATH_DEDICACIÓN_PDI)
     if df is None or df.is_empty():
         return ListResponse(columns=_COLS_DED_PERSONAS, rows=[], total=0)
-    df = _enriq(_resumen_personas_dedicación(df))
+    norm = _safe_read(PATH_DEDICACIÓN_PDI_NORM)
+    df = _enriq(_resumen_personas_dedicación(df, norm))
+    cats = _categorias_por_persona()
+    if not cats.is_empty():
+        df = df.join(cats, on="per_id", how="left")
+    clases_pasivas = _per_ids_clases_pasivas()
+    df = df.with_columns(
+        pl.when(pl.col("per_id").is_in(list(clases_pasivas)))
+        .then(pl.lit("clases pasivas"))
+        .otherwise(pl.lit("seguridad social"))
+        .alias("régimen_ss")
+    )
     df = df.select([c.name for c in _COLS_DED_PERSONAS if c.name in df.columns])
-    df, total, stats = apply_query(df, p, search_columns=["persona"])
+    df, total, stats = apply_query(
+        df, p,
+        search_columns=["persona", "categoría", "sexenio_vivo", "régimen_ss"],
+    )
     return ListResponse(
         columns=_COLS_DED_PERSONAS,
         rows=_serialize(df.to_dicts()),
@@ -467,7 +566,8 @@ _COLS_DED_RESUMEN: list[ColumnSpec] = [
     ColumnSpec(name="origen", label="Origen", format="text"),
     ColumnSpec(name="horas_brutas", label="Horas registradas", format="float"),
     ColumnSpec(name="factor_medio", label="Factor", format="float"),
-    ColumnSpec(name="horas_efectivas", label="Horas efectivas", format="float"),
+    ColumnSpec(name="horas_efectivas", label="Horas iniciales", format="float"),
+    ColumnSpec(name="horas_finales", label="Horas finales", format="float"),
     ColumnSpec(name="porcentaje", label="% jornada", format="float"),
 ]
 
@@ -485,12 +585,13 @@ JORNADA_ANUAL_PDI = 1642.0
 def listar_resumen_grupo_persona(
     per_id: int, jornada_anual: float = JORNADA_ANUAL_PDI,
 ) -> ListResponse:
-    """Resumen por (grupo, origen) + fila final HND.
+    """Resumen por (grupo, origen) con horas iniciales, finales y % jornada.
 
     Cada fila desglosa cuántas horas aporta cada fuente (POD, tesis,
-    cargo, grupo, …) a cada grupo de la regla 23. Las horas efectivas
-    incorporan el factor ×2,5 de impartición docente; el porcentaje se
-    calcula sobre la jornada anual.
+    cargo, grupo, …) a cada grupo de la regla 23, mostrando las horas
+    iniciales efectivas (con factor ×2,5 en docencia impartida) y las
+    horas finales tras el reparto de las fases 5-7. El porcentaje se
+    calcula sobre la jornada anual a partir de las horas finales.
     """
     df = _safe_read(PATH_DEDICACIÓN_PDI)
     if df is None or df.is_empty():
@@ -498,26 +599,46 @@ def listar_resumen_grupo_persona(
 
     sub = df.filter(pl.col("per_id") == per_id)
     if sub.is_empty():
-        agg = pl.DataFrame(schema={
+        agg_ini = pl.DataFrame(schema={
             "grupo": pl.Utf8, "origen": pl.Utf8,
             "horas_brutas": pl.Float64, "horas_efectivas": pl.Float64,
         })
     else:
-        agg = sub.group_by("grupo", "origen").agg(
+        agg_ini = sub.group_by("grupo", "origen").agg(
             pl.col("horas").sum().alias("horas_brutas"),
             (pl.col("horas") * pl.col("factor")).sum().alias("horas_efectivas"),
         )
+
+    norm = _safe_read(PATH_DEDICACIÓN_PDI_NORM)
+    if norm is not None and not norm.is_empty():
+        agg_fin = (
+            norm.filter(pl.col("per_id") == per_id)
+            .group_by("grupo", "origen")
+            .agg(pl.col("horas_finales").sum().alias("horas_finales"))
+        )
+    else:
+        agg_fin = pl.DataFrame(schema={
+            "grupo": pl.Utf8, "origen": pl.Utf8, "horas_finales": pl.Float64,
+        })
+
+    agg = agg_ini.join(agg_fin, on=["grupo", "origen"], how="full", coalesce=True)
+    agg = agg.with_columns(
+        pl.col("horas_brutas").fill_null(0.0),
+        pl.col("horas_efectivas").fill_null(0.0),
+        pl.col("horas_finales").fill_null(0.0),
+    )
 
     etiqueta_por_clave = {clave: etiq for clave, etiq in _GRUPOS_CANÓNICOS}
     orden_grupo = {clave: i for i, (clave, _) in enumerate(_GRUPOS_CANÓNICOS)}
 
     filas_por_grupo: dict[str, list[dict]] = {}
-    total_efectivas = 0.0
+    total_finales = 0.0
     for r in agg.to_dicts():
         grupo = r["grupo"]
         h_brutas = float(r["horas_brutas"] or 0.0)
         h_efectivas = float(r["horas_efectivas"] or 0.0)
-        total_efectivas += h_efectivas
+        h_finales = float(r["horas_finales"] or 0.0)
+        total_finales += h_finales
         factor_medio = (h_efectivas / h_brutas) if h_brutas else 0.0
         filas_por_grupo.setdefault(grupo, []).append({
             "grupo": etiqueta_por_clave.get(grupo, grupo),
@@ -525,25 +646,208 @@ def listar_resumen_grupo_persona(
             "horas_brutas": round(h_brutas, 2),
             "factor_medio": round(factor_medio, 2),
             "horas_efectivas": round(h_efectivas, 2),
-            "porcentaje": round(100.0 * h_efectivas / jornada_anual, 2) if jornada_anual else 0.0,
+            "horas_finales": round(h_finales, 2),
+            "porcentaje": round(100.0 * h_finales / jornada_anual, 2) if jornada_anual else 0.0,
         })
 
     filas: list[dict] = []
     for clave in sorted(filas_por_grupo, key=lambda g: orden_grupo.get(g, 99)):
-        lista = sorted(filas_por_grupo[clave], key=lambda r: -r["horas_efectivas"])
+        lista = sorted(filas_por_grupo[clave], key=lambda r: -r["horas_finales"])
         filas.extend(lista)
 
-    h_pendientes = max(jornada_anual - total_efectivas, 0.0)
-    filas.append({
-        "grupo": "Sin asignación (HND)",
-        "origen": "",
-        "horas_brutas": round(h_pendientes, 2),
-        "factor_medio": 1.0,
-        "horas_efectivas": round(h_pendientes, 2),
-        "porcentaje": round(100.0 * h_pendientes / jornada_anual, 2) if jornada_anual else 0.0,
-    })
+    h_pendientes = max(jornada_anual - total_finales, 0.0)
+    if h_pendientes > 0.01:
+        filas.append({
+            "grupo": "Sin asignación (HND)",
+            "origen": "",
+            "horas_brutas": round(h_pendientes, 2),
+            "factor_medio": 1.0,
+            "horas_efectivas": round(h_pendientes, 2),
+            "horas_finales": round(h_pendientes, 2),
+            "porcentaje": round(100.0 * h_pendientes / jornada_anual, 2) if jornada_anual else 0.0,
+        })
 
     return ListResponse(columns=_COLS_DED_RESUMEN, rows=filas, total=len(filas))
+
+
+# ----------------------------------------------------------------------
+# UC por reparto de la masa regla 23 (per_id)
+# ----------------------------------------------------------------------
+
+_COLS_DED_UC_REPARTO: list[ColumnSpec] = [
+    ColumnSpec(name="id", label="ID", format="text"),
+    ColumnSpec(name="elemento_de_coste", label="Elemento", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro de coste", format="text"),
+    ColumnSpec(name="origen_porción", label="% reparto", format="float"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+]
+
+
+def listar_uc_reparto_persona(per_id: int, p: QueryParams | None = None) -> ListResponse:
+    """UC por reparto regla 23 generadas para la persona."""
+    df = _safe_read(PATH_UC_REPARTO_R23)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_DED_UC_REPARTO, rows=[], total=0)
+    sub = df.filter(pl.col("per_id") == per_id).sort("importe", descending=True)
+    if sub.is_empty():
+        return ListResponse(columns=_COLS_DED_UC_REPARTO, rows=[], total=0)
+    sub = sub.with_columns(
+        (100.0 * pl.col("origen_porción")).round(2).alias("origen_porción"),
+    )
+    cols = [c.name for c in _COLS_DED_UC_REPARTO if c.name in sub.columns]
+    sub = sub.select(cols)
+    sub, total, stats = apply_query(
+        sub, p or QueryParams(),
+        search_columns=["id", "elemento_de_coste", "actividad", "centro_de_coste"],
+    )
+    return ListResponse(
+        columns=_COLS_DED_UC_REPARTO,
+        rows=_serialize(sub.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )
+
+
+# ----------------------------------------------------------------------
+# Totales por actividad / centro tras el reparto (regla 23)
+# ----------------------------------------------------------------------
+
+_COLS_DED_TOTALES: list[ColumnSpec] = [
+    ColumnSpec(name="grupo", label="Grupo", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro de coste", format="text"),
+    ColumnSpec(name="horas_finales", label="Horas finales", format="float"),
+    ColumnSpec(name="pct_jornada", label="% jornada", format="float"),
+]
+
+
+def listar_totales_actividad_centro(
+    per_id: int, jornada_anual: float = 1642.0,
+) -> ListResponse:
+    """Totales por (actividad, centro_de_coste) para la persona.
+
+    Suma las horas finales tras el reparto fases 5-7 de la regla 23 a
+    nivel (actividad, centro_de_coste) — agregando todos los orígenes
+    que aportaron — y calcula el porcentaje sobre la jornada anual.
+    """
+    norm = _safe_read(PATH_DEDICACIÓN_PDI_NORM)
+    if norm is None or norm.is_empty():
+        return ListResponse(columns=_COLS_DED_TOTALES, rows=[], total=0)
+    sub = norm.filter(pl.col("per_id") == per_id)
+    if sub.is_empty():
+        return ListResponse(columns=_COLS_DED_TOTALES, rows=[], total=0)
+
+    agg = (
+        sub.group_by("grupo", "actividad", "centro_de_coste")
+        .agg(pl.col("horas_finales").sum().alias("horas_finales"))
+        .filter(pl.col("horas_finales") > 0)
+        .with_columns(
+            (100.0 * pl.col("horas_finales") / jornada_anual)
+            .round(2).alias("pct_jornada")
+        )
+        .sort("horas_finales", descending=True)
+    )
+
+    return ListResponse(
+        columns=_COLS_DED_TOTALES,
+        rows=_serialize(agg.to_dicts()),
+        total=agg.height,
+    )
+
+
+# ----------------------------------------------------------------------
+# Relación laboral del PDI/PVI seleccionado
+# ----------------------------------------------------------------------
+
+_COLS_DED_LABORAL: list[ColumnSpec] = [
+    ColumnSpec(name="sector", label="Sector", format="text"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="categoría_plaza_nombre", label="Categoría plaza", format="text"),
+    ColumnSpec(name="categoría_nombre", label="Categoría RR.HH.", format="text"),
+    ColumnSpec(name="funcionario", label="Func.", format="text"),
+    ColumnSpec(name="desde", label="Primer mes", format="date"),
+    ColumnSpec(name="hasta", label="Último mes", format="date"),
+    ColumnSpec(name="meses", label="Meses", format="int"),
+]
+
+
+def listar_relación_laboral_persona(per_id: int) -> ListResponse:
+    """Histórico observado en las nóminas: períodos por
+    (expediente, categoría_plaza, categoría RR.HH.) con primer y último
+    mes en los que la persona figura en esa combinación, y nº de meses.
+    """
+    from coana.web.services.lookups import (
+        lookup_categoria, lookup_categoria_plaza,
+    )
+
+    nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
+    exp_path = DIR_ENTRADA / "nóminas" / "expedientes recursos humanos.xlsx"
+    cat_rh_path = DIR_ENTRADA / "nóminas" / "categorías recursos humanos.xlsx"
+    if not (nom_path.exists() and exp_path.exists()):
+        return ListResponse(columns=_COLS_DED_LABORAL, rows=[], total=0)
+
+    nom = read_excel(nom_path)
+    exp = read_excel(exp_path).filter(pl.col("per_id") == per_id)
+    if exp.is_empty():
+        return ListResponse(columns=_COLS_DED_LABORAL, rows=[], total=0)
+
+    nom_p = nom.join(
+        exp.select("expediente", "sector"), on="expediente", how="inner"
+    )
+    if nom_p.is_empty():
+        return ListResponse(columns=_COLS_DED_LABORAL, rows=[], total=0)
+
+    agg = (
+        nom_p.with_columns(
+            pl.col("categoría_plaza").cast(pl.Utf8).str.zfill(2).alias("_cp"),
+            pl.col("categoría").cast(pl.Utf8).alias("_cat"),
+        )
+        .group_by("sector", "expediente", "_cp", "_cat")
+        .agg(
+            pl.col("fecha").min().alias("desde"),
+            pl.col("fecha").max().alias("hasta"),
+            pl.col("fecha").n_unique().alias("meses"),
+        )
+        .sort(["sector", "expediente", "desde"])
+    )
+
+    # Lookup funcionario por (sector, categoría) en `categorías recursos humanos.xlsx`.
+    if cat_rh_path.exists():
+        cat_rh = read_excel(cat_rh_path).select(
+            pl.col("sector").cast(pl.Utf8),
+            pl.col("categoría").cast(pl.Utf8).alias("_cat"),
+            pl.col("es_funcionario"),
+        )
+        agg = agg.join(cat_rh, left_on=["sector", "_cat"], right_on=["sector", "_cat"], how="left")
+    else:
+        agg = agg.with_columns(pl.lit(None).alias("es_funcionario"))
+
+    filas: list[dict] = []
+    for r in agg.to_dicts():
+        cp = r.get("_cp") or ""
+        cat = r.get("_cat") or ""
+        nom_cp = lookup_categoria_plaza(cp).get("nombre") or ""
+        nom_cat = lookup_categoria(cat).get("nombre") or ""
+        es_func = r.get("es_funcionario")
+        if es_func in (1, True) or str(es_func).upper() == "S":
+            func_str = "S"
+        elif es_func in (0, False) or str(es_func).upper() == "N":
+            func_str = "N"
+        else:
+            func_str = ""
+        filas.append({
+            "sector": r.get("sector") or "",
+            "expediente": r.get("expediente"),
+            "categoría_plaza_nombre": f"{cp} — {nom_cp}" if cp else "",
+            "categoría_nombre": f"{cat} — {nom_cat}" if cat else "",
+            "funcionario": func_str,
+            "desde": r["desde"].isoformat() if r.get("desde") else None,
+            "hasta": r["hasta"].isoformat() if r.get("hasta") else None,
+            "meses": int(r.get("meses") or 0),
+        })
+
+    return ListResponse(columns=_COLS_DED_LABORAL, rows=filas, total=len(filas))
 
 
 def listar_dedicación_persona(per_id: int, p: QueryParams) -> ListResponse:
@@ -551,6 +855,51 @@ def listar_dedicación_persona(per_id: int, p: QueryParams) -> ListResponse:
     if df is None or df.is_empty():
         return ListResponse(columns=_COLS_DED_DETALLE, rows=[], total=0)
     df = df.filter(pl.col("per_id") == per_id)
+
+    # Join horas finales (fases 5-7 reparto) si están disponibles.
+    norm = _safe_read(PATH_DEDICACIÓN_PDI_NORM)
+    if norm is not None and not norm.is_empty():
+        norm_p = (
+            norm.filter(pl.col("per_id") == per_id)
+            .select(
+                "actividad", "centro_de_coste", "grupo", "origen", "origen_id",
+                pl.col("horas_finales"),
+            )
+        )
+        df = df.join(
+            norm_p,
+            on=["actividad", "centro_de_coste", "grupo", "origen", "origen_id"],
+            how="left",
+        )
+        # Filas sintéticas en norm que no existen en df (HND repercutida).
+        sintéticas = norm.filter(
+            (pl.col("per_id") == per_id) & (pl.col("origen") == "reparto")
+        )
+        if not sintéticas.is_empty():
+            sint = sintéticas.select(
+                pl.col("actividad"),
+                pl.col("centro_de_coste"),
+                pl.col("grupo"),
+                pl.lit(0.0).alias("horas"),
+                pl.lit(1.0).alias("factor"),
+                pl.lit("rp").alias("método"),
+                pl.col("origen"),
+                pl.col("origen_id"),
+                pl.col("detalle"),
+                pl.col("anomalía"),
+                pl.col("horas_finales"),
+            )
+            # Añade per_id y otras columnas necesarias para concatenar
+            sint = sint.with_columns(pl.lit(per_id).cast(pl.Int64).alias("per_id"))
+            df = pl.concat([df, sint], how="diagonal_relaxed")
+    else:
+        df = df.with_columns(pl.lit(None, dtype=pl.Float64).alias("horas_finales"))
+
+    # Porcentaje de jornada (horas_finales / 1642).
+    df = df.with_columns(
+        (100.0 * pl.col("horas_finales") / JORNADA_ANUAL_PDI)
+        .round(2).alias("pct_jornada")
+    )
 
     # Enriquecimiento: nombre del proyecto presupuestario para las
     # filas con origen='proyecto'. Cruza origen_id con proyectos.xlsx.
