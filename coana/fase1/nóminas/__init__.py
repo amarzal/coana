@@ -286,6 +286,7 @@ def _generar_uc_ptgas(
     árbol_ec=None,
     distribución_costes=None,
     obtener_descripciones=None,
+    factores_x_sindical: dict[int, float] | None = None,
 ) -> pl.DataFrame:
     """Genera UC a partir de retribuciones del PTGAS.
 
@@ -299,6 +300,7 @@ def _generar_uc_ptgas(
     exp_ptgas = exp_ptgas.filter(pl.col("sector_mapeado") == "PTGAS")
     if exp_ptgas.is_empty():
         return pl.DataFrame()
+    factores_x_sindical = factores_x_sindical or {}
 
     registros = nóminas_filtradas.join(
         exp_ptgas.select("expediente", "per_id"),
@@ -402,6 +404,10 @@ def _generar_uc_ptgas(
                     "origen_porción": 1.0,
                 })
             if filas:
+                from coana.fase1.nóminas.reducciones_sindicales import (
+                    aplicar_reducción as _ap_red_sind,
+                )
+                _ap_red_sind(filas, factores_x_sindical, _next_id)
                 uc_partes.append(pl.DataFrame(filas))
 
         if not srv_368.is_empty() and "centro_plaza" in srv_368.columns:
@@ -428,6 +434,10 @@ def _generar_uc_ptgas(
                     "origen_porción": 1.0,
                 })
             if filas_368:
+                from coana.fase1.nóminas.reducciones_sindicales import (
+                    aplicar_reducción as _ap_red_sind,
+                )
+                _ap_red_sind(filas_368, factores_x_sindical, _next_id)
                 uc_partes.append(pl.DataFrame(filas_368))
 
     # Retribuciones extra: CC y actividad del clasificador
@@ -1697,6 +1707,17 @@ def preprocesar_nóminas(
     # -- Multiexpediente: personas con expedientes en sectores distintos --
     _generar_multiexpediente(agrupado, nóminas, dir_salida)
 
+    # -- Factor X anual por expediente con reducción sindical (tipo 8). --
+    from coana.fase1.nóminas.reducciones_sindicales import (
+        factor_x_por_expediente as _factor_x_sind,
+    )
+    factores_x_sindical = _factor_x_sind(ruta_base, año=2025)
+    if factores_x_sindical:
+        print(
+            f"  Reducciones sindicales (tipo 8): "
+            f"{len(factores_x_sindical):,} expedientes afectados"
+        )
+
     # -- UC de retribuciones ordinarias PTGAS --
     uc_ptgas = _generar_uc_ptgas(
         nóminas, expedientes,
@@ -1706,6 +1727,7 @@ def preprocesar_nóminas(
         árbol_ec=árbol_ec,
         distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
+        factores_x_sindical=factores_x_sindical,
     )
     if not uc_ptgas.is_empty():
         importe_ptgas = float(uc_ptgas["importe"].sum())

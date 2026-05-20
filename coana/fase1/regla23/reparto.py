@@ -112,13 +112,29 @@ def aplicar_reparto_regla_23(
         pl.col("per_id").is_in(list(sexenios_vivos)).alias("sexenio_vivo"),
     )
 
+    # Factor X_persona por reducción sindical (PDI/PVI). La jornada
+    # anual base de la persona pasa de T a X_persona × T. X_persona se
+    # calcula como promedio ponderado por bruto sobre sus expedientes
+    # PDI/PVI; los expedientes sin reducción cuentan con X = 1.
+    x_persona = _x_persona_por_reducción_sindical(ruta_base, año)
+    if x_persona:
+        fx_df = pl.DataFrame(
+            {"per_id": list(x_persona.keys()), "_x_persona": list(x_persona.values())},
+            schema={"per_id": pl.Int64, "_x_persona": pl.Float64},
+        )
+        pivot = pivot.join(fx_df, on="per_id", how="left").with_columns(
+            pl.col("_x_persona").fill_null(1.0)
+        )
+    else:
+        pivot = pivot.with_columns(pl.lit(1.0).alias("_x_persona"))
+
     # Calcular, por persona, horas finales por grupo y anomalía.
     # Vectorizamos con expresiones polars.
     HDO = pl.col("docencia_oficial")
     HDNO = pl.col("docencia_no_oficial")
     HG = pl.col("gestión")
     HI = pl.col("investigación")
-    T = pl.lit(jornada)
+    T = pl.lit(jornada) * pl.col("_x_persona")
     DOC = HDO + HDNO  # docencia total efectiva
     pendientes = T - DOC - HG
     exceso_doc_ges = (DOC + HG) > T
@@ -386,6 +402,66 @@ def _per_ids_asociados(ruta_base: Path, año: int) -> set[int]:
         exp.select("expediente", "per_id"), on="expediente", how="inner",
     )
     return set(join["per_id"].to_list())
+
+
+def _x_persona_por_reducción_sindical(
+    ruta_base: Path, año: int,
+) -> dict[int, float]:
+    """X_persona = Σ(bruto_exp × X_exp) / Σ(bruto_exp) sobre los
+    expedientes PDI/PVI de la persona. Solo devuelve personas con
+    X_persona < 1 (al menos un expediente PDI/PVI con reducción)."""
+    from coana.fase1.nóminas.reducciones_sindicales import (
+        factor_x_por_expediente as _factor_x_sind,
+    )
+
+    factores_exp = _factor_x_sind(ruta_base, año=año)
+    if not factores_exp:
+        return {}
+    exp_path = ruta_base / "entrada" / "nóminas" / "expedientes recursos humanos.xlsx"
+    if not exp_path.exists():
+        return {}
+    from coana.util import read_excel
+
+    expedientes = read_excel(exp_path)
+    exp_pdi_pvi = (
+        expedientes.filter(pl.col("sector").is_in(["PDI", "PI", "PVI"]))
+        .select("expediente", "per_id")
+    )
+    # Bruto por expediente (suma de uc_pdi + uc_pvi + uc_reparto_regla_23).
+    # Aproximación: sumamos los importes de los parquets PDI y PVI por
+    # expediente. Si no existen, X_persona se calcula con peso uniforme.
+    brutos: dict[int, float] = {}
+    for f in ("PDI.parquet", "PVI.parquet"):
+        p = ruta_base / "fase1" / "auxiliares" / "nóminas" / f
+        if not p.exists():
+            continue
+        df_s = pl.read_parquet(p)
+        if "expediente" not in df_s.columns or "importe" not in df_s.columns:
+            continue
+        for r in (
+            df_s.group_by("expediente")
+            .agg(pl.col("importe").sum().alias("imp"))
+            .iter_rows(named=True)
+        ):
+            brutos[int(r["expediente"])] = float(r["imp"])
+
+    # Calcular X_persona.
+    out: dict[int, float] = {}
+    for per_id, grupo in exp_pdi_pvi.group_by("per_id"):
+        per_id_int = int(per_id[0])
+        num = 0.0
+        den = 0.0
+        for r in grupo.iter_rows(named=True):
+            exp = int(r["expediente"])
+            x_exp = factores_exp.get(exp, 1.0)
+            b = brutos.get(exp, 1.0)  # peso uniforme si falta
+            num += b * x_exp
+            den += b
+        if den > 0:
+            x_per = num / den
+            if x_per < 1.0:
+                out[per_id_int] = x_per
+    return out
 
 
 def _esquema_vacío() -> pl.DataFrame:

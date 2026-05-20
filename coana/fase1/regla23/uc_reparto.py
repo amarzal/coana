@@ -125,6 +125,46 @@ def generar_uc_reparto_regla_23(
         .agg(pl.col("importe").sum().alias("importe_ec"))
     )
 
+    # Reducción sindical (tipo 8): si el expediente está en
+    # `factores_x_sindical`, se aparta `(1−X) × importe_ec` como UC
+    # sindical (CC `locales-sindicales`, actividad `acción-sindical`)
+    # antes del reparto regla 23. La masa que entra al reparto queda
+    # en `X × importe_ec`.
+    from coana.fase1.nóminas.reducciones_sindicales import (
+        ACTIVIDAD_SINDICAL, CC_SINDICAL,
+        factor_x_por_expediente as _factor_x_sind,
+    )
+    factores_x = _factor_x_sind(ruta_base, año=año)
+    uc_sindical_pre = pl.DataFrame()
+    if factores_x:
+        fx_df = pl.DataFrame(
+            {
+                "expediente": list(factores_x.keys()),
+                "_x": list(factores_x.values()),
+            },
+            schema={"expediente": pl.Int64, "_x": pl.Float64},
+        )
+        masa_pp = masa_pp.join(fx_df, on="expediente", how="left").with_columns(
+            pl.col("_x").fill_null(1.0)
+        )
+        uc_sindical_pre = (
+            masa_pp.filter(pl.col("_x") < 1.0)
+            .with_columns(
+                (pl.col("importe_ec") * (1.0 - pl.col("_x"))).round(2).alias("importe"),
+                pl.lit(CC_SINDICAL).alias("centro_de_coste"),
+                pl.lit(ACTIVIDAD_SINDICAL).alias("actividad"),
+                (1.0 - pl.col("_x")).alias("peso"),
+            )
+            .filter(pl.col("importe").abs() >= 0.01)
+            .select(
+                "per_id", "expediente", "_ec", "importe_ec",
+                "actividad", "centro_de_coste", "peso", "importe",
+            )
+        )
+        masa_pp = masa_pp.with_columns(
+            (pl.col("importe_ec") * pl.col("_x")).alias("importe_ec")
+        ).drop("_x")
+
     # Pesos por (per_id, actividad, centro_de_coste).
     pesos = (
         norm.filter(pl.col("horas_finales") > 0)
@@ -165,16 +205,20 @@ def generar_uc_reparto_regla_23(
     uc = masa_pp.join(pesos, on="per_id", how="inner").with_columns(
         (pl.col("importe_ec") * pl.col("peso")).round(2).alias("importe"),
     )
+    cols_comunes = [
+        "per_id", "expediente", "_ec", "importe_ec",
+        "actividad", "centro_de_coste", "peso", "importe",
+    ]
     if sin_ded_uc is not None:
         sin_ded_uc = sin_ded_uc.with_columns(
             (pl.col("importe_ec") * pl.col("peso")).round(2).alias("importe"),
         )
-        cols_comunes = [
-            "per_id", "expediente", "_ec", "importe_ec",
-            "actividad", "centro_de_coste", "peso", "importe",
-        ]
         uc = pl.concat([
             uc.select(cols_comunes), sin_ded_uc.select(cols_comunes),
+        ], how="vertical_relaxed")
+    if not uc_sindical_pre.is_empty():
+        uc = pl.concat([
+            uc.select(cols_comunes), uc_sindical_pre.select(cols_comunes),
         ], how="vertical_relaxed")
 
     # Esquema UC estándar.
