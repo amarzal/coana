@@ -73,6 +73,7 @@ import {
     ResultadosArbolElementos,
 } from "@/routes/resultados/ArbolConUcs";
 import { InformeView } from "@/routes/informes/InformeView";
+import { InformesACarta } from "@/routes/informes_carta/InformesACarta";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -174,6 +175,7 @@ export function App() {
                         <Route path="resultados/elementos-de-coste" element={<ResultadosArbolElementos />} />
                         <Route path="resultados/anomalias" element={<ResultadosAnomalias />} />
                         <Route path="informes/:cuadroId" element={<InformeView />} />
+                        <Route path="informes-carta" element={<InformesACarta />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

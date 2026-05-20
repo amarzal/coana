@@ -144,11 +144,17 @@ const GROUPS: Group[] = [
         label: "Informes",
         icon: FileText,
         items: [
-            { label: "10.1 — Elementos de coste",            to: "/informes/cuadro_10_1" },
-            { label: "10.3 — Ingresos por actividades",      to: "/informes/cuadro_10_3" },
-            { label: "10.4 — Centros por finalidad",         to: "/informes/cuadro_10_4" },
-            { label: "10.5 — Costes primarios por centro",   to: "/informes/cuadro_10_5" },
-            { label: "10.7 — Coste de actividades finalistas", to: "/informes/cuadro_10_7" },
+            {
+                label: "Normalizados",
+                items: [
+                    { label: "10.1 — Elementos de coste",            to: "/informes/cuadro_10_1" },
+                    { label: "10.3 — Ingresos por actividades",      to: "/informes/cuadro_10_3" },
+                    { label: "10.4 — Centros por finalidad",         to: "/informes/cuadro_10_4" },
+                    { label: "10.5 — Costes primarios por centro",   to: "/informes/cuadro_10_5" },
+                    { label: "10.7 — Coste de actividades finalistas", to: "/informes/cuadro_10_7" },
+                ],
+            },
+            { label: "A la carta", to: "/informes-carta" },
         ],
     },
 ];

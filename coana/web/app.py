@@ -15,6 +15,7 @@ from coana.web.routers import (
     cargos,
     entradas,
     informes,
+    informes_carta,
     lookups,
     persona_360,
     personal,
@@ -58,6 +59,7 @@ app.include_router(investigacion_router.router, prefix="/api/investigacion", tag
 app.include_router(resultados.router, prefix="/api/resultados", tags=["resultados"])
 app.include_router(lookups.router, prefix="/api/lookups", tags=["lookups"])
 app.include_router(informes.router, prefix="/api/informes", tags=["informes"])
+app.include_router(informes_carta.router, prefix="/api/informes-carta", tags=["informes a la carta"])
 
 
 # Frontend estático: sirve coana/web/dist/ si existe (build de Vite).

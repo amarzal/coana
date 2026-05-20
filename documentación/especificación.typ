@@ -956,6 +956,29 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
             tipo: [Indica si es una persona física #val("Física") o una persona jurídica #val("Jurídica")],
         ),
     ),
+    "reducciones laborales.xlsx": (
+        descripción: [
+            Histórico de reducciones de jornada por expediente. Cada fila
+            registra un periodo de reducción con su porcentaje trabajado.
+            En la fase 1 solo se procesan las filas de #campo("tipo reduccion") =
+            #val("8") (representación sindical) con solape al año analizado;
+            el resto de tipos (lactancia, cuidado de hijos, etc.) se ignoran.
+        ],
+        campos: (
+            expediente: [Identificador del expediente. Ver #ruta("expedientes recursos humanos.xlsx").],
+            "fecha inicio": [Fecha de inicio del periodo de reducción (puede preceder al año analizado).],
+            "fecha fin": [Fecha de fin del periodo. Si está vacía la reducción sigue vigente.],
+            "porcentaje trabajado": [
+                Tanto por uno con coma decimal (#val("0,6666"), #val("0,87")…) que indica
+                la fracción efectivamente trabajada durante el periodo. Un #val("0") indica
+                liberación al 100 %. Si está vacío se interpreta como #val("0").
+            ],
+            "tipo reduccion": [
+                Código del tipo de reducción. Solo el #val("8") (representación sindical)
+                interviene en el modelo.
+            ],
+        ),
+    ),
 )
 
 #tabula_ficheros_y_campos(ficheros_campos_nóminas)
@@ -4121,6 +4144,36 @@ Antes de agrupar nada, las nóminas pasan por una cadena de filtros que descarta
     Se filtran tanto el expediente del listado como sus líneas de la nómina, de modo que las etapas posteriores no las vean. En 2025 son #val("≈ 150") expedientes adicionales y #val("≈ 8 400 €") de capítulo 4 que quedan fuera del coste analítico de personal.
 
 Adicionalmente, los cargadores de la regla 23 (POD, tesis, cargos, proyectos, grupos) descartan al final cualquier #campo("per_id") sin nómina vinculada en el año, de modo que no aparecen en #ruta("regla23", "dedicación_pdi.parquet") personas que se hayan colado por POD u otras fuentes sin tener cobro activo en el año.
+
+==== Reducciones por representación sindical (tipo 8)
+
+Algunos miembros del personal disfrutan de una reducción de jornada por *representación sindical* — total (liberados al 100 %) o parcial. El coste que dejan de aportar a su actividad ordinaria se imputa al centro #etqcen("locales-sindicales") y a la actividad #etqact("acción-sindical"). El fichero #ruta("entrada", "nóminas", "reducciones laborales.xlsx") es el histórico de todas las reducciones laborales; de él tomamos solo las filas con #campo("tipo reduccion") = #val("8") (representación sindical) que solapan el año analizado. Las demás (lactancia, cuidado de hijos, etc.) se ignoran.
+
+*Factor anual X por expediente.* Para cada expediente con al menos un día de reducción tipo 8 en el año, calculamos el factor anual ponderado por días:
+
+$ X_"anual" = (sum_i d_i times p_i) + (D - sum_i d_i) / D $
+
+donde $d_i$ es el número de días de solape del periodo de reducción $i$ con el año, $p_i$ es el #campo("porcentaje trabajado") de esa reducción (#val("0") si está vacío) y $D$ son los días del año ($365$ o $366$). Los días sin reducción aportan $p = 1$. El resultado $X_"anual" in [0, 1]$ es la fracción anual efectivamente trabajada por la persona en ese expediente. Si la persona no aparece en el fichero, $X = 1$ implícitamente.
+
+*Aplicación al PTGAS.* Las UC retributivas ordinarias del PTGAS (proyectos en TABLA-PROYECTOS-GENERALES-NÓMINA) se dividen en dos:
+
+- $X times "importe"$ se imputa a la actividad y centro de coste habituales (servicio → CC, servicio → actividad).
+- $(1 - X) times "importe"$ se imputa a #etqact("acción-sindical") en #etqcen("locales-sindicales"), conservando el mismo #campo("elemento_de_coste").
+
+Las UC retributivas *extras* (artículo 60 y otros proyectos no generales) son finalistas y no se tocan.
+
+*Aplicación al PDI/PVI.* La masa regla 23 de cada expediente con reducción se divide igualmente:
+
+- $(1 - X) times "masa"_(p,e,"ec")$ se emite como UC sindical directa (CC #etqcen("locales-sindicales"), actividad #etqact("acción-sindical"), mismo elemento de coste) *antes* de cruzar con los pesos de actividad. Esa fracción no entra al reparto entre actividades.
+- $X times "masa"_(p,e,"ec")$ es la masa que sí entra al reparto regla 23 habitual entre las parejas (actividad, centro de coste) de la persona.
+
+Adicionalmente, la jornada anual de la persona en la regla 23 (fases 5-7) deja de ser $T = "JORNADA_ANUAL_PDI"$ y pasa a $X_"persona" times T$, donde $X_"persona"$ es el promedio ponderado por bruto de los $X$ de los expedientes PDI/PVI de la persona (los expedientes sin reducción cuentan con $X = 1$). Esto hace que el % de jornada cubierto por las horas registradas (POD, tesis, cargos…) sea mayor para una persona con reducción, y la masa retribuida también reducida en proporción se reparte correctamente.
+
+*Cargos académicos.* La masa del cargo (CR 19/64 + parte extra del CR 68 en proyecto general) *no* se reduce: la coexistencia de cargo asimilado al RD y representación sindical es excepcional y el cargo manda. Las UC del cargo se generan con su lógica propia.
+
+*Costes sociales.* La SS cotizada y los costes calculados de funcionarios no se procesan aparte: el reparto SS se hace por persona en proporción a sus UC retributivas, que ya están divididas (sindical / habitual). En consecuencia, la SS hereda automáticamente la fracción sindical sin código adicional.
+
+*Cifras de referencia 2025.* #val("21") expedientes con reducción tipo 8, todos del sector PAS (PTGAS). #val("201") UC sindicales generadas, por importe total #val("423 108,49 €") (incluye #val("86 734 €") de SS cotizada). Ningún expediente PDI/PVI con reducción este ejercicio.
 
 ==== Agrupamiento por expediente y sector
 
