@@ -288,6 +288,19 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
                 f"{float(ss_válidas['ss_proporcional'].sum()):,.2f} €"
             )
 
+    # UC de seguridad social y previsión social. Generadas en
+    # `persona_uc.parquet` con `tipo == "coste social"`; tienen
+    # elemento_de_coste, centro_de_coste y actividad ya resueltos.
+    persona_uc_path = dir_nominas / "persona_uc.parquet"
+    if persona_uc_path.exists():
+        persona_uc = pl.read_parquet(persona_uc_path)
+        uc_ss = persona_uc.filter(pl.col("tipo") == "coste social")
+        if not uc_ss.is_empty():
+            todas_uc.append(uc_ss.select(
+                "id", "elemento_de_coste", "centro_de_coste", "actividad",
+                "importe", "origen", "origen_id", "origen_porción",
+            ))
+
     # -- Fichero combinado --
     if todas_uc:
         combinado = pl.concat(todas_uc, how="diagonal")

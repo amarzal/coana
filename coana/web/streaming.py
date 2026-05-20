@@ -31,7 +31,7 @@ JobStatus = Literal["running", "done", "error"]
 
 @dataclass
 class Job:
-    """Estado de una ejecución de Fase 1."""
+    """Estado de una ejecución (Fase 1 o informes)."""
 
     id: str
     status: JobStatus = "running"
@@ -39,6 +39,7 @@ class Job:
     finished_at: float | None = None
     lines: list[str] = field(default_factory=list)
     error: str | None = None
+    kind: str = "fase1"
 
 
 class _LineWriter(io.TextIOBase):
@@ -93,10 +94,24 @@ def start_fase1() -> Job | None:
     with _LOCK:
         if is_running():
             return None
-        job = Job(id=uuid.uuid4().hex[:8])
+        job = Job(id=uuid.uuid4().hex[:8], kind="fase1")
         _JOBS[job.id] = job
         _CURRENT_ID = job.id
     threading.Thread(target=_run_job, args=(job,), daemon=True).start()
+    return job
+
+
+def start_informes() -> Job | None:
+    """Arranca un nuevo job de generación de informes (Fase 2 + Typst →
+    PDF → abrir en visor externo). Devuelve None si ya hay uno en curso."""
+    global _CURRENT_ID
+    with _LOCK:
+        if is_running():
+            return None
+        job = Job(id=uuid.uuid4().hex[:8], kind="informes")
+        _JOBS[job.id] = job
+        _CURRENT_ID = job.id
+    threading.Thread(target=_run_informes, args=(job,), daemon=True).start()
     return job
 
 
@@ -107,7 +122,7 @@ def _run_job(job: Job) -> None:
         from coana.web.deps import clear_cache as clear_data_cache
         from coana.web.services.lookups import clear_cache as clear_lookups_cache
 
-        job.lines.append(f"Lanzando Fase 1 (job {job.id})…")
+        job.lines.append(f"Lanzando cálculo de unidades de coste (job {job.id})…")
         writer = _LineWriter(job)
         with contextlib.redirect_stdout(writer):
             ejecutar()
@@ -119,11 +134,57 @@ def _run_job(job: Job) -> None:
         clear_lookups_cache()
         _clear_module_caches()
 
-        job.lines.append("Fase 1 completada con éxito.")
+        job.lines.append("Cálculo de unidades de coste completado con éxito.")
         job.status = "done"
     except Exception as exc:  # noqa: BLE001 - queremos cualquier error
         import traceback
-        job.lines.append("ERROR durante la ejecución de la Fase 1:")
+        job.lines.append("ERROR durante el cálculo de unidades de coste:")
+        job.lines.extend(traceback.format_exc().splitlines())
+        job.error = str(exc)
+        job.status = "error"
+    finally:
+        job.finished_at = time.time()
+
+
+def _run_informes(job: Job) -> None:
+    import subprocess
+    import sys
+    from pathlib import Path
+    try:
+        from coana.apps.gen_informes import generar as compilar_typst
+        from coana.fase2 import ejecutar as ejecutar_fase2
+
+        job.lines.append(f"Generando informes (job {job.id})…")
+        writer = _LineWriter(job)
+        with contextlib.redirect_stdout(writer):
+            ejecutar_fase2()
+            compilar_typst()
+        writer.flush()
+
+        pdf = Path("documentación/informes/informes.pdf").resolve()
+        if not pdf.exists():
+            raise FileNotFoundError(
+                f"No se encontró {pdf} tras la compilación."
+            )
+
+        # Abrir en el visor de PDF del sistema.
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", str(pdf)])
+        elif sys.platform.startswith("linux"):
+            subprocess.Popen(["xdg-open", str(pdf)])
+        elif sys.platform == "win32":
+            subprocess.Popen(["cmd", "/c", "start", "", str(pdf)])
+        else:
+            job.lines.append(
+                f"PDF generado en {pdf}; no se pudo determinar visor en "
+                f"plataforma {sys.platform}."
+            )
+
+        job.lines.append(f"Informes generados y abiertos: {pdf}")
+        job.status = "done"
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+        job.lines.append("ERROR durante la generación de informes:")
         job.lines.extend(traceback.format_exc().splitlines())
         job.error = str(exc)
         job.status = "error"

@@ -141,6 +141,24 @@ class NodoTree(BaseModel):
     hijos: list["NodoTree"] = []
 
 
+class NodoTreeConTotales(BaseModel):
+    """Nodo del árbol enriquecido con totales de UC.
+
+    - `*_directo`: UCs imputadas exactamente a este nodo.
+    - `*_subárbol`: agregado del nodo y todos sus descendientes.
+    """
+
+    código: str
+    descripción: str
+    identificador: str
+    nuevo: bool = False
+    n_uc_directo: int = 0
+    importe_directo: float = 0.0
+    n_uc_subárbol: int = 0
+    importe_subárbol: float = 0.0
+    hijos: list["NodoTreeConTotales"] = []
+
+
 def _serializar_nodo(
     nodo: NodoÁrbol, identificadores_nuevos: set[str] | None = None,
 ) -> NodoTree:

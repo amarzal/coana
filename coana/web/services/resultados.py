@@ -589,3 +589,173 @@ def listar_anomalias_unicos(params: QueryParams) -> ListResponse:
         total=total,
         column_stats=stats,
     )
+
+
+# ----------------------------------------------------------------------
+# Árbol con totales: visor jerárquico de UCs
+# ----------------------------------------------------------------------
+
+# Slug del frontend → (col en UC, nombre del .tree)
+_SLUG_A_ÁRBOL: dict[str, tuple[str, str]] = {
+    "actividades": ("actividad", "actividades"),
+    "centros-de-coste": ("centro_de_coste", "centros de coste"),
+    "elementos-de-coste": ("elemento_de_coste", "elementos de coste"),
+}
+
+
+def _totales_por_nodo(slug: str) -> dict[str, tuple[int, float]]:
+    """Suma de UC e importe imputados directamente a cada identificador."""
+    info = _SLUG_A_ÁRBOL.get(slug)
+    if info is None:
+        return {}
+    col_uc, _ = info
+    df = _todas_uc()
+    if df.is_empty() or col_uc not in df.columns:
+        return {}
+    agg = (
+        df.filter(pl.col(col_uc).is_not_null())
+        .group_by(col_uc)
+        .agg(
+            pl.len().alias("n"),
+            pl.col("importe").sum().alias("imp"),
+        )
+    )
+    return {
+        r[col_uc]: (int(r["n"]), float(r["imp"] or 0.0))
+        for r in agg.iter_rows(named=True)
+    }
+
+
+def cargar_arbol_con_totales(slug: str):
+    """Devuelve el árbol final del slug con totales agregados por nodo.
+
+    Cada nodo lleva:
+    - `n_uc_directo`, `importe_directo`: UCs imputadas exactamente a él.
+    - `n_uc_subárbol`, `importe_subárbol`: agregado nodo + descendientes.
+    """
+    info = _SLUG_A_ÁRBOL.get(slug)
+    if info is None:
+        return None
+    _, fichero = info
+    p_final = DIR_FASE1 / f"{fichero}.tree"
+    arbol = _arbol(str(p_final), _mtime_ns(p_final))
+    if arbol is None:
+        return None
+    p_orig = DIR_ENTRADA / "estructuras" / f"{fichero}.tree"
+    orig = _arbol(str(p_orig), _mtime_ns(p_orig))
+    ids_orig: set[str] = set(orig._por_id.keys()) if orig is not None else set()
+    ids_final: set[str] = set(arbol._por_id.keys())
+    nuevos = ids_final - ids_orig
+
+    directos = _totales_por_nodo(slug)
+
+    from coana.web.services.entradas import NodoTreeConTotales
+
+    def _construir(nodo) -> NodoTreeConTotales:
+        n_dir, imp_dir = directos.get(nodo.identificador, (0, 0.0))
+        hijos = [_construir(h) for h in nodo.hijos]
+        n_sub = n_dir + sum(h.n_uc_subárbol for h in hijos)
+        imp_sub = imp_dir + sum(h.importe_subárbol for h in hijos)
+        return NodoTreeConTotales(
+            código=nodo.código,
+            descripción=nodo.descripción,
+            identificador=nodo.identificador,
+            nuevo=nodo.identificador in nuevos,
+            n_uc_directo=n_dir,
+            importe_directo=round(imp_dir, 2),
+            n_uc_subárbol=n_sub,
+            importe_subárbol=round(imp_sub, 2),
+            hijos=hijos,
+        )
+
+    return _construir(arbol.raíz)
+
+
+_COLS_UC_NODO: list[ColumnSpec] = [
+    ColumnSpec(name="id", label="ID", format="text"),
+    ColumnSpec(name="_origen", label="Origen", format="text"),
+    ColumnSpec(name="elemento_de_coste", label="Elemento", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+]
+
+
+def listar_uc_de_nodo(slug: str, identificador: str, params: QueryParams) -> ListResponse:
+    """UCs imputadas directamente al nodo (sin descendientes)."""
+    info = _SLUG_A_ÁRBOL.get(slug)
+    if info is None:
+        return ListResponse(columns=_COLS_UC_NODO, rows=[], total=0)
+    col_uc, _ = info
+    df = _todas_uc()
+    if df.is_empty() or col_uc not in df.columns:
+        return ListResponse(columns=_COLS_UC_NODO, rows=[], total=0)
+    sub = df.filter(pl.col(col_uc) == identificador)
+    nombres = [c.name for c in _COLS_UC_NODO if c.name in sub.columns]
+    sub = sub.select(nombres)
+    sub, total, stats = apply_query(
+        sub, params,
+        search_columns=["id", "_origen", "elemento_de_coste", "centro_de_coste", "actividad"],
+    )
+    return ListResponse(
+        columns=_COLS_UC_NODO,
+        rows=sub.to_dicts(),
+        total=total,
+        column_stats=stats,
+    )
+
+
+_COLS_HIJOS: list[ColumnSpec] = [
+    ColumnSpec(name="código", label="Código", format="text"),
+    ColumnSpec(name="descripción", label="Descripción", format="text"),
+    ColumnSpec(name="identificador", label="Identificador", format="text"),
+    ColumnSpec(name="n_uc_subárbol", label="N UC", format="int"),
+    ColumnSpec(name="importe_subárbol", label="Importe", format="euro"),
+    ColumnSpec(name="pct", label="% hermanos", format="float"),
+]
+
+
+def listar_hijos_de_nodo(slug: str, identificador: str) -> ListResponse:
+    """Hijos directos del nodo, con totales del subárbol y % sobre hermanos."""
+    info = _SLUG_A_ÁRBOL.get(slug)
+    if info is None:
+        return ListResponse(columns=_COLS_HIJOS, rows=[], total=0)
+    _, fichero = info
+    p_final = DIR_FASE1 / f"{fichero}.tree"
+    arbol = _arbol(str(p_final), _mtime_ns(p_final))
+    if arbol is None:
+        return ListResponse(columns=_COLS_HIJOS, rows=[], total=0)
+
+    raíz = arbol.raíz if identificador in ("", "_raíz") else arbol._por_id.get(identificador)
+    if raíz is None or not raíz.hijos:
+        return ListResponse(columns=_COLS_HIJOS, rows=[], total=0)
+
+    directos = _totales_por_nodo(slug)
+
+    def _suma_subárbol(nodo) -> tuple[int, float]:
+        n, imp = directos.get(nodo.identificador, (0, 0.0))
+        for h in nodo.hijos:
+            n2, imp2 = _suma_subárbol(h)
+            n += n2
+            imp += imp2
+        return n, imp
+
+    filas: list[dict] = []
+    total_imp = 0.0
+    for h in raíz.hijos:
+        n_sub, imp_sub = _suma_subárbol(h)
+        filas.append({
+            "código": h.código,
+            "descripción": h.descripción,
+            "identificador": h.identificador,
+            "n_uc_subárbol": n_sub,
+            "importe_subárbol": round(imp_sub, 2),
+            "_imp_raw": imp_sub,
+        })
+        total_imp += imp_sub
+
+    for f in filas:
+        f["pct"] = round(100.0 * f["_imp_raw"] / total_imp, 2) if total_imp > 0 else 0.0
+        del f["_imp_raw"]
+
+    return ListResponse(columns=_COLS_HIJOS, rows=filas, total=len(filas))

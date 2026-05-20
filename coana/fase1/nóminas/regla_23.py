@@ -545,95 +545,6 @@ def generar_estructura_estudios_titulaciones(
     return tit
 
 
-# Tipos de proyecto que cuentan como docencia no oficial financiada por
-# proyectos propios o externos (formación permanente, cursos UJI, OAD, etc.).
-_TIPOS_PROYECTO_NO_OFICIAL = (
-    "07G", "EPM", "EPDE", "EPDEX", "EPC", "EPMI", "CUID", "CUEX", "OAD",
-)
-
-
-def generar_horas_no_oficiales(
-    expedientes: pl.DataFrame,
-    ruta_base: Path,
-    dir_salida: Path,
-    ctx_enriquecimiento=None,
-) -> pl.DataFrame:
-    """Diccionario `horas_no_oficiales` (PDI/PVI): proyecto → horas estimadas.
-
-    Lee ``estimación horas docencia propia.xlsx`` y filtra por
-    ``tipo_proyecto`` en :data:`_TIPOS_PROYECTO_NO_OFICIAL`. Para cada
-    fila estima ``unidad_efectiva``: si ``importe > 130``, es
-    ``max(unidad, total/130)``; si no, es ``unidad``.
-
-    Persiste ``regla_23_horas_no_oficiales.parquet`` con detalle por fila.
-    """
-    src = Path(ruta_base) / "entrada" / "docencia" / "estimación horas docencia propia.xlsx"
-    if not src.exists():
-        p = dir_salida / "regla_23_horas_no_oficiales.parquet"
-        if p.exists():
-            p.unlink()
-        return pl.DataFrame()
-
-    df = read_excel(src)
-    # Tabla de proyectos para obtener tipo_proyecto
-    if ctx_enriquecimiento is not None and getattr(ctx_enriquecimiento, "proyectos", None) is not None:
-        proy_ref = ctx_enriquecimiento.proyectos.select(
-            pl.col("proyecto").cast(pl.Utf8),
-            pl.col("tipo").cast(pl.Utf8).str.strip_chars().alias("tipo_proyecto"),
-        )
-    else:
-        proy_path = Path(ruta_base) / "entrada" / "presupuesto" / "proyectos.xlsx"
-        if not proy_path.exists():
-            return pl.DataFrame()
-        proy_ref = read_excel(proy_path).select(
-            pl.col("proyecto").cast(pl.Utf8),
-            pl.col("tipo").cast(pl.Utf8).str.strip_chars().alias("tipo_proyecto"),
-        )
-
-    df = df.with_columns(pl.col("proyecto").cast(pl.Utf8)).join(
-        proy_ref, on="proyecto", how="left",
-    )
-    df = df.filter(
-        pl.col("tipo_proyecto").is_in(list(_TIPOS_PROYECTO_NO_OFICIAL))
-    )
-    if df.is_empty():
-        p = dir_salida / "regla_23_horas_no_oficiales.parquet"
-        if p.exists():
-            p.unlink()
-        return pl.DataFrame()
-
-    # unidad_efectiva: si importe > 130, max(unidad, total/130); si no, unidad.
-    df = df.with_columns(
-        pl.when(pl.col("importe") > 130)
-        .then(
-            pl.max_horizontal(
-                pl.col("unidad"),
-                pl.col("total") / 130.0,
-            )
-        )
-        .otherwise(pl.col("unidad"))
-        .alias("unidad_efectiva")
-    )
-
-    # Restringir a per_id de PDI/PVI (la columna en el fichero es ``perid``).
-    exp_pp = expedientes.filter(
-        pl.col("sector").is_in(["PDI", "PI"])
-    ).select(pl.col("per_id").alias("perid")).unique()
-    if not exp_pp.is_empty():
-        df = df.join(exp_pp, on="perid", how="inner")
-
-    df.write_parquet(dir_salida / "regla_23_horas_no_oficiales.parquet")
-
-    n_proy = df["proyecto"].n_unique()
-    horas_tot = float(df["unidad_efectiva"].sum())
-    importe_tot = float(df["total"].sum())
-    print(
-        f"  Regla 23 — horas no oficiales: {len(df):,} filas, "
-        f"{n_proy:,} proyectos, {horas_tot:,.2f} h ({importe_tot:,.2f} €)"
-    )
-    return df
-
-
 # Conceptos retributivos que son atrasos (se reparten luego como bolsa común,
 # no via regla 23 porque dependen de actividad de años anteriores).
 _CONCEPTOS_ATRASOS = ("30", "87")
@@ -911,7 +822,7 @@ def generar_uc_indemnizaciones_asistencias(
     """
     from coana.fase1.clasificador_centros_coste import (
         _CENTRO_PLAZA_CC,
-        _SERVICIO_CC,
+        _servicio_cc,
     )
 
     exp_min = expedientes.select("expediente", "per_id", "sector")
@@ -929,7 +840,7 @@ def generar_uc_indemnizaciones_asistencias(
             p.unlink()
         return pl.DataFrame()
 
-    srv_to_cc = {k: v[0] for k, v in _SERVICIO_CC.items()}
+    srv_to_cc = {k: v[0] for k, v in _servicio_cc().items()}
     cp_to_cc = {k: v[0] for k, v in _CENTRO_PLAZA_CC.items()}
 
     cols = rows.columns

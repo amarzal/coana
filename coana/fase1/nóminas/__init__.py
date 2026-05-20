@@ -10,7 +10,7 @@ from coana.fase1.clasificador_actividades import (
     enriquecer_para_actividades,
 )
 from coana.fase1.clasificador_centros_coste import (
-    _SERVICIO_CC,
+    _servicio_cc,
     _CENTRO_PLAZA_CC,
     PROYECTOS_ORDINARIOS,
     clasificar_centros_coste,
@@ -23,7 +23,6 @@ from coana.fase1.nóminas.regla_23 import (
     generar_dedicación_estudios,
     generar_dedicación_titulaciones,
     generar_estructura_estudios_titulaciones,
-    generar_horas_no_oficiales,
     generar_pod_resuelto,
     generar_uc_cargos,
     generar_uc_despidos,
@@ -389,7 +388,7 @@ def _generar_uc_ptgas(
                 srv_key = str(row["servicio"])
                 if row["_centro_de_coste"] is None:
                     continue
-                mapping = _SERVICIO_CC.get(srv_key)
+                mapping = _servicio_cc().get(srv_key)
                 act = mapping[1] if mapping and mapping[1] else "dag-general-universidad"
                 filas.append({
                     "id": _next_id(),
@@ -969,41 +968,55 @@ def _generar_reparto_ss_persona(
     ss_calculados_por_persona: pl.DataFrame | None = None,
     uc_por_persona: list[pl.DataFrame] | None = None,
 ) -> None:
-    """Genera el reparto de SS por persona agrupando UC por (actividad, centro de coste).
+    """Genera el reparto de SS por expediente (modelo nuevo, 2026-05).
 
-    Reúne todas las UC asociadas a los expedientes de cada persona (de nómina y
-    de presupuesto), calcula el porcentaje de cada par (actividad, centro_de_coste)
-    y reparte la SS proporcionalmente.
+    Algoritmo en dos pasos:
 
-    Cubre los tres sectores (PTGAS, PDI, PVI). Para asignar el elemento
-    de coste de la SS se usa el sector principal de la persona, con
-    prelación PTGAS > PVI > PDI > Otros (véase la spec).
+    1. *Reparto persona → expediente*. Para cada persona se calcula su
+       SS total del año (cotizada en aplicación 12* + calculada de
+       clases pasivas) y se reparte entre sus expedientes proporcional
+       al bruto retribuido de cada uno. Cada expediente se queda con
+       un cacho de SS que es «suyo».
 
-    Guarda:
-      - persona_uc.parquet: todas las UC retributivas por persona (columnas completas)
-      - persona_ss.parquet: reparto de SS por (per_id, actividad, centro_de_coste).
+    2. *Reparto expediente → (actividad, centro_de_coste)*. Para cada
+       expediente se reúnen sus UC retributivas (con expediente
+       explícito o atribuidas al expediente principal del sector si
+       solo tienen per_id, como #ruta("uc_reparto_regla_23.parquet"))
+       y se reparte su cacho de SS entre los pares (#campo("actividad"),
+       #campo("centro_de_coste")) proporcional al importe.
+
+    El elemento de coste de la SS depende AHORA del sector del
+    expediente, no del sector «principal» de la persona. Una persona
+    con expedientes PAS+PDI ya no mezcla sus circuitos.
+
+    Por compatibilidad con el visor, los outputs siguen siendo:
+      - #ruta("persona_uc.parquet"): UC retributivas agregadas por
+        per_id (con `expediente` cuando aplica).
+      - #ruta("persona_ss.parquet"): reparto de SS por (per_id,
+        actividad, centro_de_coste). Internamente se calcula sumando
+        el reparto por expediente.
+
+    Adicionalmente persiste #ruta("ss_por_expediente.parquet") con el
+    detalle por expediente para auditoría.
     """
-    # Mapa expediente → per_id
     exp_per = expedientes.select("expediente", "per_id")
+    exp_sector = _mapear_sector(expedientes).select(
+        "expediente", "per_id", pl.col("sector_mapeado").alias("sector"),
+    )
 
-    # Reunir todas las UC con todas sus columnas. Quitamos per_id si
-    # alguna UC ya lo trae, para añadirlo de forma uniforme con el join
-    # contra exp_per.
-    partes: list[pl.DataFrame] = []
-    for df in (uc_ptgas, uc_pvi, uc_pdi, *uc_extra):
-        if df is not None and not df.is_empty():
-            if "per_id" in df.columns:
-                df = df.drop("per_id")
-            partes.append(df)
-    for exp_id, df_uc in uc_por_expediente.items():
-        if "actividad" in df_uc.columns and "centro_de_coste" in df_uc.columns:
-            sub = df_uc.with_columns(pl.lit(exp_id).cast(pl.Int64).alias("expediente"))
-            if "per_id" in sub.columns:
-                sub = sub.drop("per_id")
-            partes.append(sub)
-
-    if not partes:
-        # Guardar vacíos
+    # --- 1. Reunir UC retributivas, todas vinculadas a un expediente. ---
+    # uc_ptgas/uc_pvi/uc_pdi y los uc_extra (despidos, indemnizaciones,
+    # cargos) ya tienen `expediente` o `per_id` directamente. Las que
+    # solo tienen per_id (cargos_uc, uc_reparto_regla_23) se atribuyen
+    # al expediente «principal» PDI/PVI de la persona (el de mayor
+    # bruto en el año).
+    bruto_por_exp = (
+        nóminas.filter(~pl.col("aplicación").cast(pl.Utf8).str.starts_with("12"))
+        .group_by("expediente")
+        .agg(pl.col("importe").sum().alias("bruto"))
+    )
+    if bruto_por_exp.is_empty():
+        # Sin nóminas → guardar vacíos y salir.
         pl.DataFrame(schema={
             "per_id": pl.Int64, "expediente": pl.Int64, "id": pl.Utf8,
             "elemento_de_coste": pl.Utf8, "centro_de_coste": pl.Utf8,
@@ -1017,109 +1030,144 @@ def _generar_reparto_ss_persona(
         }).write_parquet(dir_salida / "persona_ss.parquet")
         return
 
-    todas_uc = pl.concat(partes, how="diagonal")
+    # Expediente principal PDI/PVI por persona (el de mayor bruto en
+    # esos sectores). Se usa para atribuir UC que solo traen per_id.
+    exp_principal_pdi_pvi = (
+        bruto_por_exp.join(exp_sector, on="expediente", how="inner")
+        .filter(pl.col("sector").is_in(["PDI", "PVI"]))
+        .sort("bruto", descending=True)
+        .group_by("per_id", maintain_order=True).first()
+        .select("per_id", pl.col("expediente").alias("_exp_principal"))
+    )
 
-    # Añadir per_id vía expediente
-    todas_uc = todas_uc.join(exp_per, on="expediente", how="left")
-
-    # Incorporar UC que ya vienen con per_id (p. ej. reparto regla 23).
+    partes_uc: list[pl.DataFrame] = []
+    # UC con expediente directo (PTGAS / PVI / PDI extras / despidos / indemn / cargos).
+    for df in (uc_ptgas, uc_pvi, uc_pdi, *uc_extra):
+        if df is None or df.is_empty():
+            continue
+        sub = df
+        if "expediente" not in sub.columns:
+            continue
+        if "per_id" not in sub.columns:
+            sub = sub.join(exp_per, on="expediente", how="left")
+        partes_uc.append(sub.select(
+            "id", "expediente", "per_id",
+            "elemento_de_coste", "centro_de_coste", "actividad",
+            "importe", "origen", "origen_id", "origen_porción",
+        ))
+    # UC heredadas (uc_por_persona): respetar el `expediente` si ya
+    # viene en el DataFrame (uc_reparto_regla_23 ahora lo trae); si no
+    # viene (caso cargos_uc), atribuir al expediente principal PDI/PVI.
     if uc_por_persona:
         bloques_pp = [
             df for df in uc_por_persona if df is not None and not df.is_empty()
         ]
         if bloques_pp:
             extra_pp = pl.concat(bloques_pp, how="diagonal")
-            todas_uc = pl.concat([todas_uc, extra_pp], how="diagonal_relaxed")
+            if "expediente" not in extra_pp.columns:
+                extra_pp = extra_pp.with_columns(
+                    pl.lit(None).cast(pl.Int64).alias("expediente")
+                )
+            extra_pp = extra_pp.join(
+                exp_principal_pdi_pvi, on="per_id", how="left",
+            ).with_columns(
+                pl.coalesce(pl.col("expediente"), pl.col("_exp_principal"))
+                .alias("expediente")
+            ).drop("_exp_principal")
+            cols_min = [
+                "id", "expediente", "per_id",
+                "elemento_de_coste", "centro_de_coste", "actividad",
+                "importe", "origen", "origen_id", "origen_porción",
+            ]
+            for c in cols_min:
+                if c not in extra_pp.columns:
+                    extra_pp = extra_pp.with_columns(
+                        pl.lit(None).cast(pl.Utf8 if c not in ("expediente", "per_id", "importe", "origen_porción") else (pl.Int64 if c in ("expediente", "per_id") else pl.Float64)).alias(c)
+                    )
+            partes_uc.append(extra_pp.select(cols_min))
 
-    # Marcar como retributivas
-    todas_uc = todas_uc.with_columns(pl.lit("retributiva").alias("tipo"))
+    if not partes_uc:
+        return
+    todas_uc = pl.concat(partes_uc, how="diagonal_relaxed").with_columns(
+        pl.lit("retributiva").alias("tipo")
+    )
 
-    # SS total por persona: suma de registros de nómina con aplicación
-    # que empieza por "12" en cualquiera de sus expedientes.
+    # --- 2. SS total por persona (cotizada + calculada). ---
     es_ss = pl.col("aplicación").cast(pl.Utf8).str.starts_with("12")
-    ss_por_exp = (
+    ss_cot_por_persona = (
         nóminas.filter(es_ss)
-        .group_by("expediente")
-        .agg(pl.col("importe").sum().alias("ss"))
-    )
-    ss_por_persona = (
-        ss_por_exp.join(exp_per, on="expediente", how="left")
+        .join(exp_per, on="expediente", how="inner")
         .group_by("per_id")
-        .agg(pl.col("ss").sum().alias("ss_total"))
+        .agg(pl.col("importe").sum().alias("ss_cot"))
     )
-
-    # Inyectar costes sociales calculados (clases pasivas PDI funcionario):
-    # se suman al ss_total para repartirlos por (CC, actividad) igual que la
-    # SS cotizada.
     if (
         ss_calculados_por_persona is not None
         and not ss_calculados_por_persona.is_empty()
     ):
-        ss_por_persona = (
-            ss_por_persona.join(
-                ss_calculados_por_persona.rename({"importe_total": "ss_calc"}),
-                on="per_id", how="full", coalesce=True,
-            )
-            .with_columns(
-                (pl.col("ss_total").fill_null(0.0) + pl.col("ss_calc").fill_null(0.0))
-                .alias("ss_total")
-            )
-            .drop("ss_calc")
+        ss_calc_por_persona = ss_calculados_por_persona.select(
+            "per_id", pl.col("importe_total").alias("ss_calc"),
         )
+    else:
+        ss_calc_por_persona = pl.DataFrame(schema={
+            "per_id": pl.Int64, "ss_calc": pl.Float64,
+        })
+    ss_persona = (
+        ss_cot_por_persona.join(ss_calc_por_persona, on="per_id", how="full", coalesce=True)
+        .with_columns(
+            pl.col("ss_cot").fill_null(0.0),
+            pl.col("ss_calc").fill_null(0.0),
+        )
+        .with_columns(
+            (pl.col("ss_cot") + pl.col("ss_calc")).alias("ss_total_persona")
+        )
+    )
 
-    # Agrupar UC retributivas por (per_id, actividad, centro_de_coste)
+    # --- 3. Reparto SS persona → expediente proporcional al bruto. ---
+    bruto_exp_con_per = bruto_por_exp.join(exp_per, on="expediente", how="inner")
+    bruto_total_persona = (
+        bruto_exp_con_per.group_by("per_id")
+        .agg(pl.col("bruto").sum().alias("bruto_total"))
+    )
+    ss_por_exp = (
+        bruto_exp_con_per
+        .join(bruto_total_persona, on="per_id", how="left")
+        .join(ss_persona.select("per_id", "ss_total_persona"), on="per_id", how="left")
+        .with_columns(pl.col("ss_total_persona").fill_null(0.0))
+        .with_columns(
+            pl.when(pl.col("bruto_total") > 0)
+            .then(pl.col("bruto") / pl.col("bruto_total") * pl.col("ss_total_persona"))
+            .otherwise(0.0)
+            .round(2)
+            .alias("ss_expediente")
+        )
+        .select("expediente", "per_id", "bruto", "ss_total_persona", "ss_expediente")
+    )
+    ss_por_exp.write_parquet(dir_salida / "ss_por_expediente.parquet")
+
+    # --- 4. Reparto SS expediente → (cc, actividad) proporcional a UC. ---
     agrup = (
-        todas_uc
-        .group_by("per_id", "actividad", "centro_de_coste")
+        todas_uc.group_by("expediente", "per_id", "actividad", "centro_de_coste")
         .agg(pl.col("importe").sum().alias("importe_uc"))
     )
-
-    # Total UC por persona
-    total_por_persona = (
-        agrup.group_by("per_id")
-        .agg(pl.col("importe_uc").sum().alias("total_uc"))
+    total_por_exp = (
+        agrup.group_by("expediente")
+        .agg(pl.col("importe_uc").sum().alias("total_uc_exp"))
     )
 
-    # Calcular porcentaje y reparto de SS. Evitamos divisiones por cero
-    # cuando total_uc == 0 (puede ocurrir si todos los importes de la
-    # persona se cancelan): esa persona no contribuye al reparto.
     reparto = (
         agrup
-        .join(total_por_persona, on="per_id", how="left")
-        .join(ss_por_persona, on="per_id", how="left")
-        .with_columns(pl.col("ss_total").fill_null(0.0))
-        .filter(pl.col("total_uc").abs() > 1e-9)
+        .join(total_por_exp, on="expediente", how="left")
+        .join(ss_por_exp.select("expediente", "ss_expediente"), on="expediente", how="left")
+        .with_columns(pl.col("ss_expediente").fill_null(0.0))
+        .filter(pl.col("total_uc_exp").abs() > 1e-9)
         .with_columns(
-            (pl.col("importe_uc") / pl.col("total_uc") * 100).round(2).alias("pct"),
-            (pl.col("importe_uc") / pl.col("total_uc") * pl.col("ss_total"))
+            (pl.col("importe_uc") / pl.col("total_uc_exp") * pl.col("ss_expediente"))
             .round(2)
             .alias("ss_proporcional"),
         )
-        .drop("total_uc")
-        .sort("per_id", "importe_uc", descending=[False, True])
     )
 
-    reparto.write_parquet(dir_salida / "persona_ss.parquet")
-
-    # Sector principal por persona (prelación PTGAS > PVI > PDI)
-    exp_con_sector = _mapear_sector(expedientes)
-    sector_principal = (
-        exp_con_sector
-        .with_columns(
-            pl.col("sector_mapeado")
-            .replace({s: str(i) for i, s in enumerate(_PRELACIÓN_SECTOR)})
-            .alias("_prio"),
-        )
-        .sort("_prio")
-        .group_by("per_id")
-        .first()
-        .select("per_id", pl.col("sector_mapeado").alias("sector_principal"))
-    )
-
-    # Mapeo sector → elemento de coste de SS (cotizada)
-    _EC_SS = {"PTGAS": "ss-ptgas", "PDI": "ss-pdi-func", "PVI": "ss-pvi-otpersonal"}
-    # Personas en clases pasivas: su SS no es cotizada sino calculada y va
-    # a un elemento distinto («previsión social de funcionarios»).
+    # Atribuir EC de SS según el SECTOR del expediente (no del per_id).
     per_ids_pasivas: set[int] = set()
     if (
         ss_calculados_por_persona is not None
@@ -1128,36 +1176,65 @@ def _generar_reparto_ss_persona(
         per_ids_pasivas = set(
             ss_calculados_por_persona.get_column("per_id").to_list()
         )
+    _EC_SS = {"PTGAS": "ss-ptgas", "PDI": "ss-pdi-func", "PVI": "ss-pi-otpersonal"}
+    reparto = reparto.join(exp_sector.select("expediente", "sector"), on="expediente", how="left")
 
-    # Generar UC de costes sociales (una por cada par actividad/CC con SS > 0)
-    ss_base = (
-        reparto.filter(pl.col("ss_proporcional") > 0)
-        .join(sector_principal, on="per_id", how="left")
+    # Agregamos por (per_id, actividad, centro_de_coste) para mantener
+    # compatibilidad con el visor (persona_ss.parquet sigue siendo «por
+    # persona», ahora calculado a partir del reparto por expediente).
+    reparto_persona = (
+        reparto.group_by("per_id", "actividad", "centro_de_coste")
+        .agg(
+            pl.col("importe_uc").sum().alias("importe_uc"),
+            pl.col("ss_proporcional").sum().round(2).alias("ss_proporcional"),
+        )
+        .join(
+            ss_persona.select("per_id", pl.col("ss_total_persona").alias("ss_total")),
+            on="per_id", how="left",
+        )
+        .with_columns(pl.col("ss_total").fill_null(0.0))
     )
+    # pct = pct de UC sobre el total del per_id (para reporte)
+    total_por_persona = (
+        reparto_persona.group_by("per_id")
+        .agg(pl.col("importe_uc").sum().alias("_total_uc_persona"))
+    )
+    reparto_persona = (
+        reparto_persona.join(total_por_persona, on="per_id", how="left")
+        .with_columns(
+            pl.when(pl.col("_total_uc_persona") > 0)
+            .then(pl.col("importe_uc") / pl.col("_total_uc_persona") * 100)
+            .otherwise(0.0)
+            .round(2)
+            .alias("pct")
+        )
+        .drop("_total_uc_persona")
+        .sort("per_id", "importe_uc", descending=[False, True])
+    )
+    reparto_persona.write_parquet(dir_salida / "persona_ss.parquet")
 
+    # --- 5. UC de SS (una por expediente × par cc/actividad con ss > 0). ---
+    ss_base = reparto.filter(pl.col("ss_proporcional") > 0)
     filas_ss = []
-    ss_counter = 0
-    for row in ss_base.iter_rows(named=True):
-        ss_counter += 1
-        if row["per_id"] in per_ids_pasivas:
+    for i, row in enumerate(ss_base.iter_rows(named=True), start=1):
+        sector_exp = row.get("sector") or ""
+        if row["per_id"] in per_ids_pasivas and sector_exp == "PDI":
             ec = "prevsoc-funcs-pdi"
         else:
-            sector = row.get("sector_principal", "")
-            ec = _EC_SS.get(sector, f"ss-{sector.lower()}")
+            ec = _EC_SS.get(sector_exp, f"ss-{sector_exp.lower()}")
         filas_ss.append({
             "per_id": row["per_id"],
-            "expediente": None,
-            "id": f"SS-{ss_counter:05d}",
+            "expediente": row["expediente"],
+            "id": f"SS-{i:05d}",
             "elemento_de_coste": ec,
             "centro_de_coste": row["centro_de_coste"],
             "actividad": row["actividad"],
             "importe": row["ss_proporcional"],
             "origen": "nómina",
-            "origen_id": f"SS-{row['per_id']}-{row['actividad']}",
+            "origen_id": f"SS-{row['expediente']}-{row['actividad']}",
             "origen_porción": 1.0,
             "tipo": "coste social",
         })
-
     if filas_ss:
         uc_ss = pl.DataFrame(filas_ss)
     else:
@@ -1168,15 +1245,13 @@ def _generar_reparto_ss_persona(
             "origen_id": pl.Utf8, "origen_porción": pl.Float64, "tipo": pl.Utf8,
         })
 
-    # Unir retributivas + costes sociales
     todas = pl.concat([todas_uc, uc_ss], how="diagonal")
     todas.write_parquet(dir_salida / "persona_uc.parquet")
 
-    n_personas = reparto["per_id"].n_unique()
-    n_uc_ss = len(uc_ss)
+    n_personas = reparto_persona["per_id"].n_unique()
     print(
-        f"  Reparto SS por persona: {n_personas:,} personas, {len(reparto):,} pares act/CC, "
-        f"{n_uc_ss:,} UC de costes sociales"
+        f"  Reparto SS por expediente: {n_personas:,} personas, "
+        f"{ss_por_exp.height:,} expedientes, {len(uc_ss):,} UC de costes sociales"
     )
 
 
@@ -1214,6 +1289,66 @@ def per_ids_solo_atrasos(
         .get_column("per_id").unique().to_list()
     )
     return con_atrasos - con_otros
+
+
+def _filtrar_cr_19_64_sin_cargo_activo(
+    nóminas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    ruta_base: Path,
+    dir_salida: Path,
+    año: int = 2025,
+) -> tuple[pl.DataFrame, int, float]:
+    """Filtra líneas CR 19/64 en proyecto general cobradas por personas
+    que NO tienen ningún cargo asimilable al RD vigente en el año.
+
+    Son atrasos / regularizaciones tardías de cargos ya cerrados: no
+    corresponden a actividad imputable al ejercicio. Se persisten en
+    `cr_19_64_sin_cargo_activo.parquet` y se descartan de la nómina.
+    """
+    from coana.fase1.cargos import (
+        per_ids_con_cargo_asimilable_activo,
+        _PROYECTOS_GENERALES,
+    )
+
+    if nóminas.is_empty() or expedientes.is_empty():
+        return nóminas, 0, 0.0
+
+    activos = per_ids_con_cargo_asimilable_activo(ruta_base, año)
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    proy = pl.col("proyecto").cast(pl.Utf8)
+
+    j = nóminas.with_row_index("_idx").join(
+        expedientes.select("expediente", "per_id"), on="expediente", how="inner",
+    )
+    candidatas = j.filter(
+        cr.is_in(["19", "64"])
+        & proy.is_in(list(_PROYECTOS_GENERALES))
+        & (pl.col("fecha").dt.year() == año)
+        & ~pl.col("per_id").is_in(list(activos) or [-1])
+    )
+    if candidatas.is_empty():
+        return nóminas.drop("_idx") if "_idx" in nóminas.columns else nóminas, 0, 0.0
+
+    detalle = (
+        candidatas.group_by("per_id")
+        .agg(
+            pl.len().alias("n_líneas"),
+            pl.col("importe").sum().round(2).alias("importe_total"),
+            pl.col("expediente").unique().sort().cast(pl.List(pl.Utf8)).list.join(", ").alias("expedientes"),
+        )
+        .sort(pl.col("importe_total").abs(), descending=True)
+    )
+    importe_total = float(detalle["importe_total"].sum())
+    dir_salida.mkdir(parents=True, exist_ok=True)
+    detalle.write_parquet(dir_salida / "cr_19_64_sin_cargo_activo.parquet")
+
+    idx_excluir = candidatas["_idx"].to_list()
+    nóminas_out = (
+        nóminas.with_row_index("_idx")
+        .filter(~pl.col("_idx").is_in(idx_excluir))
+        .drop("_idx")
+    )
+    return nóminas_out, detalle.height, importe_total
 
 
 def _filtrar_atrasos_no_vinculados(
@@ -1451,6 +1586,19 @@ def preprocesar_nóminas(
             f"{n_no_vinc:,} personas · {imp_no_vinc:,.2f} €"
         )
 
+    # Filtro: CR 19/64 en proyecto general cobrados por personas sin
+    # cargo asimilable activo en el año (atrasos / regularizaciones de
+    # cargos cerrados antes del ejercicio). No corresponden a actividad
+    # imputable.
+    nóminas, n_sin_cargo, imp_sin_cargo = _filtrar_cr_19_64_sin_cargo_activo(
+        nóminas, expedientes, ruta_base, dir_salida,
+    )
+    if n_sin_cargo:
+        print(
+            f"  Filtrados CR 19/64 sin cargo activo: "
+            f"{n_sin_cargo:,} personas · {imp_sin_cargo:,.2f} €"
+        )
+
     # Resta de la extra de cargos al CR 68 (paga adicional CE PDI) en
     # proyecto general. Devuelve el dict de extras realmente aplicadas.
     extras_aplicadas: dict[int, float] = {}
@@ -1460,20 +1608,23 @@ def preprocesar_nóminas(
         )
     ctx._extras_aplicadas_por_persona = extras_aplicadas  # type: ignore[attr-defined]
 
-    # Persistir la nómina tras los filtros y descuentos, de modo que
-    # las etapas posteriores (uc_reparto regla 23, visor de cuadre)
-    # operen con la misma masa que el preprocesamiento — sin duplicidad
-    # CR 68 entre regla 23 y cargos_uc.
-    nóminas.write_parquet(dir_salida / "nominas_aplicadas.parquet")
-
     _reset_etiquetas_ec_faltantes()
 
     # Filtro de la spec: solo se consideran expedientes con alguna
-    # retribución en el ejercicio analizado. Los expedientes que constan
-    # en la tabla de RR.HH. pero no tienen ninguna línea de nómina (o la
-    # suma total es 0 €) se descartan por completo del preprocesamiento.
+    # retribución de personal en el ejercicio analizado. NO cuentan como
+    # tal:
+    #   - SS cotizada (aplicación que empieza por "12"): si un expediente
+    #     solo tiene cotización SS pero ningún cobro al trabajador, no
+    #     hay actividad imputable (regularizaciones de SS).
+    #   - Capítulo 4 (aplicación que empieza por "4"): transferencias
+    #     corrientes — becarios. No son personal PDI/PVI/PTGAS.
+    # Los expedientes cuyo único cobro cae en esos dos buckets se
+    # descartan junto con sus líneas.
+    apli = pl.col("aplicación").cast(pl.Utf8).fill_null("")
+    es_retributiva = ~apli.str.starts_with("12") & ~apli.str.starts_with("4")
     exp_con_actividad = (
-        nóminas.group_by("expediente")
+        nóminas.filter(es_retributiva)
+        .group_by("expediente")
         .agg(pl.col("importe").sum().alias("_imp"))
         .filter(pl.col("_imp").abs() > 0)
         .get_column("expediente")
@@ -1482,11 +1633,21 @@ def preprocesar_nóminas(
     expedientes = expedientes.filter(
         pl.col("expediente").is_in(exp_con_actividad)
     )
+    n_filas_antes = nóminas.height
+    nóminas = nóminas.filter(pl.col("expediente").is_in(exp_con_actividad))
     if expedientes.height < n_antes:
+        n_filas_quitadas = n_filas_antes - nóminas.height
         print(
             f"  Filtrados {n_antes - expedientes.height:,} expedientes "
-            f"sin retribución en el ejercicio (quedan {expedientes.height:,})"
+            f"sin retribución en el ejercicio (quedan {expedientes.height:,}) "
+            f"· {n_filas_quitadas:,} líneas de nómina descartadas"
         )
+
+    # Persistir la nómina tras los filtros y descuentos, de modo que
+    # las etapas posteriores (uc_reparto regla 23, visor de cuadre)
+    # operen con la misma masa que el preprocesamiento — sin duplicidad
+    # CR 68 entre regla 23 y cargos_uc, y sin SS huérfana.
+    nóminas.write_parquet(dir_salida / "nominas_aplicadas.parquet")
 
     # Join para obtener per_id y sector de cada línea de nómina.
     con_sector = nóminas.join(
@@ -1592,10 +1753,10 @@ def preprocesar_nóminas(
     generar_dedicación_estudios(pod_resuelto, dir_salida)
     generar_asignaturas_sin_titulación(expedientes, ruta_base, dir_salida)
     generar_estructura_estudios_titulaciones(expedientes, ruta_base, dir_salida)
-    generar_horas_no_oficiales(
-        expedientes, ruta_base, dir_salida,
-        ctx_enriquecimiento=ctx_enriquecimiento,
-    )
+    # Las horas de docencia no oficial las genera el cargador
+    # `cargar_pod_no_oficial` durante `generar_dedicación_pdi`, que
+    # también persiste `regla_23_horas_no_oficiales.parquet` para el
+    # visor.
     generar_atrasos_y_apartados(nóminas, expedientes, dir_salida)
     _clasif_kw = dict(
         ctx_enriquecimiento=ctx_enriquecimiento,

@@ -43,6 +43,16 @@ def version():
 
 
 @app.command()
+def informes(
+    ruta_base: Path = typer.Option(Path("data"), help="Ruta base de datos"),
+):
+    """Genera los informes de la Fase 2 a partir de las UC de la Fase 1."""
+    from coana.fase2 import ejecutar as ejecutar_fase2
+
+    ejecutar_fase2(ruta_base)
+
+
+@app.command()
 def editor_tree(
     ruta_base: Path = typer.Option(Path("data"), help="Ruta base de datos"),
 ):

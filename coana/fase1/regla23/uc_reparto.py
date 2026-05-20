@@ -73,8 +73,13 @@ def generar_uc_reparto_regla_23(
     if masa.is_empty():
         return _esquema_vacío()
 
-    # Solo PDI y PVI (el reparto regla 23 aplica a estos sectores).
-    exp_pdi_pvi = exp.filter(pl.col("sector").is_in(["PDI", "PVI"]))
+    # Solo PDI y PVI (el reparto regla 23 aplica a estos sectores). En
+    # `expedientes recursos humanos.xlsx` el PVI viene codificado como
+    # `PI`; lo normalizamos para que el cargador lo trate como PVI.
+    exp_pdi_pvi = exp.filter(pl.col("sector").is_in(["PDI", "PVI", "PI"]))
+    exp_pdi_pvi = exp_pdi_pvi.with_columns(
+        pl.col("sector").replace({"PI": "PVI"})
+    )
     masa = masa.join(
         exp_pdi_pvi.select("expediente", "per_id", "sector"),
         on="expediente", how="inner",
@@ -107,9 +112,16 @@ def generar_uc_reparto_regla_23(
     if masa.is_empty():
         return _esquema_vacío()
 
-    # Importe por (per_id, elemento_de_coste).
+    # Importe por (per_id, expediente, elemento_de_coste). Conservamos
+    # `expediente` para que la UC resultante pueda atribuirse a un
+    # expediente concreto (no a un «principal» elegido a posteriori).
+    # Cuando una persona tiene varios expedientes PDI/PVI, cada uno
+    # se queda con SU cacho de masa regla 23 prorrateado por sus
+    # propias líneas; los pesos por (actividad, centro_de_coste) son
+    # los de la persona (la regla 23 calcula horas a nivel per_id, no
+    # por expediente).
     masa_pp = (
-        masa.group_by("per_id", "_ec")
+        masa.group_by("per_id", "expediente", "_ec")
         .agg(pl.col("importe").sum().alias("importe_ec"))
     )
 
@@ -124,9 +136,9 @@ def generar_uc_reparto_regla_23(
         (pl.col("h") / pl.col("h_total")).alias("peso")
     ).filter(pl.col("h_total") > 0)
 
-    # Personas con masa pero sin dedicación → fallback a (pendiente, pendiente)
-    # con peso 1 (toda la masa de la persona a esa única fila) para no
-    # perder importe del coste analítico.
+    # Personas con masa pero sin dedicación → fallback a (pendiente,
+    # pendiente) con peso 1 (toda la masa de la persona a esa única
+    # fila) para no perder importe del coste analítico.
     sin_ded = masa_pp.join(
         totales.select("per_id"), on="per_id", how="anti",
     )
@@ -138,23 +150,18 @@ def generar_uc_reparto_regla_23(
             f"dedicación calculada ({imp_huérf:,.2f} €) — repartido a "
             f"(actividad=pendiente, centro=pendiente)."
         )
-        fallback = sin_ded.select(
-            "per_id", "_ec", "importe_ec",
+        sin_ded_uc = sin_ded.select(
+            "per_id", "expediente", "_ec", "importe_ec",
         ).with_columns(
             pl.lit("pendiente").alias("actividad"),
             pl.lit("pendiente").alias("centro_de_coste"),
-            pl.col("importe_ec").alias("h"),  # alias temporal
-            pl.col("importe_ec").alias("h_total"),
             pl.lit(1.0).alias("peso"),
-        )
-        sin_ded_uc = fallback.select(
-            "per_id", "_ec", "importe_ec",
-            "actividad", "centro_de_coste", "peso",
         )
     else:
         sin_ded_uc = None
 
-    # Producto cartesiano (per_id × ec) × (per_id × actividad × centro).
+    # Producto cartesiano (per_id × expediente × ec) × (per_id ×
+    # actividad × centro). El expediente se conserva en la UC final.
     uc = masa_pp.join(pesos, on="per_id", how="inner").with_columns(
         (pl.col("importe_ec") * pl.col("peso")).round(2).alias("importe"),
     )
@@ -162,20 +169,18 @@ def generar_uc_reparto_regla_23(
         sin_ded_uc = sin_ded_uc.with_columns(
             (pl.col("importe_ec") * pl.col("peso")).round(2).alias("importe"),
         )
+        cols_comunes = [
+            "per_id", "expediente", "_ec", "importe_ec",
+            "actividad", "centro_de_coste", "peso", "importe",
+        ]
         uc = pl.concat([
-            uc.select(
-                "per_id", "_ec", "importe_ec", "actividad",
-                "centro_de_coste", "peso", "importe",
-            ),
-            sin_ded_uc.select(
-                "per_id", "_ec", "importe_ec", "actividad",
-                "centro_de_coste", "peso", "importe",
-            ),
+            uc.select(cols_comunes), sin_ded_uc.select(cols_comunes),
         ], how="vertical_relaxed")
 
     # Esquema UC estándar.
     uc = uc.with_columns(
         (pl.lit("R23-") + pl.col("per_id").cast(pl.Utf8) + pl.lit("-")
+         + pl.col("expediente").cast(pl.Utf8) + pl.lit("-")
          + pl.col("_ec") + pl.lit("-") + pl.col("actividad")
          + pl.lit("-") + pl.col("centro_de_coste")).alias("origen_id"),
     )
@@ -189,6 +194,7 @@ def generar_uc_reparto_regla_23(
         pl.col("origen_id"),
         pl.col("peso").alias("origen_porción"),
         pl.col("per_id"),
+        pl.col("expediente"),
     )
 
     dir_out = ruta_base / "fase1" / "regla23"
@@ -208,4 +214,5 @@ def _esquema_vacío() -> pl.DataFrame:
         "origen_id": pl.Utf8,
         "origen_porción": pl.Float64,
         "per_id": pl.Int64,
+        "expediente": pl.Int64,
     })

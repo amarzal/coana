@@ -38,6 +38,7 @@ import polars as pl
 from coana.fase1.regla23.cargadores.cargos import cargar_cargos
 from coana.fase1.regla23.cargadores.grupos import cargar_grupos
 from coana.fase1.regla23.cargadores.pod import cargar_pod
+from coana.fase1.regla23.cargadores.pod_no_oficial import cargar_pod_no_oficial
 from coana.fase1.regla23.cargadores.proyectos import cargar_proyectos
 from coana.fase1.regla23.cargadores.tesis import cargar_tesis
 from coana.fase1.regla23.reparto import aplicar_reparto_regla_23
@@ -101,6 +102,20 @@ def generar_dedicación_pdi(
     pod = cargar_pod(ruta_base, año=año)
     log.info("  POD: %s filas, %.1f h totales", f"{len(pod):,}", pod["horas"].sum())
     fuentes.append(pod)
+
+    log.info("Cargando POD no oficial…")
+    from coana.util import read_excel as _re
+    _exp_path = ruta_base / "entrada" / "nóminas" / "expedientes recursos humanos.xlsx"
+    _exp_df = _re(_exp_path) if _exp_path.exists() else None
+    _dir_aux = ruta_base / "fase1" / "auxiliares" / "nóminas"
+    pod_no_of = cargar_pod_no_oficial(
+        ruta_base, año=año, expedientes=_exp_df, dir_salida_auxiliar=_dir_aux,
+    )
+    log.info(
+        "  POD no oficial: %s filas, %.1f h totales",
+        f"{len(pod_no_of):,}", pod_no_of["horas"].sum() if not pod_no_of.is_empty() else 0.0,
+    )
+    fuentes.append(pod_no_of)
 
     log.info("Cargando tesis…")
     tesis = cargar_tesis(ruta_base, año=año)

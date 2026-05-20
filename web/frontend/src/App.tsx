@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MainNav } from "@/components/MainNav";
 import { EjecutarFase1 } from "@/components/EjecutarFase1";
+import { GenerarInformes } from "@/components/GenerarInformes";
 import { StatusFooter } from "@/components/StatusFooter";
 import {
     PresupuestoResumen,
@@ -64,11 +65,14 @@ import { InvestigacionGrupos } from "@/routes/investigacion";
 import {
     ResultadosResumen,
     ResultadosTodasUc,
-    ResultadosActividades,
-    ResultadosCentros,
-    ResultadosElementos,
     ResultadosAnomalias,
 } from "@/routes/resultados";
+import {
+    ResultadosArbolActividades,
+    ResultadosArbolCentros,
+    ResultadosArbolElementos,
+} from "@/routes/resultados/ArbolConUcs";
+import { InformeView } from "@/routes/informes/InformeView";
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -93,6 +97,7 @@ function Layout() {
                     <div className="text-xs text-slate-500">UJI 2025</div>
                 </div>
                 <EjecutarFase1 />
+                <GenerarInformes />
                 <MainNav />
                 <StatusFooter />
             </aside>
@@ -164,10 +169,11 @@ export function App() {
                         <Route path="investigacion/grupos" element={<InvestigacionGrupos />} />
                         <Route path="resultados/resumen" element={<ResultadosResumen />} />
                         <Route path="resultados/uc" element={<ResultadosTodasUc />} />
-                        <Route path="resultados/actividades" element={<ResultadosActividades />} />
-                        <Route path="resultados/centros" element={<ResultadosCentros />} />
-                        <Route path="resultados/elementos" element={<ResultadosElementos />} />
+                        <Route path="resultados/actividades" element={<ResultadosArbolActividades />} />
+                        <Route path="resultados/centros-de-coste" element={<ResultadosArbolCentros />} />
+                        <Route path="resultados/elementos-de-coste" element={<ResultadosArbolElementos />} />
                         <Route path="resultados/anomalias" element={<ResultadosAnomalias />} />
+                        <Route path="informes/:cuadroId" element={<InformeView />} />
                     </Route>
                 </Routes>
             </BrowserRouter>

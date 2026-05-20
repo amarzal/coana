@@ -1,0 +1,258 @@
+id: cuadro_10_1
+título: Informe de elementos de coste
+encabezado_concepto: Elemento de coste
+total: 152779410.83
+filas:
+- código: '01'
+  slug: costes-personal
+  nombre: Costes de personal
+  nivel: 1
+  importe: 116634350.08
+  pct_elemento: 100.0
+  pct_total: 76.3417
+- código: '01.01'
+  slug: salario-pdi
+  nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+  nivel: 2
+  importe: 54533631.84
+  pct_elemento: 46.7561
+  pct_total: null
+- código: '01.02'
+  slug: salario-ptgas
+  nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+    y Servicios (PTGAS)
+  nivel: 2
+  importe: 27251708.68
+  pct_elemento: 23.3651
+  pct_total: null
+- código: '01.03'
+  slug: salario-piyotper
+  nombre: Costes del Personal Investigador laboral y de otro personal
+  nivel: 2
+  importe: 10666638.66
+  pct_elemento: 9.1454
+  pct_total: null
+- código: '01.04'
+  slug: ss
+  nombre: Cotizaciones sociales a cargo del empleador
+  nivel: 2
+  importe: 17165983.36
+  pct_elemento: 14.7178
+  pct_total: null
+- código: '01.05'
+  slug: prevsoc-funcs
+  nombre: Previsión social de funcionarios (costes calculados)
+  nivel: 2
+  importe: 4697604.2
+  pct_elemento: 4.0276
+  pct_total: null
+- código: '01.06'
+  slug: indem
+  nombre: Indemnizaciones
+  nivel: 2
+  importe: 0.0
+  pct_elemento: 0.0
+  pct_total: null
+- código: '01.07'
+  slug: otcsoc
+  nombre: Otros costes sociales
+  nivel: 2
+  importe: 395573.23
+  pct_elemento: 0.3392
+  pct_total: null
+- código: '01.08'
+  slug: indemnizaciones-servicio
+  nombre: Indemnizaciones por razón de servicio
+  nivel: 2
+  importe: 1627250.87
+  pct_elemento: 1.3952
+  pct_total: null
+- código: '01.09'
+  slug: otras-indemnizaciones
+  nombre: Otras indemnizaciones
+  nivel: 2
+  importe: 295959.24
+  pct_elemento: 0.2537
+  pct_total: null
+- código: '01.10'
+  slug: transp-personal
+  nombre: Transporte de personal
+  nivel: 2
+  importe: 0.0
+  pct_elemento: 0.0
+  pct_total: null
+- código: '03'
+  slug: bienes-servicios
+  nombre: Coste de adquisición de bienes y servicios
+  nivel: 1
+  importe: 10371613.24
+  pct_elemento: 100.0
+  pct_total: 6.7886
+- código: '03.03'
+  slug: material-laboratorio
+  nombre: Coste de material e instrumental de laboratorio y experimentación
+  nivel: 2
+  importe: 56903.59
+  pct_elemento: 0.5486
+  pct_total: null
+- código: '03.08'
+  slug: material-oficina
+  nombre: Coste de material de oficina ordinario no inventariable
+  nivel: 2
+  importe: 471451.41
+  pct_elemento: 4.5456
+  pct_total: null
+- código: '03.10'
+  slug: publicaciones
+  nombre: Coste de prensa, revistas, libros y otras publicaciones
+  nivel: 2
+  importe: 1677901.04
+  pct_elemento: 16.1778
+  pct_total: null
+- código: '03.11'
+  slug: bienes-investigación
+  nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+  nivel: 2
+  importe: 1172945.9
+  pct_elemento: 11.3092
+  pct_total: null
+- código: '03.12'
+  slug: trabajos-otras-empresas
+  nombre: Trabajos realizados por otras empresas
+  nivel: 2
+  importe: 6152109.62
+  pct_elemento: 59.3168
+  pct_total: null
+- código: '03.13'
+  slug: otros-bienes-servicios
+  nombre: Otras adquisiciones de bienes y servicios
+  nivel: 2
+  importe: 526140.04
+  pct_elemento: 5.0729
+  pct_total: null
+- código: '04'
+  slug: servicios-exteriores
+  nombre: Coste de servicios exteriores
+  nivel: 1
+  importe: 16353369.39
+  pct_elemento: 100.0
+  pct_total: 10.7039
+- código: '04.02'
+  slug: conservación
+  nombre: Reparaciones y conservación
+  nivel: 2
+  importe: 5035994.97
+  pct_elemento: 30.7948
+  pct_total: null
+- código: '04.03'
+  slug: servicios-profesionales
+  nombre: Servicios de profesionales independientes
+  nivel: 2
+  importe: 1337899.4
+  pct_elemento: 8.1812
+  pct_total: null
+- código: '04.09'
+  slug: suministros
+  nombre: Suministros
+  nivel: 2
+  importe: 2981700.16
+  pct_elemento: 18.2329
+  pct_total: null
+- código: '04.10'
+  slug: comunicaciones
+  nombre: Comunicaciones
+  nivel: 2
+  importe: 64862.48
+  pct_elemento: 0.3966
+  pct_total: null
+- código: '04.11'
+  slug: limpieza-aseo
+  nombre: Limpieza y aseo
+  nivel: 2
+  importe: 3022933.68
+  pct_elemento: 18.4851
+  pct_total: null
+- código: '04.12'
+  slug: seguridad
+  nombre: Seguridad y vigilancia
+  nivel: 2
+  importe: 1199090.89
+  pct_elemento: 7.3324
+  pct_total: null
+- código: '04.13'
+  slug: costes-diversos
+  nombre: Costes diversos
+  nivel: 2
+  importe: 860328.55
+  pct_elemento: 5.2609
+  pct_total: null
+- código: '05'
+  slug: tributos
+  nombre: Coste de tributos
+  nivel: 1
+  importe: 16330.63
+  pct_elemento: 100.0
+  pct_total: 0.0107
+- código: '06'
+  slug: costes-financieros
+  nombre: Costes financieros
+  nivel: 1
+  importe: 14381.85
+  pct_elemento: 100.0
+  pct_total: 0.0094
+- código: '07'
+  slug: amortizaciones
+  nombre: Amortizaciones (costes calculados)
+  nivel: 1
+  importe: 6347526.73
+  pct_elemento: 100.0
+  pct_total: 4.1547
+- código: '07.01'
+  slug: amortización-inmovilizado-material
+  nombre: Del inmovilizado material
+  nivel: 2
+  importe: 6347526.73
+  pct_elemento: 100.0
+  pct_total: null
+- código: '07.02'
+  slug: amortización-inmovilizado-inmaterial
+  nombre: Del inmovilizado inmaterial
+  nivel: 2
+  importe: 0.0
+  pct_elemento: 0.0
+  pct_total: null
+- código: 08
+  slug: costes-oportunidad
+  nombre: Costes de oportunidad (costes calculados)
+  nivel: 1
+  importe: 0.0
+  pct_elemento: 0.0
+  pct_total: 0.0
+- código: 09
+  slug: transferencias
+  nombre: Transferencias
+  nivel: 1
+  importe: 3041838.91
+  pct_elemento: 100.0
+  pct_total: 1.991
+- código: '09.01'
+  slug: transferencias-alumnos
+  nombre: A alumnos/as
+  nivel: 2
+  importe: 2945119.66
+  pct_elemento: 96.8204
+  pct_total: null
+- código: '09.02'
+  slug: transferencias-organizaciones-grupo
+  nombre: A organizaciones del grupo
+  nivel: 2
+  importe: 12000.0
+  pct_elemento: 0.3945
+  pct_total: null
+- código: '09.03'
+  slug: transferencias-otras-organizaciones
+  nombre: A otras organizaciones
+  nivel: 2
+  importe: 84719.25
+  pct_elemento: 2.7851
+  pct_total: null

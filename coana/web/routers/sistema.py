@@ -45,6 +45,7 @@ class JobInfo(BaseModel):
     finished_at: float | None = None
     n_lines: int
     error: str | None = None
+    kind: str = "fase1"
 
 
 def _to_info(job: streaming.Job) -> JobInfo:
@@ -55,6 +56,7 @@ def _to_info(job: streaming.Job) -> JobInfo:
         finished_at=job.finished_at,
         n_lines=len(job.lines),
         error=job.error,
+        kind=job.kind,
     )
 
 
@@ -86,6 +88,34 @@ def fase1_status(job_id: str) -> JobInfo:
     job = streaming.get_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job {job_id!r} no encontrado")
+    return _to_info(job)
+
+
+# ----------------------------------------------------------------------
+# Generación de informes (Fase 2 + compilación Typst + abrir PDF).
+# ----------------------------------------------------------------------
+
+@router.post("/informes/run", response_model=JobInfo)
+def run_informes() -> JobInfo:
+    """Genera los informes y abre el PDF en el visor del sistema."""
+    job = streaming.start_informes()
+    if job is None:
+        actual = streaming.get_current()
+        if actual is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Ya hay un job en ejecución ({actual.kind}, id {actual.id})",
+            )
+        raise HTTPException(status_code=409, detail="No se pudo arrancar el job")
+    return _to_info(job)
+
+
+@router.get("/informes/current", response_model=JobInfo | None)
+def informes_current() -> JobInfo | None:
+    """Último job de informes, si lo hay."""
+    job = streaming.get_current()
+    if job is None or job.kind != "informes":
+        return None
     return _to_info(job)
 
 

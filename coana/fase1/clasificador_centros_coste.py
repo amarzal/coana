@@ -155,8 +155,71 @@ _APLICACIONES_SUMINISTROS_DISTRIBUIDOS: set[str] = {
 # Mapeo servicio → centro de coste (para nóminas PTGAS y presupuesto)
 # ======================================================================
 
-# Mapeo servicio → (centro_de_coste, actividad) para retribuciones ordinarias PTGAS.
-_SERVICIO_CC: dict[str, tuple[str, str]] = {
+# Mapeo servicio → (centro_de_coste, actividad) para retribuciones
+# ordinarias PTGAS. Se construye dinámicamente leyendo
+# `data/entrada/inventario/servicios.xlsx` (columnas `centro` y
+# `actividad del personal`). Cuando el Excel no tiene mapeo, se cae al
+# fallback hardcoded de abajo (`_SERVICIO_CC_FALLBACK`) — pensado solo
+# para servicios históricos no catalogados todavía.
+
+from functools import lru_cache
+from pathlib import Path as _Path
+
+
+@lru_cache(maxsize=2)
+def _servicio_cc_desde_excel(
+    path_str: str, mtime: int,
+) -> dict[str, tuple[str, str]]:
+    """Lee `servicios.xlsx` y devuelve mapa servicio → (centro, actividad).
+
+    Incluye TODOS los servicios con `centro` no nulo. Si la columna
+    `actividad del personal` está vacía, se usa el fallback
+    #etqact("dag-general-universidad") como atrapalotodo (siguiendo
+    la spec). Esto permite que un servicio recién catalogado (solo
+    centro) ya se aproveche en el reparto, aunque su actividad sea
+    genérica hasta que se refine en el Excel.
+    """
+    del mtime
+    from coana.util.excel_cache import read_excel
+    p = _Path(path_str)
+    if not p.exists():
+        return {}
+    sv = read_excel(p)
+    tiene_act = "actividad del personal" in sv.columns
+    out: dict[str, tuple[str, str]] = {}
+    for r in sv.iter_rows(named=True):
+        s = r.get("servicio")
+        cc = r.get("centro")
+        if s is None or cc is None:
+            continue
+        act = r.get("actividad del personal") if tiene_act else None
+        if not act:
+            act = "dag-general-universidad"
+        out[str(s)] = (str(cc), str(act))
+    return out
+
+
+def _servicio_cc() -> dict[str, tuple[str, str]]:
+    """Mapa servicio → (centro, actividad).
+
+    Primero consulta `servicios.xlsx`; si una entrada falta, cae al
+    fallback hardcoded. Cuando el Excel tenga catalogados todos los
+    servicios el fallback acabará vacío.
+    """
+    from coana.web.deps import DIR_ENTRADA, _mtime_ns
+    p = DIR_ENTRADA / "inventario" / "servicios.xlsx"
+    excel = _servicio_cc_desde_excel(str(p), _mtime_ns(p))
+    if not excel:
+        return _SERVICIO_CC_FALLBACK
+    combinado = dict(_SERVICIO_CC_FALLBACK)
+    combinado.update(excel)
+    return combinado
+
+
+# Fallback hardcoded (legacy). Se va vaciando a medida que Andrés
+# cataloga los servicios en `servicios.xlsx`. La fuente de verdad
+# pasa a ser el Excel; esto solo cubre servicios aún sin migrar.
+_SERVICIO_CC_FALLBACK: dict[str, tuple[str, str]] = {
     "523": ("asesoría-jurídica", "dag-asesoría-jurídica"),
     "660": ("bibliotecas", "dag-biblioteca"),
     "640": ("cent", "dag-cent"),
@@ -429,7 +492,7 @@ def clasificar_centros_coste(
     if tiene_servicio:
         # Castear a Utf8 para poder unir con los mapeos (que son str→str).
         df = df.with_columns(pl.col("servicio").cast(pl.Utf8))
-        srv_rows = [(k, v[0]) for k, v in _SERVICIO_CC.items()]
+        srv_rows = [(k, v[0]) for k, v in _servicio_cc().items()]
         df_srv = pl.DataFrame(
             srv_rows, schema=["servicio", "_cc_srv"], orient="row",
         )

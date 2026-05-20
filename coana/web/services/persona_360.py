@@ -269,7 +269,11 @@ _CONCEPTO_A_UC = {
     "indemnizaciones": ["uc_indemnizaciones_asistencias"],
     "retribuciones-extras": ["uc_ptgas", "uc_pdi", "uc_pvi"],
     "cargos-extras": ["uc_cargos"],
-    "despidos-extra": ["uc_ptgas", "uc_pdi", "uc_pvi"],  # canalizan en extras
+    # «despidos-extra» (CR 47 en proyecto NO general) canalizan en
+    # uc_pdi/uc_pvi como cualquier extra. Su importe ya está contado
+    # en «retribuciones-extras», así que aquí no le asignamos UC para
+    # evitar doble contabilización visual.
+    "despidos-extra": [],
     "ss": ["persona_ss"],
 }
 

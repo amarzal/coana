@@ -769,6 +769,7 @@ _COLS_DED_LABORAL: list[ColumnSpec] = [
     ColumnSpec(name="desde", label="Primer mes", format="date"),
     ColumnSpec(name="hasta", label="Último mes", format="date"),
     ColumnSpec(name="meses", label="Meses", format="int"),
+    ColumnSpec(name="cobrado", label="Cobrado", format="euro"),
 ]
 
 
@@ -798,6 +799,10 @@ def listar_relación_laboral_persona(per_id: int) -> ListResponse:
     if nom_p.is_empty():
         return ListResponse(columns=_COLS_DED_LABORAL, rows=[], total=0)
 
+    # Cobrado retributivo = importe sumado excluyendo las líneas de SS
+    # (aplicación que empieza por "12"), igual que el `bruto` del visor
+    # de cuadres.
+    _no_ss = ~pl.col("aplicación").cast(pl.Utf8).fill_null("").str.starts_with("12")
     agg = (
         nom_p.with_columns(
             pl.col("categoría_plaza").cast(pl.Utf8).str.zfill(2).alias("_cp"),
@@ -808,6 +813,7 @@ def listar_relación_laboral_persona(per_id: int) -> ListResponse:
             pl.col("fecha").min().alias("desde"),
             pl.col("fecha").max().alias("hasta"),
             pl.col("fecha").n_unique().alias("meses"),
+            pl.col("importe").filter(_no_ss).sum().alias("cobrado"),
         )
         .sort(["sector", "expediente", "desde"])
     )
@@ -845,6 +851,7 @@ def listar_relación_laboral_persona(per_id: int) -> ListResponse:
             "desde": r["desde"].isoformat() if r.get("desde") else None,
             "hasta": r["hasta"].isoformat() if r.get("hasta") else None,
             "meses": int(r.get("meses") or 0),
+            "cobrado": float(r.get("cobrado") or 0.0),
         })
 
     return ListResponse(columns=_COLS_DED_LABORAL, rows=filas, total=len(filas))

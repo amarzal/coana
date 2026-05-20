@@ -60,15 +60,23 @@ _PDI_CAT_XXX: dict[str, str] = {
 
 
 def _dias_solape_2025_expr(año: int) -> pl.Expr:
-    """Expresión polars para días naturales de solape del periodo de
-    cobro `[fecha_inicio_cobra, fecha_fin_cobra or 31-dic-año]` con el año.
+    """Días naturales de solape del periodo de cobro con el año.
 
-    Si `fecha_inicio_cobra` es nulo, el cargo NO se cobra → días = 0.
+    Usa `fecha_inicio_cobra` / `fecha_fin_cobra` cuando están informadas
+    y, en su defecto, cae a `fecha_inicio` / `fecha_fin` (periodo del
+    cargo en sí). Esto permite reconocer cargos con fechas de cobro sin
+    cumplimentar pero cuyo periodo del cargo sí solapa el ejercicio.
     """
     inicio_año = date(año, 1, 1)
     fin_año = date(año, 12, 31)
-    fic = pl.col("fecha_inicio_cobra").cast(pl.Date)
-    ffc = pl.col("fecha_fin_cobra").cast(pl.Date)
+    fic = pl.coalesce(
+        pl.col("fecha_inicio_cobra").cast(pl.Date),
+        pl.col("fecha_inicio").cast(pl.Date),
+    )
+    ffc = pl.coalesce(
+        pl.col("fecha_fin_cobra").cast(pl.Date),
+        pl.col("fecha_fin").cast(pl.Date),
+    )
     inicio_ef = pl.when(fic > pl.lit(inicio_año)).then(fic).otherwise(pl.lit(inicio_año))
     fin_ef = (
         pl.when(ffc.is_null())
@@ -84,6 +92,37 @@ def _dias_solape_2025_expr(año: int) -> pl.Expr:
         .then((fin_ef - inicio_ef).dt.total_days().cast(pl.Int64) + 1)
         .otherwise(0)
     )
+
+
+def per_ids_con_cargo_asimilable_activo(
+    ruta_base: Path, año: int = 2025,
+) -> set[int]:
+    """Conjunto de personas con al menos un cargo asimilado al RD vigente
+    en el año (días naturales de solape > 0 según
+    `_dias_solape_2025_expr`).
+
+    Sirve para detectar cobros de CR 19/64 en proyecto general que NO
+    corresponden a ningún cargo asimilable activo (atrasos / cobros
+    residuales de cargos ya cerrados): esas líneas se filtran de la
+    nómina en preprocesamiento.
+    """
+    pc_path = Path(ruta_base) / "entrada" / "nóminas" / "personas cargos.xlsx"
+    cat_path = Path(ruta_base) / "entrada" / "nóminas" / "cargos.xlsx"
+    if not (pc_path.exists() and cat_path.exists()):
+        return set()
+    pc = read_excel(pc_path)
+    cat = read_excel(cat_path)
+    cat_min = cat.with_columns(pl.col("cargo").cast(pl.Utf8)).select(
+        "cargo", "cargo_asimilado",
+    )
+    df = (
+        pc.with_columns(pl.col("cargo").cast(pl.Utf8))
+        .join(cat_min, on="cargo", how="left")
+        .filter(pl.col("cargo_asimilado").is_not_null())
+        .with_columns(_dias_solape_2025_expr(año).alias("días"))
+        .filter(pl.col("días") > 0)
+    )
+    return {int(v) for v in df["per_id"].drop_nulls().unique().to_list()}
 
 
 def calcular_extras_cargos_por_persona(
@@ -219,13 +258,19 @@ def generar_cargos_uc(
     #    enriquecidas con cargo_asimilado, importe RD, centro y actividad.
     inicio_año = date(año, 1, 1)
     fin_año = date(año, 12, 31)
+    # Fechas efectivas: `_cobra` con fallback al periodo del cargo en sí.
+    fi_eff = pl.coalesce(
+        pl.col("fecha_inicio_cobra").cast(pl.Date),
+        pl.col("fecha_inicio").cast(pl.Date),
+    )
+    ff_eff = pl.coalesce(
+        pl.col("fecha_fin_cobra").cast(pl.Date),
+        pl.col("fecha_fin").cast(pl.Date),
+    )
     cobra = (
-        pl.col("fecha_inicio_cobra").is_not_null()
-        & (pl.col("fecha_inicio_cobra").cast(pl.Date) <= fin_año)
-        & (
-            pl.col("fecha_fin_cobra").is_null()
-            | (pl.col("fecha_fin_cobra").cast(pl.Date) >= inicio_año)
-        )
+        fi_eff.is_not_null()
+        & (fi_eff <= fin_año)
+        & (ff_eff.is_null() | (ff_eff >= inicio_año))
     )
     cat_min = cat.with_columns(pl.col("cargo").cast(pl.Utf8)).select(
         "cargo",
@@ -272,7 +317,13 @@ def generar_cargos_uc(
 
     # «Extra aplicada» por persona: si el preprocesamiento de nóminas pudo
     # restar toda la extra estimada del CR 68 disponible, la extra aplicada
-    # coincide con la estimada. Si no, queda recortada (anomalía).
+    # coincide con la estimada. Si no, queda recortada (anomalía). Modo
+    # standalone (sin dict): se asume que se aplicó toda la estimada. En
+    # flujo integrado las personas sin CR 68 disponible no aparecen en el
+    # dict → su extra aplicada es 0 (de lo contrario `importe_uc_extra` se
+    # imputaría sin contrapartida en el cobro, ya que el CE de los no
+    # funcionarios va prorrateado en el CR 19/64 mensual).
+    modo_standalone = extras_aplicadas_por_persona is None
     if extras_aplicadas_por_persona is None:
         extras_aplicadas_por_persona = {}
     aplicadas_df = pl.DataFrame(
@@ -283,14 +334,13 @@ def generar_cargos_uc(
         schema={"per_id": pl.Int64, "extra_aplicada_total": pl.Float64},
     )
 
+    fill_val = pl.col("suma_extra_estimada") if modo_standalone else pl.lit(0.0)
     activas = (
         activas.join(sumas, on="per_id", how="left")
         .join(totales, on="per_id", how="inner")
         .join(aplicadas_df, on="per_id", how="left")
         .with_columns(
-            pl.col("extra_aplicada_total").fill_null(
-                pl.col("suma_extra_estimada"),
-            ),
+            pl.col("extra_aplicada_total").fill_null(fill_val),
         )
         .with_columns(
             # Parte ordinaria: TOTAL_CR_19_64 repartido por peso (días×RD).
@@ -445,8 +495,8 @@ def generar_cargos_uc(
 def _cargar_mapping_servicio() -> dict[str, tuple[str, str]]:
     """`{servicio_id: (cc, actividad)}` del clasificador de centros de coste.
     Sirve para resolver el patrón SERVICIO en las etiquetas de cargos.xlsx."""
-    from coana.fase1.clasificador_centros_coste import _SERVICIO_CC
-    return _SERVICIO_CC
+    from coana.fase1.clasificador_centros_coste import _servicio_cc
+    return _servicio_cc()
 
 
 def _cargar_mapping_titulaciones(

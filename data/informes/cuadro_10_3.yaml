@@ -1,0 +1,212 @@
+id: cuadro_10_3
+título: Informe de ingresos por actividades
+encabezado_concepto: Elemento de ingreso por actividad
+estado: pendiente — ingresos no procesados en Fase 1
+total: 0.0
+filas:
+- código: '01'
+  nombre: Ingresos relacionados con actividades
+  nivel: 1
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '01.01'
+  nombre: Ingresos por docencia
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.01
+  nombre: Ingresos por estudios oficiales
+  nivel: 3
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02
+  nombre: Ingresos por estudios propios de la universidad
+  nivel: 3
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.01
+  nombre: Grados propios
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.02
+  nombre: Másteres de Formación Permanente
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.03
+  nombre: Diplomas de especialización
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.04
+  nombre: Diplomas de experto/a
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.05
+  nombre: Cursos
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.06
+  nombre: Microcredenciales
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.07
+  nombre: Cursos de idiomas
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.08
+  nombre: Cursos para extranjeros
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.09
+  nombre: Acceso a enseñanzas oficiales
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.10
+  nombre: Otras actividades de docencia
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.01.02.11
+  nombre: Ingresos procedentes de centros adscritos
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '01.02'
+  nombre: Ingresos por actividades de investigación
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.02.01
+  nombre: Ingresos por actividades de investigación y transferencia con financiación
+    externa
+  nivel: 3
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.02.01.01
+  nombre: Ingresos por actividades financiadas por agentes externos en convocatorias
+    competitivas
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.02.01.01.01
+  nombre: Ingresos por actividades con financiación de programas regionales
+  nivel: 5
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.02.01.01.02
+  nombre: Ingresos por actividades con financiación de programas nacionales
+  nivel: 5
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.02.01.01.03
+  nombre: Ingresos por actividades con financiación de programas internacionales
+  nivel: 5
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.02.01.01.04
+  nombre: Otras actividades de investigación en convocatorias competitivas
+  nivel: 5
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.02.01.02
+  nombre: Ingresos por actividades de investigación aplicada y transferencia
+  nivel: 4
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: 01.02.02
+  nombre: Ingresos por Doctorado
+  nivel: 3
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '01.03'
+  nombre: Ingresos por actividades deportivas y de extensión universitaria
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '01.04'
+  nombre: Ingresos por servicios comunes de investigación
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '01.05'
+  nombre: Ingresos por publicaciones
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '01.06'
+  nombre: Ingresos por otras actividades
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '01.07'
+  nombre: TRUPI con ingresos calculados
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '02'
+  nombre: Ingresos relacionados con la organización en su conjunto
+  nivel: 1
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '02.01'
+  nombre: Ingresos por uso de instalaciones universitarias no relacionadas con actividades
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '02.02'
+  nombre: Ingresos patrimoniales
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '02.03'
+  nombre: Tasas administrativas no relacionadas con actividades
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null
+- código: '02.04'
+  nombre: Otros ingresos no relacionados con actividades
+  nivel: 2
+  importe: 0.0
+  pct_elemento: null
+  pct_total: null

@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
 
 type Status = "idle" | "running" | "done" | "error";
@@ -11,15 +10,15 @@ type JobInfo = {
     finished_at: number | null;
     n_lines: number;
     error: string | null;
+    kind: string;
 };
 
 /**
- * Botón sticky que arranca la Fase 1 y muestra un panel inferior con el
- * log en vivo. Al terminar invalida toda la caché de react-query para
- * que las vistas vuelvan a cargar los parquets nuevos.
+ * Botón que arranca la Fase 2 (generación de informes), compila el PDF
+ * Typst y lo abre en el visor de PDF del sistema. Muestra el log en
+ * vivo en el panel inferior compartido con la Fase 1.
  */
-export function EjecutarFase1() {
-    const queryClient = useQueryClient();
+export function GenerarInformes() {
     const [status, setStatus] = useState<Status>("idle");
     const [lines, setLines] = useState<string[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -28,23 +27,20 @@ export function EjecutarFase1() {
     const eventSrc = useRef<EventSource | null>(null);
     const logRef = useRef<HTMLDivElement | null>(null);
 
-    // Autoscroll al pie cuando llegan líneas nuevas.
     useEffect(() => {
         const el = logRef.current;
         if (el) el.scrollTop = el.scrollHeight;
     }, [lines]);
 
-    // Cierra el SSE al desmontar.
     useEffect(() => {
         return () => {
             eventSrc.current?.close();
         };
     }, []);
 
-    // Al montar, comprueba si hay un job en curso y reengancha.
     useEffect(() => {
         let cancelado = false;
-        fetch("/api/sistema/fase1/current")
+        fetch("/api/sistema/informes/current")
             .then((r) => (r.ok ? (r.json() as Promise<JobInfo | null>) : null))
             .then((info) => {
                 if (cancelado || !info) return;
@@ -77,7 +73,6 @@ export function EjecutarFase1() {
         const onDone = () => {
             setStatus("done");
             src.close();
-            queryClient.invalidateQueries();
         };
         const onError = (ev: Event) => {
             const e = ev as MessageEvent;
@@ -102,7 +97,7 @@ export function EjecutarFase1() {
         setStatus("running");
         setShown(true);
         try {
-            const res = await fetch("/api/sistema/fase1/run", { method: "POST" });
+            const res = await fetch("/api/sistema/informes/run", { method: "POST" });
             if (!res.ok) {
                 const txt = await res.text();
                 throw new Error(`HTTP ${res.status}: ${txt}`);
@@ -126,22 +121,22 @@ export function EjecutarFase1() {
                     "w-full rounded-md px-3 py-2 text-sm font-medium",
                     status === "running"
                         ? "bg-slate-300 text-slate-600"
-                        : "bg-slate-800 text-white hover:bg-slate-700",
+                        : "bg-emerald-700 text-white hover:bg-emerald-600",
                 )}
                 title={
                     status === "running"
-                        ? "Hay una ejecución en curso"
-                        : "Calcular las unidades de coste (Fase 1) y ver el log en vivo"
+                        ? "Generando informes…"
+                        : "Generar el PDF de informes y abrirlo en el visor del sistema"
                 }
             >
-                {status === "running" ? "Calculando…" : "Cálculo de unidades de coste"}
+                {status === "running" ? "Generando…" : "Generar informes"}
             </button>
 
             {shown && (
                 <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-300 bg-slate-900 text-slate-100 shadow-lg">
                     <div className="flex items-center justify-between border-b border-slate-700 px-4 py-1.5 text-xs">
                         <span className="font-mono">
-                            Unidades de coste{jobId && ` · job ${jobId}`} · {status}
+                            Informes{jobId && ` · job ${jobId}`} · {status}
                             {status === "running" && " ⏳"}
                             {status === "done" && " ✓"}
                             {status === "error" && " ✗"}

@@ -71,3 +71,44 @@ def arbol_final(nombre: str) -> svc_entradas.NodoTree:
             detail=f"Árbol no encontrado: {nombre!r}",
         )
     return res
+
+
+@router.get(
+    "/arbol/{nombre}/con-totales",
+    response_model=svc_entradas.NodoTreeConTotales,
+)
+def arbol_con_totales(nombre: str) -> svc_entradas.NodoTreeConTotales:
+    """Árbol final enriquecido con totales por nodo y subárbol."""
+    res = svc.cargar_arbol_con_totales(nombre)
+    if res is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Árbol no encontrado: {nombre!r}",
+        )
+    return res
+
+
+@router.get(
+    "/arbol/{nombre}/{identificador}/uc",
+    response_model=ListResponse,
+)
+def uc_de_nodo(
+    nombre: str, identificador: str,
+    p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """UCs imputadas directamente al nodo (sin descendientes)."""
+    return svc.listar_uc_de_nodo(nombre, identificador, p)
+
+
+@router.get(
+    "/arbol/{nombre}/{identificador}/hijos",
+    response_model=ListResponse,
+)
+def hijos_de_nodo(
+    nombre: str, identificador: str,
+) -> ListResponse:
+    """Hijos directos del nodo con totales del subárbol y % sobre hermanos.
+
+    Para listar los hijos del nodo raíz, usa #val("_raíz") como identificador.
+    """
+    return svc.listar_hijos_de_nodo(nombre, identificador)

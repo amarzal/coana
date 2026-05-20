@@ -1,0 +1,2204 @@
+id: cuadro_10_5
+título: Coste primario de cada centro, con desglose de costes directos e indirectos
+  de cada elemento de coste
+centros:
+- código_sue: '01'
+  slug: docencia
+  nombre: Centros de docencia
+  filas:
+  - código: '01'
+    slug: costes-personal
+    nombre: Costes de personal
+    nivel: 1
+    directo: 23463699.29
+    indirecto: 110029.6
+    primario: 23573728.89
+  - código: '01.01'
+    slug: salario-pdi
+    nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+    nivel: 2
+    directo: 16354851.89
+    indirecto: 0.0
+    primario: 16354851.89
+  - código: '01.02'
+    slug: salario-ptgas
+    nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+      y Servicios (PTGAS)
+    nivel: 2
+    directo: 2637350.77
+    indirecto: 0.0
+    primario: 2637350.77
+  - código: '01.03'
+    slug: salario-piyotper
+    nombre: Costes del Personal Investigador laboral y de otro personal
+    nivel: 2
+    directo: 26090.02
+    indirecto: 47908.6
+    primario: 73998.62
+  - código: '01.04'
+    slug: ss
+    nombre: Cotizaciones sociales a cargo del empleador
+    nivel: 2
+    directo: 3419480.35
+    indirecto: 0.0
+    primario: 3419480.35
+  - código: '01.05'
+    slug: prevsoc-funcs
+    nombre: Previsión social de funcionarios (costes calculados)
+    nivel: 2
+    directo: 1019095.03
+    indirecto: 0.0
+    primario: 1019095.03
+  - código: '01.06'
+    slug: indem
+    nombre: Indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.07'
+    slug: otcsoc
+    nombre: Otros costes sociales
+    nivel: 2
+    directo: 0.0
+    indirecto: 5794.78
+    primario: 5794.78
+  - código: '01.08'
+    slug: indemnizaciones-servicio
+    nombre: Indemnizaciones por razón de servicio
+    nivel: 2
+    directo: 0.0
+    indirecto: 56326.22
+    primario: 56326.22
+  - código: '01.09'
+    slug: otras-indemnizaciones
+    nombre: Otras indemnizaciones
+    nivel: 2
+    directo: 6831.23
+    indirecto: 0.0
+    primario: 6831.23
+  - código: '01.10'
+    slug: transp-personal
+    nombre: Transporte de personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03'
+    slug: bienes-servicios
+    nombre: Coste de adquisición de bienes y servicios
+    nivel: 1
+    directo: 0.0
+    indirecto: 485157.65
+    primario: 485157.65
+  - código: '03.03'
+    slug: material-laboratorio
+    nombre: Coste de material e instrumental de laboratorio y experimentación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.08'
+    slug: material-oficina
+    nombre: Coste de material de oficina ordinario no inventariable
+    nivel: 2
+    directo: 0.0
+    indirecto: 6218.6
+    primario: 6218.6
+  - código: '03.10'
+    slug: publicaciones
+    nombre: Coste de prensa, revistas, libros y otras publicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 14689.09
+    primario: 14689.09
+  - código: '03.11'
+    slug: bienes-investigación
+    nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.12'
+    slug: trabajos-otras-empresas
+    nombre: Trabajos realizados por otras empresas
+    nivel: 2
+    directo: 0.0
+    indirecto: 400693.8
+    primario: 400693.8
+  - código: '03.13'
+    slug: otros-bienes-servicios
+    nombre: Otras adquisiciones de bienes y servicios
+    nivel: 2
+    directo: 0.0
+    indirecto: 12341.23
+    primario: 12341.23
+  - código: '04'
+    slug: servicios-exteriores
+    nombre: Coste de servicios exteriores
+    nivel: 1
+    directo: 688443.99
+    indirecto: 3323976.44
+    primario: 4012420.43
+  - código: '04.02'
+    slug: conservación
+    nombre: Reparaciones y conservación
+    nivel: 2
+    directo: 0.0
+    indirecto: 1565485.25
+    primario: 1565485.25
+  - código: '04.03'
+    slug: servicios-profesionales
+    nombre: Servicios de profesionales independientes
+    nivel: 2
+    directo: 0.0
+    indirecto: 39821.38
+    primario: 39821.38
+  - código: '04.09'
+    slug: suministros
+    nombre: Suministros
+    nivel: 2
+    directo: 688443.99
+    indirecto: 0.0
+    primario: 688443.99
+  - código: '04.10'
+    slug: comunicaciones
+    nombre: Comunicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '04.11'
+    slug: limpieza-aseo
+    nombre: Limpieza y aseo
+    nivel: 2
+    directo: 0.0
+    indirecto: 1089395.77
+    primario: 1089395.77
+  - código: '04.12'
+    slug: seguridad
+    nombre: Seguridad y vigilancia
+    nivel: 2
+    directo: 0.0
+    indirecto: 438666.76
+    primario: 438666.76
+  - código: '04.13'
+    slug: costes-diversos
+    nombre: Costes diversos
+    nivel: 2
+    directo: 0.0
+    indirecto: 99932.2
+    primario: 99932.2
+  - código: '05'
+    slug: tributos
+    nombre: Coste de tributos
+    nivel: 1
+    directo: 0.0
+    indirecto: 605.0
+    primario: 605.0
+  - código: '06'
+    slug: costes-financieros
+    nombre: Costes financieros
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '07'
+    slug: amortizaciones
+    nombre: Amortizaciones (costes calculados)
+    nivel: 1
+    directo: 2103037.03
+    indirecto: 0.0
+    primario: 2103037.03
+  - código: '07.01'
+    slug: amortización-inmovilizado-material
+    nombre: Del inmovilizado material
+    nivel: 2
+    directo: 2103037.03
+    indirecto: 0.0
+    primario: 2103037.03
+  - código: '07.02'
+    slug: amortización-inmovilizado-inmaterial
+    nombre: Del inmovilizado inmaterial
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 08
+    slug: costes-oportunidad
+    nombre: Costes de oportunidad (costes calculados)
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 09
+    slug: transferencias
+    nombre: Transferencias
+    nivel: 1
+    directo: 0.0
+    indirecto: 102241.38
+    primario: 102241.38
+  - código: '09.01'
+    slug: transferencias-alumnos
+    nombre: A alumnos/as
+    nivel: 2
+    directo: 0.0
+    indirecto: 102241.38
+    primario: 102241.38
+  - código: '09.02'
+    slug: transferencias-organizaciones-grupo
+    nombre: A organizaciones del grupo
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.03'
+    slug: transferencias-otras-organizaciones
+    nombre: A otras organizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  total_coste_primario:
+    directo: 26255180.31
+    indirecto: 4022010.07
+    primario: 30277190.37
+  centros_superiores:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  actividades_auxiliares:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  total:
+    directo: 26255180.31
+    indirecto: 4022010.07
+    primario: 30277190.37
+- código_sue: '02'
+  slug: investigación
+  nombre: Centros de investigación
+  filas:
+  - código: '01'
+    slug: costes-personal
+    nombre: Costes de personal
+    nivel: 1
+    directo: 34194975.94
+    indirecto: 536226.28
+    primario: 34731202.22
+  - código: '01.01'
+    slug: salario-pdi
+    nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+    nivel: 2
+    directo: 24259329.67
+    indirecto: 0.0
+    primario: 24259329.67
+  - código: '01.02'
+    slug: salario-ptgas
+    nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+      y Servicios (PTGAS)
+    nivel: 2
+    directo: 617658.32
+    indirecto: 0.0
+    primario: 617658.32
+  - código: '01.03'
+    slug: salario-piyotper
+    nombre: Costes del Personal Investigador laboral y de otro personal
+    nivel: 2
+    directo: 3088429.71
+    indirecto: 4801.95
+    primario: 3093231.66
+  - código: '01.04'
+    slug: ss
+    nombre: Cotizaciones sociales a cargo del empleador
+    nivel: 2
+    directo: 3829083.64
+    indirecto: 0.0
+    primario: 3829083.64
+  - código: '01.05'
+    slug: prevsoc-funcs
+    nombre: Previsión social de funcionarios (costes calculados)
+    nivel: 2
+    directo: 2400424.6
+    indirecto: 0.0
+    primario: 2400424.6
+  - código: '01.06'
+    slug: indem
+    nombre: Indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.07'
+    slug: otcsoc
+    nombre: Otros costes sociales
+    nivel: 2
+    directo: 0.0
+    indirecto: 98956.26
+    primario: 98956.26
+  - código: '01.08'
+    slug: indemnizaciones-servicio
+    nombre: Indemnizaciones por razón de servicio
+    nivel: 2
+    directo: 0.0
+    indirecto: 432468.07
+    primario: 432468.07
+  - código: '01.09'
+    slug: otras-indemnizaciones
+    nombre: Otras indemnizaciones
+    nivel: 2
+    directo: 50.0
+    indirecto: 0.0
+    primario: 50.0
+  - código: '01.10'
+    slug: transp-personal
+    nombre: Transporte de personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03'
+    slug: bienes-servicios
+    nombre: Coste de adquisición de bienes y servicios
+    nivel: 1
+    directo: 0.0
+    indirecto: 1163653.69
+    primario: 1163653.69
+  - código: '03.03'
+    slug: material-laboratorio
+    nombre: Coste de material e instrumental de laboratorio y experimentación
+    nivel: 2
+    directo: 0.0
+    indirecto: 14205.96
+    primario: 14205.96
+  - código: '03.08'
+    slug: material-oficina
+    nombre: Coste de material de oficina ordinario no inventariable
+    nivel: 2
+    directo: 0.0
+    indirecto: 32641.79
+    primario: 32641.79
+  - código: '03.10'
+    slug: publicaciones
+    nombre: Coste de prensa, revistas, libros y otras publicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 12418.38
+    primario: 12418.38
+  - código: '03.11'
+    slug: bienes-investigación
+    nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+    nivel: 2
+    directo: 0.0
+    indirecto: 552467.51
+    primario: 552467.51
+  - código: '03.12'
+    slug: trabajos-otras-empresas
+    nombre: Trabajos realizados por otras empresas
+    nivel: 2
+    directo: 0.0
+    indirecto: 474501.65
+    primario: 474501.65
+  - código: '03.13'
+    slug: otros-bienes-servicios
+    nombre: Otras adquisiciones de bienes y servicios
+    nivel: 2
+    directo: 0.0
+    indirecto: 55388.84
+    primario: 55388.84
+  - código: '04'
+    slug: servicios-exteriores
+    nombre: Coste de servicios exteriores
+    nivel: 1
+    directo: 260827.49
+    indirecto: 988922.62
+    primario: 1249750.11
+  - código: '04.02'
+    slug: conservación
+    nombre: Reparaciones y conservación
+    nivel: 2
+    directo: 0.0
+    indirecto: 360766.36
+    primario: 360766.36
+  - código: '04.03'
+    slug: servicios-profesionales
+    nombre: Servicios de profesionales independientes
+    nivel: 2
+    directo: 0.0
+    indirecto: 74535.88
+    primario: 74535.88
+  - código: '04.09'
+    slug: suministros
+    nombre: Suministros
+    nivel: 2
+    directo: 260827.49
+    indirecto: 55018.35
+    primario: 315845.84
+  - código: '04.10'
+    slug: comunicaciones
+    nombre: Comunicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 7.75
+    primario: 7.75
+  - código: '04.11'
+    slug: limpieza-aseo
+    nombre: Limpieza y aseo
+    nivel: 2
+    directo: 0.0
+    indirecto: 156509.79
+    primario: 156509.79
+  - código: '04.12'
+    slug: seguridad
+    nombre: Seguridad y vigilancia
+    nivel: 2
+    directo: 0.0
+    indirecto: 63021.76
+    primario: 63021.76
+  - código: '04.13'
+    slug: costes-diversos
+    nombre: Costes diversos
+    nivel: 2
+    directo: 0.0
+    indirecto: 177292.0
+    primario: 177292.0
+  - código: '05'
+    slug: tributos
+    nombre: Coste de tributos
+    nivel: 1
+    directo: 0.0
+    indirecto: 306.46
+    primario: 306.46
+  - código: '06'
+    slug: costes-financieros
+    nombre: Costes financieros
+    nivel: 1
+    directo: 0.0
+    indirecto: 76.08
+    primario: 76.08
+  - código: '07'
+    slug: amortizaciones
+    nombre: Amortizaciones (costes calculados)
+    nivel: 1
+    directo: 378709.13
+    indirecto: 0.0
+    primario: 378709.13
+  - código: '07.01'
+    slug: amortización-inmovilizado-material
+    nombre: Del inmovilizado material
+    nivel: 2
+    directo: 378709.13
+    indirecto: 0.0
+    primario: 378709.13
+  - código: '07.02'
+    slug: amortización-inmovilizado-inmaterial
+    nombre: Del inmovilizado inmaterial
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 08
+    slug: costes-oportunidad
+    nombre: Costes de oportunidad (costes calculados)
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 09
+    slug: transferencias
+    nombre: Transferencias
+    nivel: 1
+    directo: 0.0
+    indirecto: 142870.05
+    primario: 142870.05
+  - código: '09.01'
+    slug: transferencias-alumnos
+    nombre: A alumnos/as
+    nivel: 2
+    directo: 0.0
+    indirecto: 138370.05
+    primario: 138370.05
+  - código: '09.02'
+    slug: transferencias-organizaciones-grupo
+    nombre: A organizaciones del grupo
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.03'
+    slug: transferencias-otras-organizaciones
+    nombre: A otras organizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 4500.0
+    primario: 4500.0
+  total_coste_primario:
+    directo: 34834512.57
+    indirecto: 2832055.18
+    primario: 37666567.75
+  centros_superiores:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  actividades_auxiliares:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  total:
+    directo: 34834512.57
+    indirecto: 2832055.18
+    primario: 37666567.75
+- código_sue: '03'
+  slug: docencia-investigación
+  nombre: Centros de docencia e investigación
+  filas:
+  - código: '01'
+    slug: costes-personal
+    nombre: Costes de personal
+    nivel: 1
+    directo: 17573059.23
+    indirecto: 1466749.27
+    primario: 19039808.5
+  - código: '01.01'
+    slug: salario-pdi
+    nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+    nivel: 2
+    directo: 6512694.38
+    indirecto: 0.0
+    primario: 6512694.38
+  - código: '01.02'
+    slug: salario-ptgas
+    nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+      y Servicios (PTGAS)
+    nivel: 2
+    directo: 2100449.36
+    indirecto: 0.0
+    primario: 2100449.36
+  - código: '01.03'
+    slug: salario-piyotper
+    nombre: Costes del Personal Investigador laboral y de otro personal
+    nivel: 2
+    directo: 5154511.86
+    indirecto: 339568.43
+    primario: 5494080.29
+  - código: '01.04'
+    slug: ss
+    nombre: Cotizaciones sociales a cargo del empleador
+    nivel: 2
+    directo: 2931816.01
+    indirecto: 0.0
+    primario: 2931816.01
+  - código: '01.05'
+    slug: prevsoc-funcs
+    nombre: Previsión social de funcionarios (costes calculados)
+    nivel: 2
+    directo: 621516.13
+    indirecto: 0.0
+    primario: 621516.13
+  - código: '01.06'
+    slug: indem
+    nombre: Indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.07'
+    slug: otcsoc
+    nombre: Otros costes sociales
+    nivel: 2
+    directo: 0.0
+    indirecto: 257717.69
+    primario: 257717.69
+  - código: '01.08'
+    slug: indemnizaciones-servicio
+    nombre: Indemnizaciones por razón de servicio
+    nivel: 2
+    directo: 0.0
+    indirecto: 869463.15
+    primario: 869463.15
+  - código: '01.09'
+    slug: otras-indemnizaciones
+    nombre: Otras indemnizaciones
+    nivel: 2
+    directo: 252071.49
+    indirecto: 0.0
+    primario: 252071.49
+  - código: '01.10'
+    slug: transp-personal
+    nombre: Transporte de personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03'
+    slug: bienes-servicios
+    nombre: Coste de adquisición de bienes y servicios
+    nivel: 1
+    directo: 0.0
+    indirecto: 2082204.86
+    primario: 2082204.86
+  - código: '03.03'
+    slug: material-laboratorio
+    nombre: Coste de material e instrumental de laboratorio y experimentación
+    nivel: 2
+    directo: 0.0
+    indirecto: 20498.46
+    primario: 20498.46
+  - código: '03.08'
+    slug: material-oficina
+    nombre: Coste de material de oficina ordinario no inventariable
+    nivel: 2
+    directo: 0.0
+    indirecto: 137057.68
+    primario: 137057.68
+  - código: '03.10'
+    slug: publicaciones
+    nombre: Coste de prensa, revistas, libros y otras publicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 93365.2
+    primario: 93365.2
+  - código: '03.11'
+    slug: bienes-investigación
+    nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+    nivel: 2
+    directo: 0.0
+    indirecto: 617414.9
+    primario: 617414.9
+  - código: '03.12'
+    slug: trabajos-otras-empresas
+    nombre: Trabajos realizados por otras empresas
+    nivel: 2
+    directo: 0.0
+    indirecto: 862765.0
+    primario: 862765.0
+  - código: '03.13'
+    slug: otros-bienes-servicios
+    nombre: Otras adquisiciones de bienes y servicios
+    nivel: 2
+    directo: 0.0
+    indirecto: 196587.77
+    primario: 196587.77
+  - código: '04'
+    slug: servicios-exteriores
+    nombre: Coste de servicios exteriores
+    nivel: 1
+    directo: 406473.49
+    indirecto: 2329006.45
+    primario: 2735479.93
+  - código: '04.02'
+    slug: conservación
+    nombre: Reparaciones y conservación
+    nivel: 2
+    directo: 0.0
+    indirecto: 801374.31
+    primario: 801374.31
+  - código: '04.03'
+    slug: servicios-profesionales
+    nombre: Servicios de profesionales independientes
+    nivel: 2
+    directo: 0.0
+    indirecto: 222473.18
+    primario: 222473.18
+  - código: '04.09'
+    slug: suministros
+    nombre: Suministros
+    nivel: 2
+    directo: 406473.49
+    indirecto: 103857.66
+    primario: 510331.15
+  - código: '04.10'
+    slug: comunicaciones
+    nombre: Comunicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 128.05
+    primario: 128.05
+  - código: '04.11'
+    slug: limpieza-aseo
+    nombre: Limpieza y aseo
+    nivel: 2
+    directo: 0.0
+    indirecto: 502160.84
+    primario: 502160.84
+  - código: '04.12'
+    slug: seguridad
+    nombre: Seguridad y vigilancia
+    nivel: 2
+    directo: 0.0
+    indirecto: 202204.99
+    primario: 202204.99
+  - código: '04.13'
+    slug: costes-diversos
+    nombre: Costes diversos
+    nivel: 2
+    directo: 0.0
+    indirecto: 292736.43
+    primario: 292736.43
+  - código: '05'
+    slug: tributos
+    nombre: Coste de tributos
+    nivel: 1
+    directo: 0.0
+    indirecto: 444.81
+    primario: 444.81
+  - código: '06'
+    slug: costes-financieros
+    nombre: Costes financieros
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '07'
+    slug: amortizaciones
+    nombre: Amortizaciones (costes calculados)
+    nivel: 1
+    directo: 1817446.38
+    indirecto: 0.0
+    primario: 1817446.38
+  - código: '07.01'
+    slug: amortización-inmovilizado-material
+    nombre: Del inmovilizado material
+    nivel: 2
+    directo: 1817446.38
+    indirecto: 0.0
+    primario: 1817446.38
+  - código: '07.02'
+    slug: amortización-inmovilizado-inmaterial
+    nombre: Del inmovilizado inmaterial
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 08
+    slug: costes-oportunidad
+    nombre: Costes de oportunidad (costes calculados)
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 09
+    slug: transferencias
+    nombre: Transferencias
+    nivel: 1
+    directo: 0.0
+    indirecto: 190552.94
+    primario: 190552.94
+  - código: '09.01'
+    slug: transferencias-alumnos
+    nombre: A alumnos/as
+    nivel: 2
+    directo: 0.0
+    indirecto: 190552.94
+    primario: 190552.94
+  - código: '09.02'
+    slug: transferencias-organizaciones-grupo
+    nombre: A organizaciones del grupo
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.03'
+    slug: transferencias-otras-organizaciones
+    nombre: A otras organizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  total_coste_primario:
+    directo: 19796979.1
+    indirecto: 6068958.33
+    primario: 25865937.42
+  centros_superiores:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  actividades_auxiliares:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  total:
+    directo: 19796979.1
+    indirecto: 6068958.33
+    primario: 25865937.42
+- código_sue: '04'
+  slug: apoyo-docencia-investigación
+  nombre: Centros de apoyo a docencia e investigación
+  filas:
+  - código: '01'
+    slug: costes-personal
+    nombre: Costes de personal
+    nivel: 1
+    directo: 8581278.74
+    indirecto: 45763.01
+    primario: 8627041.75
+  - código: '01.01'
+    slug: salario-pdi
+    nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+    nivel: 2
+    directo: 100483.79
+    indirecto: 0.0
+    primario: 100483.79
+  - código: '01.02'
+    slug: salario-ptgas
+    nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+      y Servicios (PTGAS)
+    nivel: 2
+    directo: 6729262.96
+    indirecto: 0.0
+    primario: 6729262.96
+  - código: '01.03'
+    slug: salario-piyotper
+    nombre: Costes del Personal Investigador laboral y de otro personal
+    nivel: 2
+    directo: 48505.99
+    indirecto: 16666.78
+    primario: 65172.77
+  - código: '01.04'
+    slug: ss
+    nombre: Cotizaciones sociales a cargo del empleador
+    nivel: 2
+    directo: 1691726.33
+    indirecto: 0.0
+    primario: 1691726.33
+  - código: '01.05'
+    slug: prevsoc-funcs
+    nombre: Previsión social de funcionarios (costes calculados)
+    nivel: 2
+    directo: 7905.21
+    indirecto: 0.0
+    primario: 7905.21
+  - código: '01.06'
+    slug: indem
+    nombre: Indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.07'
+    slug: otcsoc
+    nombre: Otros costes sociales
+    nivel: 2
+    directo: 0.0
+    indirecto: 9439.22
+    primario: 9439.22
+  - código: '01.08'
+    slug: indemnizaciones-servicio
+    nombre: Indemnizaciones por razón de servicio
+    nivel: 2
+    directo: 0.0
+    indirecto: 19657.01
+    primario: 19657.01
+  - código: '01.09'
+    slug: otras-indemnizaciones
+    nombre: Otras indemnizaciones
+    nivel: 2
+    directo: 3394.46
+    indirecto: 0.0
+    primario: 3394.46
+  - código: '01.10'
+    slug: transp-personal
+    nombre: Transporte de personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03'
+    slug: bienes-servicios
+    nombre: Coste de adquisición de bienes y servicios
+    nivel: 1
+    directo: 0.0
+    indirecto: 271362.16
+    primario: 271362.16
+  - código: '03.03'
+    slug: material-laboratorio
+    nombre: Coste de material e instrumental de laboratorio y experimentación
+    nivel: 2
+    directo: 0.0
+    indirecto: 22199.17
+    primario: 22199.17
+  - código: '03.08'
+    slug: material-oficina
+    nombre: Coste de material de oficina ordinario no inventariable
+    nivel: 2
+    directo: 0.0
+    indirecto: 28376.48
+    primario: 28376.48
+  - código: '03.10'
+    slug: publicaciones
+    nombre: Coste de prensa, revistas, libros y otras publicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 74711.06
+    primario: 74711.06
+  - código: '03.11'
+    slug: bienes-investigación
+    nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+    nivel: 2
+    directo: 0.0
+    indirecto: 3063.49
+    primario: 3063.49
+  - código: '03.12'
+    slug: trabajos-otras-empresas
+    nombre: Trabajos realizados por otras empresas
+    nivel: 2
+    directo: 0.0
+    indirecto: 132665.88
+    primario: 132665.88
+  - código: '03.13'
+    slug: otros-bienes-servicios
+    nombre: Otras adquisiciones de bienes y servicios
+    nivel: 2
+    directo: 0.0
+    indirecto: 1064.9
+    primario: 1064.9
+  - código: '04'
+    slug: servicios-exteriores
+    nombre: Coste de servicios exteriores
+    nivel: 1
+    directo: 362068.42
+    indirecto: 944906.87
+    primario: 1306975.29
+  - código: '04.02'
+    slug: conservación
+    nombre: Reparaciones y conservación
+    nivel: 2
+    directo: 0.0
+    indirecto: 448707.64
+    primario: 448707.64
+  - código: '04.03'
+    slug: servicios-profesionales
+    nombre: Servicios de profesionales independientes
+    nivel: 2
+    directo: 0.0
+    indirecto: 74156.96
+    primario: 74156.96
+  - código: '04.09'
+    slug: suministros
+    nombre: Suministros
+    nivel: 2
+    directo: 362068.42
+    indirecto: 12928.13
+    primario: 374996.55
+  - código: '04.10'
+    slug: comunicaciones
+    nombre: Comunicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '04.11'
+    slug: limpieza-aseo
+    nombre: Limpieza y aseo
+    nivel: 2
+    directo: 0.0
+    indirecto: 284800.41
+    primario: 284800.41
+  - código: '04.12'
+    slug: seguridad
+    nombre: Seguridad y vigilancia
+    nivel: 2
+    directo: 0.0
+    indirecto: 97087.92
+    primario: 97087.92
+  - código: '04.13'
+    slug: costes-diversos
+    nombre: Costes diversos
+    nivel: 2
+    directo: 0.0
+    indirecto: 3521.84
+    primario: 3521.84
+  - código: '05'
+    slug: tributos
+    nombre: Coste de tributos
+    nivel: 1
+    directo: 0.0
+    indirecto: 3618.4
+    primario: 3618.4
+  - código: '06'
+    slug: costes-financieros
+    nombre: Costes financieros
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '07'
+    slug: amortizaciones
+    nombre: Amortizaciones (costes calculados)
+    nivel: 1
+    directo: 529608.53
+    indirecto: 0.0
+    primario: 529608.53
+  - código: '07.01'
+    slug: amortización-inmovilizado-material
+    nombre: Del inmovilizado material
+    nivel: 2
+    directo: 529608.53
+    indirecto: 0.0
+    primario: 529608.53
+  - código: '07.02'
+    slug: amortización-inmovilizado-inmaterial
+    nombre: Del inmovilizado inmaterial
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 08
+    slug: costes-oportunidad
+    nombre: Costes de oportunidad (costes calculados)
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 09
+    slug: transferencias
+    nombre: Transferencias
+    nivel: 1
+    directo: 0.0
+    indirecto: 231064.55
+    primario: 231064.55
+  - código: '09.01'
+    slug: transferencias-alumnos
+    nombre: A alumnos/as
+    nivel: 2
+    directo: 0.0
+    indirecto: 231064.55
+    primario: 231064.55
+  - código: '09.02'
+    slug: transferencias-organizaciones-grupo
+    nombre: A organizaciones del grupo
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.03'
+    slug: transferencias-otras-organizaciones
+    nombre: A otras organizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  total_coste_primario:
+    directo: 9472955.69
+    indirecto: 1496714.99
+    primario: 10969670.68
+  centros_superiores:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  actividades_auxiliares:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  total:
+    directo: 9472955.69
+    indirecto: 1496714.99
+    primario: 10969670.68
+- código_sue: '05'
+  slug: extensión-universitaria-deportes
+  nombre: Centros de extensión universitaria y deportes
+  filas:
+  - código: '01'
+    slug: costes-personal
+    nombre: Costes de personal
+    nivel: 1
+    directo: 2331299.19
+    indirecto: 24069.71
+    primario: 2355368.9
+  - código: '01.01'
+    slug: salario-pdi
+    nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+    nivel: 2
+    directo: 45430.65
+    indirecto: 0.0
+    primario: 45430.65
+  - código: '01.02'
+    slug: salario-ptgas
+    nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+      y Servicios (PTGAS)
+    nivel: 2
+    directo: 1800652.61
+    indirecto: 0.0
+    primario: 1800652.61
+  - código: '01.03'
+    slug: salario-piyotper
+    nombre: Costes del Personal Investigador laboral y de otro personal
+    nivel: 2
+    directo: 3825.0
+    indirecto: 0.0
+    primario: 3825.0
+  - código: '01.04'
+    slug: ss
+    nombre: Cotizaciones sociales a cargo del empleador
+    nivel: 2
+    directo: 479694.87
+    indirecto: 0.0
+    primario: 479694.87
+  - código: '01.05'
+    slug: prevsoc-funcs
+    nombre: Previsión social de funcionarios (costes calculados)
+    nivel: 2
+    directo: 238.14
+    indirecto: 0.0
+    primario: 238.14
+  - código: '01.06'
+    slug: indem
+    nombre: Indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.07'
+    slug: otcsoc
+    nombre: Otros costes sociales
+    nivel: 2
+    directo: 0.0
+    indirecto: 440.0
+    primario: 440.0
+  - código: '01.08'
+    slug: indemnizaciones-servicio
+    nombre: Indemnizaciones por razón de servicio
+    nivel: 2
+    directo: 0.0
+    indirecto: 23629.71
+    primario: 23629.71
+  - código: '01.09'
+    slug: otras-indemnizaciones
+    nombre: Otras indemnizaciones
+    nivel: 2
+    directo: 1457.92
+    indirecto: 0.0
+    primario: 1457.92
+  - código: '01.10'
+    slug: transp-personal
+    nombre: Transporte de personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03'
+    slug: bienes-servicios
+    nombre: Coste de adquisición de bienes y servicios
+    nivel: 1
+    directo: 0.0
+    indirecto: 702029.0
+    primario: 702029.0
+  - código: '03.03'
+    slug: material-laboratorio
+    nombre: Coste de material e instrumental de laboratorio y experimentación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.08'
+    slug: material-oficina
+    nombre: Coste de material de oficina ordinario no inventariable
+    nivel: 2
+    directo: 0.0
+    indirecto: 27816.81
+    primario: 27816.81
+  - código: '03.10'
+    slug: publicaciones
+    nombre: Coste de prensa, revistas, libros y otras publicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 67.44
+    primario: 67.44
+  - código: '03.11'
+    slug: bienes-investigación
+    nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.12'
+    slug: trabajos-otras-empresas
+    nombre: Trabajos realizados por otras empresas
+    nivel: 2
+    directo: 0.0
+    indirecto: 521799.53
+    primario: 521799.53
+  - código: '03.13'
+    slug: otros-bienes-servicios
+    nombre: Otras adquisiciones de bienes y servicios
+    nivel: 2
+    directo: 0.0
+    indirecto: 90229.68
+    primario: 90229.68
+  - código: '04'
+    slug: servicios-exteriores
+    nombre: Coste de servicios exteriores
+    nivel: 1
+    directo: 238298.31
+    indirecto: 1259231.32
+    primario: 1497529.63
+  - código: '04.02'
+    slug: conservación
+    nombre: Reparaciones y conservación
+    nivel: 2
+    directo: 0.0
+    indirecto: 428101.0
+    primario: 428101.0
+  - código: '04.03'
+    slug: servicios-profesionales
+    nombre: Servicios de profesionales independientes
+    nivel: 2
+    directo: 0.0
+    indirecto: 362024.74
+    primario: 362024.74
+  - código: '04.09'
+    slug: suministros
+    nombre: Suministros
+    nivel: 2
+    directo: 238298.31
+    indirecto: 357.36
+    primario: 238655.67
+  - código: '04.10'
+    slug: comunicaciones
+    nombre: Comunicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 3576.03
+    primario: 3576.03
+  - código: '04.11'
+    slug: limpieza-aseo
+    nombre: Limpieza y aseo
+    nivel: 2
+    directo: 0.0
+    indirecto: 250973.23
+    primario: 250973.23
+  - código: '04.12'
+    slug: seguridad
+    nombre: Seguridad y vigilancia
+    nivel: 2
+    directo: 0.0
+    indirecto: 100498.78
+    primario: 100498.78
+  - código: '04.13'
+    slug: costes-diversos
+    nombre: Costes diversos
+    nivel: 2
+    directo: 0.0
+    indirecto: 37180.52
+    primario: 37180.52
+  - código: '05'
+    slug: tributos
+    nombre: Coste de tributos
+    nivel: 1
+    directo: 0.0
+    indirecto: 29.09
+    primario: 29.09
+  - código: '06'
+    slug: costes-financieros
+    nombre: Costes financieros
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '07'
+    slug: amortizaciones
+    nombre: Amortizaciones (costes calculados)
+    nivel: 1
+    directo: 502587.07
+    indirecto: 0.0
+    primario: 502587.07
+  - código: '07.01'
+    slug: amortización-inmovilizado-material
+    nombre: Del inmovilizado material
+    nivel: 2
+    directo: 502587.07
+    indirecto: 0.0
+    primario: 502587.07
+  - código: '07.02'
+    slug: amortización-inmovilizado-inmaterial
+    nombre: Del inmovilizado inmaterial
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 08
+    slug: costes-oportunidad
+    nombre: Costes de oportunidad (costes calculados)
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 09
+    slug: transferencias
+    nombre: Transferencias
+    nivel: 1
+    directo: 0.0
+    indirecto: 97532.45
+    primario: 97532.45
+  - código: '09.01'
+    slug: transferencias-alumnos
+    nombre: A alumnos/as
+    nivel: 2
+    directo: 0.0
+    indirecto: 97532.45
+    primario: 97532.45
+  - código: '09.02'
+    slug: transferencias-organizaciones-grupo
+    nombre: A organizaciones del grupo
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.03'
+    slug: transferencias-otras-organizaciones
+    nombre: A otras organizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  total_coste_primario:
+    directo: 3072184.57
+    indirecto: 2082891.57
+    primario: 5155076.14
+  centros_superiores:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  actividades_auxiliares:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  total:
+    directo: 3072184.57
+    indirecto: 2082891.57
+    primario: 5155076.14
+- código_sue: '06'
+  slug: soporte
+  nombre: Centros de soporte
+  filas:
+  - código: '01'
+    slug: costes-personal
+    nombre: Costes de personal
+    nivel: 1
+    directo: 20817864.32
+    indirecto: 279076.91
+    primario: 21096941.23
+  - código: '01.01'
+    slug: salario-pdi
+    nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+    nivel: 2
+    directo: 1478220.14
+    indirecto: 0.0
+    primario: 1478220.14
+  - código: '01.02'
+    slug: salario-ptgas
+    nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+      y Servicios (PTGAS)
+    nivel: 2
+    directo: 13366334.66
+    indirecto: 0.0
+    primario: 13366334.66
+  - código: '01.03'
+    slug: salario-piyotper
+    nombre: Costes del Personal Investigador laboral y de otro personal
+    nivel: 2
+    directo: 1852175.76
+    indirecto: 30144.92
+    primario: 1882320.68
+  - código: '01.04'
+    slug: ss
+    nombre: Cotizaciones sociales a cargo del empleador
+    nivel: 2
+    directo: 3913077.34
+    indirecto: 0.0
+    primario: 3913077.34
+  - código: '01.05'
+    slug: prevsoc-funcs
+    nombre: Previsión social de funcionarios (costes calculados)
+    nivel: 2
+    directo: 175902.28
+    indirecto: 0.0
+    primario: 175902.28
+  - código: '01.06'
+    slug: indem
+    nombre: Indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.07'
+    slug: otcsoc
+    nombre: Otros costes sociales
+    nivel: 2
+    directo: 0.0
+    indirecto: 23225.28
+    primario: 23225.28
+  - código: '01.08'
+    slug: indemnizaciones-servicio
+    nombre: Indemnizaciones por razón de servicio
+    nivel: 2
+    directo: 0.0
+    indirecto: 225706.71
+    primario: 225706.71
+  - código: '01.09'
+    slug: otras-indemnizaciones
+    nombre: Otras indemnizaciones
+    nivel: 2
+    directo: 32154.14
+    indirecto: 0.0
+    primario: 32154.14
+  - código: '01.10'
+    slug: transp-personal
+    nombre: Transporte de personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03'
+    slug: bienes-servicios
+    nombre: Coste de adquisición de bienes y servicios
+    nivel: 1
+    directo: 0.0
+    indirecto: 5495490.88
+    primario: 5495490.88
+  - código: '03.03'
+    slug: material-laboratorio
+    nombre: Coste de material e instrumental de laboratorio y experimentación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.08'
+    slug: material-oficina
+    nombre: Coste de material de oficina ordinario no inventariable
+    nivel: 2
+    directo: 0.0
+    indirecto: 209358.38
+    primario: 209358.38
+  - código: '03.10'
+    slug: publicaciones
+    nombre: Coste de prensa, revistas, libros y otras publicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 1482517.62
+    primario: 1482517.62
+  - código: '03.11'
+    slug: bienes-investigación
+    nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.12'
+    slug: trabajos-otras-empresas
+    nombre: Trabajos realizados por otras empresas
+    nivel: 2
+    directo: 0.0
+    indirecto: 3618579.83
+    primario: 3618579.83
+  - código: '03.13'
+    slug: otros-bienes-servicios
+    nombre: Otras adquisiciones de bienes y servicios
+    nivel: 2
+    directo: 0.0
+    indirecto: 170177.37
+    primario: 170177.37
+  - código: '04'
+    slug: servicios-exteriores
+    nombre: Coste de servicios exteriores
+    nivel: 1
+    directo: 309295.54
+    indirecto: 3288407.68
+    primario: 3597703.22
+  - código: '04.02'
+    slug: conservación
+    nombre: Reparaciones y conservación
+    nivel: 2
+    directo: 0.0
+    indirecto: 813106.99
+    primario: 813106.99
+  - código: '04.03'
+    slug: servicios-profesionales
+    nombre: Servicios de profesionales independientes
+    nivel: 2
+    directo: 0.0
+    indirecto: 562404.88
+    primario: 562404.88
+  - código: '04.09'
+    slug: suministros
+    nombre: Suministros
+    nivel: 2
+    directo: 309295.54
+    indirecto: 187427.05
+    primario: 496722.59
+  - código: '04.10'
+    slug: comunicaciones
+    nombre: Comunicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 2124.67
+    primario: 2124.67
+  - código: '04.11'
+    slug: limpieza-aseo
+    nombre: Limpieza y aseo
+    nivel: 2
+    directo: 0.0
+    indirecto: 308472.19
+    primario: 308472.19
+  - código: '04.12'
+    slug: seguridad
+    nombre: Seguridad y vigilancia
+    nivel: 2
+    directo: 0.0
+    indirecto: 124212.43
+    primario: 124212.43
+  - código: '04.13'
+    slug: costes-diversos
+    nombre: Costes diversos
+    nivel: 2
+    directo: 0.0
+    indirecto: 249665.56
+    primario: 249665.56
+  - código: '05'
+    slug: tributos
+    nombre: Coste de tributos
+    nivel: 1
+    directo: 0.0
+    indirecto: 2424.54
+    primario: 2424.54
+  - código: '06'
+    slug: costes-financieros
+    nombre: Costes financieros
+    nivel: 1
+    directo: 0.0
+    indirecto: 14305.77
+    primario: 14305.77
+  - código: '07'
+    slug: amortizaciones
+    nombre: Amortizaciones (costes calculados)
+    nivel: 1
+    directo: 654085.97
+    indirecto: 0.0
+    primario: 654085.97
+  - código: '07.01'
+    slug: amortización-inmovilizado-material
+    nombre: Del inmovilizado material
+    nivel: 2
+    directo: 654085.97
+    indirecto: 0.0
+    primario: 654085.97
+  - código: '07.02'
+    slug: amortización-inmovilizado-inmaterial
+    nombre: Del inmovilizado inmaterial
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 08
+    slug: costes-oportunidad
+    nombre: Costes de oportunidad (costes calculados)
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 09
+    slug: transferencias
+    nombre: Transferencias
+    nivel: 1
+    directo: 0.0
+    indirecto: 2277577.54
+    primario: 2277577.54
+  - código: '09.01'
+    slug: transferencias-alumnos
+    nombre: A alumnos/as
+    nivel: 2
+    directo: 0.0
+    indirecto: 2185358.29
+    primario: 2185358.29
+  - código: '09.02'
+    slug: transferencias-organizaciones-grupo
+    nombre: A organizaciones del grupo
+    nivel: 2
+    directo: 0.0
+    indirecto: 12000.0
+    primario: 12000.0
+  - código: '09.03'
+    slug: transferencias-otras-organizaciones
+    nombre: A otras organizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 80219.25
+    primario: 80219.25
+  total_coste_primario:
+    directo: 21781245.83
+    indirecto: 11357283.32
+    primario: 33138529.15
+  centros_superiores:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  actividades_auxiliares:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  total:
+    directo: 21781245.83
+    indirecto: 11357283.32
+    primario: 33138529.15
+- código_sue: '07'
+  slug: anexos
+  nombre: Centros anexos
+  filas:
+  - código: '01'
+    slug: costes-personal
+    nombre: Costes de personal
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.01'
+    slug: salario-pdi
+    nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.02'
+    slug: salario-ptgas
+    nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+      y Servicios (PTGAS)
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.03'
+    slug: salario-piyotper
+    nombre: Costes del Personal Investigador laboral y de otro personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.04'
+    slug: ss
+    nombre: Cotizaciones sociales a cargo del empleador
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.05'
+    slug: prevsoc-funcs
+    nombre: Previsión social de funcionarios (costes calculados)
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.06'
+    slug: indem
+    nombre: Indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.07'
+    slug: otcsoc
+    nombre: Otros costes sociales
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.08'
+    slug: indemnizaciones-servicio
+    nombre: Indemnizaciones por razón de servicio
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.09'
+    slug: otras-indemnizaciones
+    nombre: Otras indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.10'
+    slug: transp-personal
+    nombre: Transporte de personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03'
+    slug: bienes-servicios
+    nombre: Coste de adquisición de bienes y servicios
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.03'
+    slug: material-laboratorio
+    nombre: Coste de material e instrumental de laboratorio y experimentación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.08'
+    slug: material-oficina
+    nombre: Coste de material de oficina ordinario no inventariable
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.10'
+    slug: publicaciones
+    nombre: Coste de prensa, revistas, libros y otras publicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.11'
+    slug: bienes-investigación
+    nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.12'
+    slug: trabajos-otras-empresas
+    nombre: Trabajos realizados por otras empresas
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.13'
+    slug: otros-bienes-servicios
+    nombre: Otras adquisiciones de bienes y servicios
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '04'
+    slug: servicios-exteriores
+    nombre: Coste de servicios exteriores
+    nivel: 1
+    directo: 13683.49
+    indirecto: 76157.28
+    primario: 89840.77
+  - código: '04.02'
+    slug: conservación
+    nombre: Reparaciones y conservación
+    nivel: 2
+    directo: 0.0
+    indirecto: 38527.72
+    primario: 38527.72
+  - código: '04.03'
+    slug: servicios-profesionales
+    nombre: Servicios de profesionales independientes
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '04.09'
+    slug: suministros
+    nombre: Suministros
+    nivel: 2
+    directo: 13683.49
+    indirecto: 0.0
+    primario: 13683.49
+  - código: '04.10'
+    slug: comunicaciones
+    nombre: Comunicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '04.11'
+    slug: limpieza-aseo
+    nombre: Limpieza y aseo
+    nivel: 2
+    directo: 0.0
+    indirecto: 26827.1
+    primario: 26827.1
+  - código: '04.12'
+    slug: seguridad
+    nombre: Seguridad y vigilancia
+    nivel: 2
+    directo: 0.0
+    indirecto: 10802.46
+    primario: 10802.46
+  - código: '04.13'
+    slug: costes-diversos
+    nombre: Costes diversos
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '05'
+    slug: tributos
+    nombre: Coste de tributos
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '06'
+    slug: costes-financieros
+    nombre: Costes financieros
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '07'
+    slug: amortizaciones
+    nombre: Amortizaciones (costes calculados)
+    nivel: 1
+    directo: 46844.53
+    indirecto: 0.0
+    primario: 46844.53
+  - código: '07.01'
+    slug: amortización-inmovilizado-material
+    nombre: Del inmovilizado material
+    nivel: 2
+    directo: 46844.53
+    indirecto: 0.0
+    primario: 46844.53
+  - código: '07.02'
+    slug: amortización-inmovilizado-inmaterial
+    nombre: Del inmovilizado inmaterial
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 08
+    slug: costes-oportunidad
+    nombre: Costes de oportunidad (costes calculados)
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 09
+    slug: transferencias
+    nombre: Transferencias
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.01'
+    slug: transferencias-alumnos
+    nombre: A alumnos/as
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.02'
+    slug: transferencias-organizaciones-grupo
+    nombre: A organizaciones del grupo
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.03'
+    slug: transferencias-otras-organizaciones
+    nombre: A otras organizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  total_coste_primario:
+    directo: 60528.02
+    indirecto: 76157.28
+    primario: 136685.3
+  centros_superiores:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  actividades_auxiliares:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  total:
+    directo: 60528.02
+    indirecto: 76157.28
+    primario: 136685.3
+- código_sue: 08
+  slug: centros-agrupaciones-costes
+  nombre: Centros-Agrupaciones de costes
+  filas:
+  - código: '01'
+    slug: costes-personal
+    nombre: Costes de personal
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.01'
+    slug: salario-pdi
+    nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.02'
+    slug: salario-ptgas
+    nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
+      y Servicios (PTGAS)
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.03'
+    slug: salario-piyotper
+    nombre: Costes del Personal Investigador laboral y de otro personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.04'
+    slug: ss
+    nombre: Cotizaciones sociales a cargo del empleador
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.05'
+    slug: prevsoc-funcs
+    nombre: Previsión social de funcionarios (costes calculados)
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.06'
+    slug: indem
+    nombre: Indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.07'
+    slug: otcsoc
+    nombre: Otros costes sociales
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.08'
+    slug: indemnizaciones-servicio
+    nombre: Indemnizaciones por razón de servicio
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.09'
+    slug: otras-indemnizaciones
+    nombre: Otras indemnizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '01.10'
+    slug: transp-personal
+    nombre: Transporte de personal
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03'
+    slug: bienes-servicios
+    nombre: Coste de adquisición de bienes y servicios
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.03'
+    slug: material-laboratorio
+    nombre: Coste de material e instrumental de laboratorio y experimentación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.08'
+    slug: material-oficina
+    nombre: Coste de material de oficina ordinario no inventariable
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.10'
+    slug: publicaciones
+    nombre: Coste de prensa, revistas, libros y otras publicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.11'
+    slug: bienes-investigación
+    nombre: Coste de adquisición de bienes asociados a proyectos de investigación
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.12'
+    slug: trabajos-otras-empresas
+    nombre: Trabajos realizados por otras empresas
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '03.13'
+    slug: otros-bienes-servicios
+    nombre: Otras adquisiciones de bienes y servicios
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '04'
+    slug: servicios-exteriores
+    nombre: Coste de servicios exteriores
+    nivel: 1
+    directo: 5046.26
+    indirecto: 15513.28
+    primario: 20559.54
+  - código: '04.02'
+    slug: conservación
+    nombre: Reparaciones y conservación
+    nivel: 2
+    directo: 0.0
+    indirecto: 7848.12
+    primario: 7848.12
+  - código: '04.03'
+    slug: servicios-profesionales
+    nombre: Servicios de profesionales independientes
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '04.09'
+    slug: suministros
+    nombre: Suministros
+    nivel: 2
+    directo: 5046.26
+    indirecto: 0.0
+    primario: 5046.26
+  - código: '04.10'
+    slug: comunicaciones
+    nombre: Comunicaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '04.11'
+    slug: limpieza-aseo
+    nombre: Limpieza y aseo
+    nivel: 2
+    directo: 0.0
+    indirecto: 5464.7
+    primario: 5464.7
+  - código: '04.12'
+    slug: seguridad
+    nombre: Seguridad y vigilancia
+    nivel: 2
+    directo: 0.0
+    indirecto: 2200.47
+    primario: 2200.47
+  - código: '04.13'
+    slug: costes-diversos
+    nombre: Costes diversos
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '05'
+    slug: tributos
+    nombre: Coste de tributos
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '06'
+    slug: costes-financieros
+    nombre: Costes financieros
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '07'
+    slug: amortizaciones
+    nombre: Amortizaciones (costes calculados)
+    nivel: 1
+    directo: 2252.69
+    indirecto: 0.0
+    primario: 2252.69
+  - código: '07.01'
+    slug: amortización-inmovilizado-material
+    nombre: Del inmovilizado material
+    nivel: 2
+    directo: 2252.69
+    indirecto: 0.0
+    primario: 2252.69
+  - código: '07.02'
+    slug: amortización-inmovilizado-inmaterial
+    nombre: Del inmovilizado inmaterial
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 08
+    slug: costes-oportunidad
+    nombre: Costes de oportunidad (costes calculados)
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: 09
+    slug: transferencias
+    nombre: Transferencias
+    nivel: 1
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.01'
+    slug: transferencias-alumnos
+    nombre: A alumnos/as
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.02'
+    slug: transferencias-organizaciones-grupo
+    nombre: A organizaciones del grupo
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  - código: '09.03'
+    slug: transferencias-otras-organizaciones
+    nombre: A otras organizaciones
+    nivel: 2
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+  total_coste_primario:
+    directo: 7298.95
+    indirecto: 15513.28
+    primario: 22812.24
+  centros_superiores:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  actividades_auxiliares:
+    directo: 0.0
+    indirecto: 0.0
+    primario: 0.0
+    pendiente: true
+  total:
+    directo: 7298.95
+    indirecto: 15513.28
+    primario: 22812.24
