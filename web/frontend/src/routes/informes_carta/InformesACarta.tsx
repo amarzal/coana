@@ -289,6 +289,93 @@ function UcsModal({
     );
 }
 
+function OrdenDragDrop({
+    orden,
+    onChange,
+}: {
+    orden: Eje[];
+    onChange: (next: Eje[]) => void;
+}) {
+    const [arrastrado, setArrastrado] = useState<number | null>(null);
+    const [destino, setDestino] = useState<number | null>(null);
+
+    function onDragStart(idx: number) {
+        return (e: React.DragEvent) => {
+            setArrastrado(idx);
+            e.dataTransfer.effectAllowed = "move";
+        };
+    }
+    function onDragOver(idx: number) {
+        return (e: React.DragEvent) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = "move";
+            setDestino(idx);
+        };
+    }
+    function onDrop(idx: number) {
+        return (e: React.DragEvent) => {
+            e.preventDefault();
+            if (arrastrado === null || arrastrado === idx) {
+                setArrastrado(null);
+                setDestino(null);
+                return;
+            }
+            const nuevo = [...orden];
+            const [m] = nuevo.splice(arrastrado, 1);
+            nuevo.splice(idx, 0, m);
+            onChange(nuevo);
+            setArrastrado(null);
+            setDestino(null);
+        };
+    }
+    function onDragEnd() {
+        setArrastrado(null);
+        setDestino(null);
+    }
+
+    return (
+        <div className="flex items-center gap-2">
+            {orden.map((eje, idx) => {
+                const dragging = arrastrado === idx;
+                const isOver = destino === idx && arrastrado !== null && arrastrado !== idx;
+                return (
+                    <div
+                        key={eje}
+                        draggable
+                        onDragStart={onDragStart(idx)}
+                        onDragOver={onDragOver(idx)}
+                        onDrop={onDrop(idx)}
+                        onDragEnd={onDragEnd}
+                        className={cn(
+                            "flex items-center gap-2 rounded border bg-white px-2 py-1.5 shadow-sm select-none cursor-grab active:cursor-grabbing",
+                            "border-slate-300",
+                            dragging && "opacity-40",
+                            isOver && "ring-2 ring-blue-500",
+                        )}
+                        title="Arrastra para reordenar"
+                    >
+                        {/* Handle "rugoso": dos columnas de tres puntos */}
+                        <span
+                            aria-hidden="true"
+                            className="grid grid-cols-2 gap-x-0.5 gap-y-0.5 text-slate-500"
+                        >
+                            {Array.from({ length: 6 }).map((_, i) => (
+                                <span
+                                    key={i}
+                                    className="inline-block h-1 w-1 rounded-full bg-slate-400"
+                                />
+                            ))}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">{idx + 1}.</span>
+                        <span className="font-medium">{EJE_LABEL[eje]}</span>
+                    </div>
+                );
+            })}
+        </div>
+    );
+}
+
+
 export function InformesACarta() {
     const [filtro, setFiltro] = useState<Filtro>({
         centros_de_coste: [],
@@ -357,16 +444,31 @@ export function InformesACarta() {
         configsQ.refetch();
     }
 
-    function actualizarOrden(pos: number, eje: Eje) {
-        const actual = [...filtro.orden];
-        const i = actual.indexOf(eje);
-        if (i >= 0) {
-            // intercambiar para mantener permutación.
-            const tmp = actual[pos];
-            actual[pos] = eje;
-            actual[i] = tmp;
+    function reordenar(orden: Eje[]) {
+        setFiltro({ ...filtro, orden });
+    }
+
+    async function descargar(formato: "excel" | "pdf") {
+        if (!consultaActiva) return;
+        const r = await fetch(`/api/informes-carta/${formato}`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify(consultaActiva),
+        });
+        if (!r.ok) {
+            alert(`Error: ${r.status} ${await r.text()}`);
+            return;
         }
-        setFiltro({ ...filtro, orden: actual });
+        const blob = await r.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download =
+            formato === "excel" ? "informe_a_la_carta.xlsx" : "informe_a_la_carta.pdf";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
     }
 
     return (
@@ -439,28 +541,35 @@ export function InformesACarta() {
                 </div>
             )}
 
-            {/* Orden */}
-            <div className="flex flex-wrap items-center gap-2 text-sm">
+            {/* Orden jerárquico (drag & drop) */}
+            <div className="flex flex-wrap items-center gap-3 text-sm">
                 <span className="text-slate-700">Orden jerárquico:</span>
-                {[0, 1, 2].map((pos) => (
-                    <select
-                        key={pos}
-                        value={filtro.orden[pos]}
-                        onChange={(e) => actualizarOrden(pos, e.target.value as Eje)}
-                        className="rounded border border-slate-300 px-2 py-1"
+                <OrdenDragDrop orden={filtro.orden} onChange={reordenar} />
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={() => setConsultaActiva({ ...filtro })}
+                        className="rounded bg-slate-800 px-4 py-1.5 text-white hover:bg-slate-700"
                     >
-                        <option value="cc">{EJE_LABEL.cc}</option>
-                        <option value="act">{EJE_LABEL.act}</option>
-                        <option value="ec">{EJE_LABEL.ec}</option>
-                    </select>
-                ))}
-                <button
-                    type="button"
-                    onClick={() => setConsultaActiva({ ...filtro })}
-                    className="ml-auto rounded bg-slate-800 px-4 py-1.5 text-white hover:bg-slate-700"
-                >
-                    Consultar
-                </button>
+                        Generar
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => descargar("excel")}
+                        disabled={!resQ.data}
+                        className="rounded border border-emerald-700 bg-white px-3 py-1.5 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
+                    >
+                        Descargar Excel
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => descargar("pdf")}
+                        disabled={!resQ.data}
+                        className="rounded border border-rose-700 bg-white px-3 py-1.5 text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+                    >
+                        Descargar PDF
+                    </button>
+                </div>
             </div>
 
             {/* Resultados */}

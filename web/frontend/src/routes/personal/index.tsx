@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/DataTable";
-import { KpiPanel } from "@/components/KpiPanel";
 import { RecordCard } from "@/components/RecordCard";
 import { Tabs } from "@/components/Tabs";
 import { formatEuro } from "@/lib/format";
@@ -145,14 +144,97 @@ function Cabecera({ title, subtitle }: { title: string; subtitle?: string }) {
     );
 }
 
+type KpiRem = { label: string; value: number | string | null; format: string };
+type KpiData = { kpis: KpiRem[] };
+
+function getN(d: KpiData, label: string): number {
+    const k = d.kpis.find((x) => x.label === label);
+    return typeof k?.value === "number" ? k.value : 0;
+}
+
+const _COL_SECTOR: Record<string, string> = {
+    PDI: "bg-blue-600",
+    PTGAS: "bg-emerald-600",
+    PVI: "bg-purple-500",
+    Otros: "bg-slate-400",
+};
+
+import { Atajo as _Atajo, CajaTotal as _CajaTotal, FilaBarra as _FilaBarra, SeccionTitulo as _SecTit } from "@/components/Dashboard";
+import { formatInt as _fmtInt } from "@/lib/format";
+
 export function PersonalResumen() {
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: [QK_RESUMEN],
+        queryFn: async (): Promise<KpiData> => {
+            const r = await fetch(KPI);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return (await r.json()) as KpiData;
+        },
+        staleTime: 30_000,
+    });
+    if (isError) {
+        return <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error instanceof Error ? error.message : String(error)}</div>;
+    }
+    if (isLoading || !data) {
+        return <div className="text-sm text-slate-500">Cargando…</div>;
+    }
+    const sectores: Array<{ nombre: string; n: number; imp: number }> = [];
+    for (const sec of ["PDI", "PTGAS", "PVI", "Otros"]) {
+        const n = getN(data, `Expedientes ${sec}`);
+        const imp = getN(data, `Importe ${sec}`);
+        if (n > 0 || imp > 0) sectores.push({ nombre: sec, n, imp });
+    }
+    const totalExp = getN(data, "Total expedientes");
+    const totalImp = getN(data, "Importe total");
+    const nMulti = getN(data, "Personas multiexpediente");
+
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
             <Cabecera
                 title="Personal · Resumen"
-                subtitle="Expedientes e importes agregados por sector."
+                subtitle="Expedientes, importes brutos y costes sociales agregados por sector. Pulsa una tarjeta de Explorar para ver el detalle."
             />
-            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
+
+            <section>
+                <_SecTit>Totales del ejercicio</_SecTit>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <_CajaTotal etiqueta="Expedientes con cobro" valor={_fmtInt(totalExp)} sub={`Importe total ${formatEuro(totalImp)}`} />
+                    <_CajaTotal etiqueta="Importe total nómina" valor={formatEuro(totalImp)} sub={`${_fmtInt(totalExp)} expedientes`} />
+                    <_CajaTotal etiqueta="Multiexpediente" valor={_fmtInt(nMulti)} sub="Personas con expedientes en más de un sector" />
+                </div>
+            </section>
+
+            <section>
+                <_SecTit>Distribución por sector</_SecTit>
+                <div className="rounded-lg border border-slate-200 bg-white p-4">
+                    {sectores.map((s) => (
+                        <_FilaBarra
+                            key={s.nombre}
+                            etiqueta={s.nombre}
+                            importe={s.imp}
+                            total={totalImp || 1}
+                            color={_COL_SECTOR[s.nombre] ?? "bg-slate-500"}
+                            extra={`${_fmtInt(s.n)} expedientes`}
+                        />
+                    ))}
+                </div>
+            </section>
+
+            <section>
+                <_SecTit>Explorar</_SecTit>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <_Atajo to="/personal/pdi" título="PDI" descripción="Personal docente e investigador." />
+                    <_Atajo to="/personal/pvi" título="PVI" descripción="Personal investigador y otro personal." />
+                    <_Atajo to="/personal/ptgas" título="PTGAS" descripción="Personal técnico, de gestión y servicios." />
+                    <_Atajo to="/personal/otros" título="Otros" descripción="Becas, jubilados y otros sectores residuales." />
+                    <_Atajo to="/personal/multiexpediente" título="Multiexpediente" descripción="Personas con varios expedientes." />
+                    <_Atajo to="/personal/costes-sociales-calculados" título="Costes sociales calculados" descripción="Clases pasivas de PDI funcionario." />
+                    <_Atajo to="/personal/atrasos-no-vinculados" título="Atrasos a no vinculados" descripción="Personal que ya no trabaja en la UJI." />
+                    <_Atajo to="/personal/despidos" título="Despidos" descripción="CR 47 en proyecto general." />
+                    <_Atajo to="/personal/indemnizaciones" título="Indemnizaciones asistencias" descripción="Tribunales y similares (CR 48)." />
+                    <_Atajo to="/personal/anomalias" título="Anomalías PDI" descripción="Casos a revisar." />
+                </div>
+            </section>
         </div>
     );
 }

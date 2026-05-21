@@ -40,6 +40,12 @@ export function InvestigacionGrupos() {
                         queryKey={`investigacion:grupo:${idGrupo}:personas`}
                         rowKey="per_id"
                         reorderImportes={false}
+                        rowClassName={(row) => {
+                            const rol = String(row.rol ?? "");
+                            if (rol === "interlocutor") return "font-bold";
+                            if (rol === "coordinador") return "font-bold italic";
+                            return undefined;
+                        }}
                     />
                 </div>
             )}

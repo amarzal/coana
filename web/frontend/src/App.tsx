@@ -1,8 +1,7 @@
 import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { MainNav } from "@/components/MainNav";
+import { MainNav, EntradasMenu } from "@/components/MainNav";
 import { EjecutarFase1 } from "@/components/EjecutarFase1";
-import { GenerarInformes } from "@/components/GenerarInformes";
 import { StatusFooter } from "@/components/StatusFooter";
 import {
     PresupuestoResumen,
@@ -97,8 +96,8 @@ function Layout() {
                     <div className="text-sm font-semibold">CoAna</div>
                     <div className="text-xs text-slate-500">UJI 2025</div>
                 </div>
+                <EntradasMenu />
                 <EjecutarFase1 />
-                <GenerarInformes />
                 <MainNav />
                 <StatusFooter />
             </aside>

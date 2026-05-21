@@ -1,31 +1,85 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ResourceView } from "@/components/ResourceView";
 import { DataTable } from "@/components/DataTable";
-import { KpiPanel } from "@/components/KpiPanel";
+import { Atajo, Cabecera, CajaTotal, SeccionTitulo } from "@/components/Dashboard";
 import { Tabs } from "@/components/Tabs";
+import { formatEuro, formatFloat, formatInt } from "@/lib/format";
 
 export { Regla23DedicacionPdi } from "./DedicacionPdi";
 
 const KPI = "/api/regla23/_resumen";
 const QK_RESUMEN = "regla23:resumen";
 
-function Cabecera({ title, subtitle }: { title: string; subtitle?: string }) {
-    return (
-        <div>
-            <h1 className="text-2xl font-semibold">{title}</h1>
-            {subtitle && <p className="text-sm text-slate-500">{subtitle}</p>}
-        </div>
-    );
+type Kpi = { label: string; value: number | string | null; format: string };
+type KpiData = { kpis: Kpi[] };
+
+function getN(d: KpiData, label: string): number {
+    const k = d.kpis.find((x) => x.label === label);
+    return typeof k?.value === "number" ? k.value : 0;
 }
 
 export function Regla23Resumen() {
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: [QK_RESUMEN],
+        queryFn: async (): Promise<KpiData> => {
+            const r = await fetch(KPI);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return (await r.json()) as KpiData;
+        },
+        staleTime: 30_000,
+    });
+    if (isError) return <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error instanceof Error ? error.message : String(error)}</div>;
+    if (isLoading || !data) return <div className="text-sm text-slate-500">Cargando…</div>;
+    const nDed = getN(data, "Expedientes con dedicación");
+    const cred = getN(data, "Créditos impartidos (total)");
+    const nHND = getN(data, "Horas no oficiales");
+    const impAtrasos = getN(data, "Bolsa de atrasos");
+    const nApart = getN(data, "Expedientes apartados");
+    const nDesp = getN(data, "UC despidos");
+    const impDesp = getN(data, "Importe despidos");
+    const nIndem = getN(data, "UC indemnizaciones");
+    const nCargos = getN(data, "UC cargos en proyectos");
+    const impCargos = getN(data, "Importe cargos");
+
     return (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-8">
             <Cabecera
                 title="Regla 23 · Resumen"
-                subtitle="Métricas del reparto de la masa retributiva indiferenciada del PDI/PVI."
+                subtitle="Reparto de la masa retributiva indiferenciada del PDI/PVI entre actividades y centros, ponderando por la dedicación horaria de cada persona."
             />
-            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
+
+            <section>
+                <SeccionTitulo>Dedicación docente</SeccionTitulo>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <CajaTotal etiqueta="Expedientes con dedicación" valor={formatInt(nDed)} sub="PDI/PVI con al menos una hora registrada" />
+                    <CajaTotal etiqueta="Créditos impartidos" valor={formatFloat(cred)} sub="POD oficial agregado del ejercicio" />
+                    <CajaTotal etiqueta="Horas no oficiales" valor={formatInt(nHND)} sub="Estimaciones de docencia propia" />
+                </div>
+            </section>
+
+            <section>
+                <SeccionTitulo>Tratamientos especiales</SeccionTitulo>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    <CajaTotal etiqueta="Bolsa de atrasos" valor={formatEuro(impAtrasos)} sub="CR 30/87 que se distribuyen por dedicación" />
+                    <CajaTotal etiqueta="Expedientes apartados" valor={formatInt(nApart)} sub="Quedan fuera del reparto general" />
+                    <CajaTotal etiqueta="UC despidos" valor={formatInt(nDesp)} sub={formatEuro(impDesp)} />
+                    <CajaTotal etiqueta="UC cargos en proyecto específico" valor={formatInt(nCargos)} sub={formatEuro(impCargos)} />
+                </div>
+            </section>
+
+            <section>
+                <SeccionTitulo>Explorar</SeccionTitulo>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <Atajo to="/regla23/dedicacion" título="Dedicación docente" descripción="POD por expediente y asignatura." />
+                    <Atajo to="/regla23/no-oficial" título="Docencia no oficial" descripción="Estimación de horas en proyectos propios." />
+                    <Atajo to="/regla23/estructura" título="Estructura estudios" descripción="Titulaciones, asignaturas y centros." />
+                    <Atajo to="/regla23/cargos" título="Cargos" descripción="Asimilación del CR 19/64 a cargos del RD." />
+                    <Atajo to="/regla23/sin-titulacion" título="Asignaturas sin titulación" descripción="Casos pendientes de mapeo." />
+                    <Atajo to="/regla23/anomalias" título="Anomalías" descripción="Datos a revisar antes de cerrar el reparto." />
+                </div>
+            </section>
+            <div className="hidden">{formatInt(nIndem)}</div>
         </div>
     );
 }

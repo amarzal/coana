@@ -1,0 +1,12 @@
+centros_de_coste:
+- estce
+- fchs
+- fcje
+- fcs
+actividades:
+- principales
+elementos_de_coste: []
+orden:
+- ec
+- act
+- cc

@@ -5,11 +5,15 @@ import {
     Wallet,
     Boxes,
     Users,
+    Users2,
     Scale,
     GraduationCap,
     Building2,
     Sigma,
     FileText,
+    ClipboardList,
+    Filter,
+    ListChecks,
     Inbox,
     Folder,
     Sheet,
@@ -20,6 +24,7 @@ import {
     type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { GenerarInformes } from "@/components/GenerarInformes";
 
 type IconCmp = LucideIcon;
 
@@ -44,12 +49,24 @@ const GROUPS: Group[] = [
             { label: "Apuntes filtrados", to: "/presupuesto/filtrados" },
             { label: "Suministros", to: "/presupuesto/suministros" },
             { label: "Distribución mantenimientos OTOP", to: "/presupuesto/otop" },
-            { label: "Reglas de actividad", to: "/presupuesto/reglas/actividad" },
-            { label: "Reglas de centro de coste", to: "/presupuesto/reglas/cc" },
-            { label: "Reglas de elemento de coste", to: "/presupuesto/reglas/ec" },
-            { label: "Árbol: actividades", to: "/presupuesto/arbol/actividades" },
-            { label: "Árbol: centros de coste", to: "/presupuesto/arbol/cc" },
-            { label: "Árbol: elementos de coste", to: "/presupuesto/arbol/ec" },
+            {
+                label: "Reglas",
+                icon: ListChecks,
+                items: [
+                    { label: "Actividad", to: "/presupuesto/reglas/actividad" },
+                    { label: "Centros de coste", to: "/presupuesto/reglas/cc" },
+                    { label: "Elementos de coste", to: "/presupuesto/reglas/ec" },
+                ],
+            },
+            {
+                label: "Estructuras",
+                icon: ListTree,
+                items: [
+                    { label: "Actividades", to: "/presupuesto/arbol/actividades" },
+                    { label: "Centros de coste", to: "/presupuesto/arbol/cc" },
+                    { label: "Elementos de coste", to: "/presupuesto/arbol/ec" },
+                ],
+            },
         ],
     },
     {
@@ -60,6 +77,7 @@ const GROUPS: Group[] = [
             { label: "Inventario con amortización", to: "/amortizaciones/enriquecido" },
             {
                 label: "Descartados",
+                icon: Filter,
                 items: [
                     { label: "Filtrados por estado", to: "/amortizaciones/filtrados-estado" },
                     { label: "Filtrados por cuenta", to: "/amortizaciones/filtrados-cuenta" },
@@ -77,29 +95,45 @@ const GROUPS: Group[] = [
         icon: Users,
         items: [
             { label: "Resumen", to: "/personal/resumen" },
-            { label: "PDI", to: "/personal/pdi" },
-            { label: "PVI", to: "/personal/pvi" },
-            { label: "Expedientes PTGAS", to: "/personal/ptgas" },
-            { label: "Expedientes otros", to: "/personal/otros" },
+            {
+                label: "Colectivos",
+                icon: Users2,
+                items: [
+                    { label: "PDI", to: "/personal/pdi" },
+                    { label: "PVI", to: "/personal/pvi" },
+                    { label: "PTGAS", to: "/personal/ptgas" },
+                    { label: "Otros", to: "/personal/otros" },
+                ],
+            },
             { label: "Multiexpediente", to: "/personal/multiexpediente" },
             { label: "Costes sociales calculados", to: "/personal/costes-sociales-calculados" },
             { label: "Atrasos a no vinculados", to: "/personal/atrasos-no-vinculados" },
             { label: "Despidos", to: "/personal/despidos" },
             { label: "Indemnizaciones asistencias", to: "/personal/indemnizaciones" },
             { label: "Anomalías PDI", to: "/personal/anomalias" },
-        ],
-    },
-    {
-        label: "Regla 23",
-        icon: Scale,
-        items: [
-            { label: "Resumen", to: "/regla23/resumen" },
-            { label: "Dedicación docente", to: "/regla23/dedicacion" },
-            { label: "Docencia no oficial", to: "/regla23/no-oficial" },
-            { label: "Estructura estudios", to: "/regla23/estructura" },
-            { label: "Cargos", to: "/regla23/cargos" },
-            { label: "Asignaturas sin titulación", to: "/regla23/sin-titulacion" },
-            { label: "Anomalías", to: "/regla23/anomalias" },
+            {
+                label: "Cargos académicos",
+                icon: GraduationCap,
+                items: [
+                    { label: "Resumen", to: "/cargos/resumen" },
+                    { label: "Por persona", to: "/cargos/personas-remuneradas" },
+                    { label: "Personas cargos", to: "/cargos/personas-cargos" },
+                    { label: "Catálogo de cargos", to: "/cargos/cargos" },
+                ],
+            },
+            {
+                label: "Regla 23",
+                icon: Scale,
+                items: [
+                    { label: "Resumen", to: "/regla23/resumen" },
+                    { label: "Dedicación docente", to: "/regla23/dedicacion" },
+                    { label: "Docencia no oficial", to: "/regla23/no-oficial" },
+                    { label: "Estructura estudios", to: "/regla23/estructura" },
+                    { label: "Cargos", to: "/regla23/cargos" },
+                    { label: "Asignaturas sin titulación", to: "/regla23/sin-titulacion" },
+                    { label: "Anomalías", to: "/regla23/anomalias" },
+                ],
+            },
         ],
     },
     {
@@ -107,16 +141,6 @@ const GROUPS: Group[] = [
         icon: Microscope,
         items: [
             { label: "Grupos", to: "/investigacion/grupos" },
-        ],
-    },
-    {
-        label: "Cargos académicos",
-        icon: GraduationCap,
-        items: [
-            { label: "Resumen", to: "/cargos/resumen" },
-            { label: "Por persona", to: "/cargos/personas-remuneradas" },
-            { label: "Personas cargos", to: "/cargos/personas-cargos" },
-            { label: "Catálogo de cargos", to: "/cargos/cargos" },
         ],
     },
     {
@@ -146,6 +170,7 @@ const GROUPS: Group[] = [
         items: [
             {
                 label: "Normalizados",
+                icon: ClipboardList,
                 items: [
                     { label: "10.1 — Elementos de coste",            to: "/informes/cuadro_10_1" },
                     { label: "10.3 — Ingresos por actividades",      to: "/informes/cuadro_10_3" },
@@ -211,7 +236,7 @@ function CabeceraColapsable({
     );
 }
 
-function EntradasMenu() {
+export function EntradasMenu() {
     const { pathname } = useLocation();
     // Subdirectorio activo: el primer segmento tras /entradas/.
     const subdirActivo = pathname.startsWith("/entradas/")
@@ -354,6 +379,7 @@ export function MainNav() {
         const key = `${grupoLabel}/${it.label}`;
         const open = abiertos.has(key);
         const Chevron = open ? ChevronDown : ChevronRight;
+        const SubIcon = it.icon;
         return (
             <li key={key}>
                 <button
@@ -363,6 +389,7 @@ export function MainNav() {
                     className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-slate-700 hover:bg-slate-100"
                 >
                     <Chevron size={12} className="shrink-0 text-slate-400" />
+                    {SubIcon && <SubIcon size={14} className="shrink-0 text-slate-500" />}
                     <span>{it.label}</span>
                 </button>
                 {open && (
@@ -407,10 +434,16 @@ export function MainNav() {
 
     return (
         <nav className="flex flex-col gap-1 text-sm">
-            {/* «Entradas» como menú dinámico (3 niveles: Entradas → subdir → fichero) */}
-            <EntradasMenu />
-            {/* Resto de bloques estáticos */}
-            {GROUPS.map(renderGrupo)}
+            {GROUPS.map((g) => (
+                <div key={g.label}>
+                    {g.label === "Informes" && (
+                        <div className="my-2">
+                            <GenerarInformes />
+                        </div>
+                    )}
+                    {renderGrupo(g)}
+                </div>
+            ))}
         </nav>
     );
 }

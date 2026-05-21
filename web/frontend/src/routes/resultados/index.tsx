@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { NavLink } from "react-router";
 import { DataTable } from "@/components/DataTable";
-import { KpiPanel } from "@/components/KpiPanel";
 import { RecordCard } from "@/components/RecordCard";
+import { formatEuro, formatInt } from "@/lib/format";
+import { cn } from "@/lib/cn";
 
 const KPI = "/api/resultados/_resumen";
 const QK_RESUMEN = "resultados:resumen";
@@ -85,14 +88,275 @@ function Lista({
     );
 }
 
-export function ResultadosResumen() {
+type Kpi = {
+    label: string;
+    value: number | string | null;
+    format: string;
+    hint?: string | null;
+};
+type KpiPanelData = { kpis: Kpi[] };
+
+// Agrupación temática de las fuentes que produce el resumen. Cada
+// grupo lleva un color para que la composición sea visualmente legible.
+const CATEGORIAS: Array<{
+    título: string;
+    color: string;
+    fuentes: string[];
+}> = [
+    { título: "Presupuesto", color: "bg-blue-500",  fuentes: ["presupuesto"] },
+    { título: "Inventario",  color: "bg-amber-500", fuentes: ["inventario"] },
+    { título: "Suministros", color: "bg-teal-500",  fuentes: ["energía", "agua", "gas"] },
+    { título: "Nóminas",     color: "bg-emerald-600", fuentes: ["nómina"] },
+    { título: "Regla 23",    color: "bg-purple-500", fuentes: ["regla_23"] },
+];
+
+function categoríaDe(fuente: string): { título: string; color: string } | null {
+    for (const c of CATEGORIAS) {
+        if (c.fuentes.includes(fuente)) return { título: c.título, color: c.color };
+    }
+    return null;
+}
+
+function CajaTotal({
+    etiqueta, valor, sub,
+}: { etiqueta: string; valor: string; sub?: string }) {
     return (
-        <div className="flex flex-col gap-6">
+        <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 shadow-sm">
+            <div className="text-xs uppercase tracking-wide text-slate-500">{etiqueta}</div>
+            <div className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">{valor}</div>
+            {sub && <div className="mt-1 text-xs text-slate-500">{sub}</div>}
+        </div>
+    );
+}
+
+function FilaFuente({
+    fuente, importe, nUcs, total, color,
+}: {
+    fuente: string;
+    importe: number;
+    nUcs: number | null;
+    total: number;
+    color: string;
+}) {
+    const pct = total > 0 ? (100 * importe) / total : 0;
+    return (
+        <div className="flex items-center gap-3 py-1.5">
+            <div className="w-32 text-sm font-medium text-slate-700">{fuente}</div>
+            <div className="flex-1">
+                <div className="relative h-2 overflow-hidden rounded-full bg-slate-100">
+                    <div
+                        className={cn("absolute inset-y-0 left-0", color)}
+                        style={{ width: `${pct.toFixed(2)}%` }}
+                    />
+                </div>
+            </div>
+            <div className="w-28 text-right text-sm font-semibold tabular-nums text-slate-900">
+                {formatEuro(importe)}
+            </div>
+            <div className="w-16 text-right text-xs tabular-nums text-slate-500">
+                {pct.toFixed(1)} %
+            </div>
+            <div className="w-20 text-right text-xs tabular-nums text-slate-500">
+                {nUcs !== null ? `${formatInt(nUcs)} UC` : ""}
+            </div>
+        </div>
+    );
+}
+
+function Atajo({ to, título, descripción }: { to: string; título: string; descripción: string }) {
+    return (
+        <NavLink
+            to={to}
+            className="block rounded-md border border-slate-200 bg-white px-3 py-2 hover:border-slate-400 hover:bg-slate-50"
+        >
+            <div className="text-sm font-medium text-slate-800">{título}</div>
+            <div className="text-xs text-slate-500">{descripción}</div>
+        </NavLink>
+    );
+}
+
+function parseHintN(hint: string | null | undefined): number | null {
+    // Hints tipo "1.234 UC · 12,3 % del total" → 1234
+    if (!hint) return null;
+    const m = hint.match(/([\d.,]+)\s+UC/);
+    if (!m) return null;
+    const limpio = m[1].replace(/\./g, "").replace(",", ".");
+    const n = Number(limpio);
+    return Number.isFinite(n) ? Math.round(n) : null;
+}
+
+export function ResultadosResumen() {
+    const { data, isLoading, isError, error } = useQuery({
+        queryKey: [QK_RESUMEN],
+        queryFn: async (): Promise<KpiPanelData> => {
+            const r = await fetch(KPI);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return (await r.json()) as KpiPanelData;
+        },
+        staleTime: 30_000,
+    });
+
+    if (isError) {
+        return (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                {error instanceof Error ? error.message : String(error)}
+            </div>
+        );
+    }
+    if (isLoading || !data) {
+        return <div className="text-sm text-slate-500">Cargando…</div>;
+    }
+
+    // Extraer KPIs principales del listado plano.
+    const kpiUcTotales = data.kpis.find((k) => k.label === "UC totales");
+    const kpiImporteTotal = data.kpis.find((k) => k.label === "Importe total");
+    const fuentes = data.kpis.filter(
+        (k) => k.label !== "UC totales" && k.label !== "Importe total",
+    );
+    const totalImp = typeof kpiImporteTotal?.value === "number" ? kpiImporteTotal.value : 0;
+    const totalN = typeof kpiUcTotales?.value === "number" ? kpiUcTotales.value : 0;
+
+    // Agrupar fuentes por categoría temática.
+    const fuentesPorCat = new Map<string, { color: string; items: Kpi[] }>();
+    const sinCat: Kpi[] = [];
+    for (const k of fuentes) {
+        const cat = categoríaDe(k.label);
+        if (cat) {
+            const prev = fuentesPorCat.get(cat.título) ?? { color: cat.color, items: [] };
+            prev.items.push(k);
+            fuentesPorCat.set(cat.título, prev);
+        } else {
+            sinCat.push(k);
+        }
+    }
+
+    return (
+        <div className="flex flex-col gap-8">
             <Cabecera
                 title="Resultados Fase 1 · Resumen"
                 subtitle="Visión consolidada de las UC generadas, con desglose por origen."
             />
-            <KpiPanel endpoint={KPI} queryKey={QK_RESUMEN} />
+
+            {/* Sección 1: totales destacados */}
+            <section>
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                    Totales del ejercicio
+                </h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <CajaTotal
+                        etiqueta="Unidades de coste"
+                        valor={formatInt(totalN)}
+                        sub={`Importe total ${formatEuro(totalImp)}`}
+                    />
+                    <CajaTotal
+                        etiqueta="Coste total imputado"
+                        valor={formatEuro(totalImp)}
+                        sub={`${formatInt(totalN)} unidades de coste`}
+                    />
+                </div>
+            </section>
+
+            {/* Sección 2: composición por fuente */}
+            <section>
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                    Composición por fuente
+                </h2>
+                <div className="space-y-5 rounded-lg border border-slate-200 bg-white p-4">
+                    {CATEGORIAS.map((cat) => {
+                        const grupo = fuentesPorCat.get(cat.título);
+                        if (!grupo || grupo.items.length === 0) return null;
+                        const subtotalImp = grupo.items.reduce(
+                            (acc, k) => acc + (typeof k.value === "number" ? k.value : 0),
+                            0,
+                        );
+                        return (
+                            <div key={cat.título}>
+                                <div className="mb-1.5 flex items-baseline justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className={cn("inline-block h-3 w-3 rounded-sm", cat.color)} />
+                                        <span className="text-sm font-semibold text-slate-700">{cat.título}</span>
+                                    </div>
+                                    <div className="text-xs text-slate-500 tabular-nums">
+                                        {formatEuro(subtotalImp)} · {((subtotalImp / totalImp) * 100).toFixed(1)} %
+                                    </div>
+                                </div>
+                                {grupo.items.map((k) => (
+                                    <FilaFuente
+                                        key={k.label}
+                                        fuente={k.label}
+                                        importe={typeof k.value === "number" ? k.value : 0}
+                                        nUcs={parseHintN(k.hint)}
+                                        total={totalImp}
+                                        color={cat.color}
+                                    />
+                                ))}
+                            </div>
+                        );
+                    })}
+                    {sinCat.length > 0 && (
+                        <div>
+                            <div className="mb-1.5 flex items-center gap-2">
+                                <span className="inline-block h-3 w-3 rounded-sm bg-slate-400" />
+                                <span className="text-sm font-semibold text-slate-700">Otros</span>
+                            </div>
+                            {sinCat.map((k) => (
+                                <FilaFuente
+                                    key={k.label}
+                                    fuente={k.label}
+                                    importe={typeof k.value === "number" ? k.value : 0}
+                                    nUcs={parseHintN(k.hint)}
+                                    total={totalImp}
+                                    color="bg-slate-400"
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            {/* Sección 3: navegación a vistas relacionadas */}
+            <section>
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
+                    Explorar
+                </h2>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Atajo
+                        to="/resultados/uc"
+                        título="Todas las UC"
+                        descripción="Listado consolidado con búsqueda y filtro."
+                    />
+                    <Atajo
+                        to="/resultados/actividades"
+                        título="Por actividad"
+                        descripción="Árbol de actividades con importe por origen."
+                    />
+                    <Atajo
+                        to="/resultados/centros-de-coste"
+                        título="Por centro de coste"
+                        descripción="Árbol de centros con importe por origen."
+                    />
+                    <Atajo
+                        to="/resultados/elementos-de-coste"
+                        título="Por elemento de coste"
+                        descripción="Árbol de elementos con importe por origen."
+                    />
+                    <Atajo
+                        to="/resultados/anomalias"
+                        título="Anomalías UC"
+                        descripción="Integridad referencial frente a los árboles finales."
+                    />
+                    <Atajo
+                        to="/informes/cuadro_10_1"
+                        título="Informes normalizados"
+                        descripción="Cuadros 10.1, 10.4, 10.5, 10.7 según el modelo SUE."
+                    />
+                    <Atajo
+                        to="/informes-carta"
+                        título="Informes a la carta"
+                        descripción="Combinación libre de CC · actividades · EC."
+                    />
+                </div>
+            </section>
         </div>
     );
 }

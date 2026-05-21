@@ -99,6 +99,11 @@ type Props = {
      * el orden tal y como llega del backend, pasar `false`.
      */
     reorderImportes?: boolean;
+    /**
+     * Función opcional que recibe la fila y devuelve clases CSS extra
+     * para esa fila (p. ej. negrita o cursiva según un campo de rol).
+     */
+    rowClassName?: (row: Record<string, unknown>) => string | undefined;
 };
 
 const PAGE_SIZES = [10, 25, 50, 100, 250, 500];
@@ -112,6 +117,7 @@ export function DataTable({
     extraParams,
     showPopoverOnRowClick = false,
     reorderImportes = true,
+    rowClassName,
 }: Props) {
     const [q, setQ] = useState("");
     const [columnFilter, setColumnFilter] = useState<string>(""); // "" = todas
@@ -387,12 +393,14 @@ export function DataTable({
                         {table.getRowModel().rows.map((row) => {
                             const id = String(row.original[rowKey] ?? "");
                             const selected = id === selectedKey;
+                            const extraClass = rowClassName?.(row.original);
                             return (
                                 <tr
                                     key={id || row.id}
                                     className={cn(
                                         "cursor-pointer border-b border-slate-100 hover:bg-slate-50",
                                         selected && "bg-blue-50 hover:bg-blue-50",
+                                        extraClass,
                                     )}
                                     onClick={() => {
                                         setSelectedKey(id);
