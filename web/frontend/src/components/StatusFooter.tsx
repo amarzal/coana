@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/cn";
+import { TerminalToggle } from "@/components/TerminalToggle";
 
 type Health = {
     status: string;
@@ -40,8 +41,8 @@ export function StatusFooter() {
     ];
 
     return (
-        <div className="mt-auto border-t border-slate-200 pt-3 text-xs">
-            <ul className="flex flex-col gap-1">
+        <div className="mt-auto flex items-end gap-2 border-t border-slate-200 pt-3 text-xs">
+            <ul className="flex flex-1 flex-col gap-1">
                 {items.map((it) => (
                     <li key={it.label} className="flex items-center gap-2">
                         <span
@@ -65,6 +66,7 @@ export function StatusFooter() {
                     </li>
                 ))}
             </ul>
+            <TerminalToggle />
         </div>
     );
 }

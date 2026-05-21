@@ -10,6 +10,7 @@ import {
     GraduationCap,
     Building2,
     Sigma,
+    Zap,
     FileText,
     ClipboardList,
     Filter,
@@ -47,8 +48,6 @@ const GROUPS: Group[] = [
             { label: "Unidades de coste", to: "/presupuesto/uc" },
             { label: "Sin clasificar", to: "/presupuesto/sin-clasificar" },
             { label: "Apuntes filtrados", to: "/presupuesto/filtrados" },
-            { label: "Suministros", to: "/presupuesto/suministros" },
-            { label: "Distribución mantenimientos OTOP", to: "/presupuesto/otop" },
             {
                 label: "Reglas",
                 icon: ListChecks,
@@ -144,23 +143,37 @@ const GROUPS: Group[] = [
         ],
     },
     {
-        label: "Superficies",
-        icon: Building2,
+        label: "Suministros",
+        icon: Zap,
         items: [
-            { label: "Resumen", to: "/superficies/resumen" },
-            { label: "Totales", to: "/superficies/totales" },
-            { label: "Presencia centros", to: "/superficies/presencia" },
+            { label: "UC por suministros", to: "/presupuesto/suministros" },
+            { label: "Distribución mantenimientos OTOP", to: "/presupuesto/otop" },
+            {
+                label: "Superficies",
+                icon: Building2,
+                items: [
+                    { label: "Resumen", to: "/superficies/resumen" },
+                    { label: "Totales", to: "/superficies/totales" },
+                    { label: "Presencia centros", to: "/superficies/presencia" },
+                ],
+            },
         ],
     },
     {
-        label: "Resultados Fase 1",
+        label: "Unidades de coste",
         icon: Sigma,
         items: [
             { label: "Resumen", to: "/resultados/resumen" },
             { label: "Todas las UC", to: "/resultados/uc" },
-            { label: "Actividades", to: "/resultados/actividades" },
-            { label: "Centros de coste", to: "/resultados/centros-de-coste" },
-            { label: "Elementos de coste", to: "/resultados/elementos-de-coste" },
+            {
+                label: "Estructuras",
+                icon: ListTree,
+                items: [
+                    { label: "Actividades", to: "/resultados/actividades" },
+                    { label: "Centros de coste", to: "/resultados/centros-de-coste" },
+                    { label: "Elementos de coste", to: "/resultados/elementos-de-coste" },
+                ],
+            },
             { label: "Anomalías UC", to: "/resultados/anomalias" },
         ],
     },

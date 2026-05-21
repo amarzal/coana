@@ -119,6 +119,25 @@ def informes_current() -> JobInfo | None:
     return _to_info(job)
 
 
+@router.get("/informes/pdf-existe")
+def informes_pdf_existe() -> dict[str, bool]:
+    """Indica si el PDF de informes está disponible en disco."""
+    from pathlib import Path
+    return {"existe": Path("documentación/informes/informes.pdf").exists()}
+
+
+@router.post("/informes/abrir-pdf")
+def informes_abrir_pdf() -> dict[str, str]:
+    """Abre el PDF de informes en el visor por defecto del sistema."""
+    try:
+        pdf = streaming.abrir_pdf_informes()
+        return {"abierto": str(pdf)}
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/fase1/{job_id}/stream")
 async def fase1_stream(job_id: str) -> StreamingResponse:
     """SSE con eventos `log` por cada línea, `done` o `error` al terminar.

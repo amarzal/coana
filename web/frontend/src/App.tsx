@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MainNav, EntradasMenu } from "@/components/MainNav";
 import { EjecutarFase1 } from "@/components/EjecutarFase1";
 import { StatusFooter } from "@/components/StatusFooter";
+import { TerminalPanel } from "@/components/TerminalPanel";
 import {
     PresupuestoResumen,
     PresupuestoUc,
@@ -104,6 +105,7 @@ function Layout() {
             <main className="overflow-auto p-6">
                 <Outlet />
             </main>
+            <TerminalPanel />
         </div>
     );
 }

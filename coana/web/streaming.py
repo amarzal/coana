@@ -147,8 +147,6 @@ def _run_job(job: Job) -> None:
 
 
 def _run_informes(job: Job) -> None:
-    import subprocess
-    import sys
     from pathlib import Path
     try:
         from coana.apps.gen_informes import generar as compilar_typst
@@ -167,20 +165,7 @@ def _run_informes(job: Job) -> None:
                 f"No se encontró {pdf} tras la compilación."
             )
 
-        # Abrir en el visor de PDF del sistema.
-        if sys.platform == "darwin":
-            subprocess.Popen(["open", str(pdf)])
-        elif sys.platform.startswith("linux"):
-            subprocess.Popen(["xdg-open", str(pdf)])
-        elif sys.platform == "win32":
-            subprocess.Popen(["cmd", "/c", "start", "", str(pdf)])
-        else:
-            job.lines.append(
-                f"PDF generado en {pdf}; no se pudo determinar visor en "
-                f"plataforma {sys.platform}."
-            )
-
-        job.lines.append(f"Informes generados y abiertos: {pdf}")
+        job.lines.append(f"PDF disponible en {pdf}")
         job.status = "done"
     except Exception as exc:  # noqa: BLE001
         import traceback
@@ -190,6 +175,28 @@ def _run_informes(job: Job) -> None:
         job.status = "error"
     finally:
         job.finished_at = time.time()
+
+
+def abrir_pdf_informes() -> Path:
+    """Abre `documentación/informes/informes.pdf` en el visor por
+    defecto del sistema. Devuelve la ruta absoluta del PDF."""
+    import subprocess
+    import sys
+    from pathlib import Path
+    pdf = Path("documentación/informes/informes.pdf").resolve()
+    if not pdf.exists():
+        raise FileNotFoundError(f"No existe {pdf}. Genera antes los informes.")
+    if sys.platform == "darwin":
+        subprocess.Popen(["open", str(pdf)])
+    elif sys.platform.startswith("linux"):
+        subprocess.Popen(["xdg-open", str(pdf)])
+    elif sys.platform == "win32":
+        subprocess.Popen(["cmd", "/c", "start", "", str(pdf)])
+    else:
+        raise RuntimeError(
+            f"No sé cómo abrir el visor de PDF en la plataforma {sys.platform}",
+        )
+    return pdf
 
 
 def _clear_module_caches() -> None:
