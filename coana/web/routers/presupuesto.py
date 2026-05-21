@@ -59,6 +59,18 @@ def uc_suministros(p: QueryParams = Depends(query_dependency)) -> ListResponse:
     return svc.listar_uc_suministros(p)
 
 
+@router.get("/otop-resumen", response_model=ListResponse)
+def otop_resumen(p: QueryParams = Depends(query_dependency)) -> ListResponse:
+    """Distribución OTOP: suma por (centro, elemento de coste)."""
+    return svc.listar_otop_resumen(p)
+
+
+@router.get("/otop-detalle", response_model=ListResponse)
+def otop_detalle(p: QueryParams = Depends(query_dependency)) -> ListResponse:
+    """Distribución OTOP: detalle del centro top (asiento a asiento)."""
+    return svc.listar_otop_detalle(p)
+
+
 @router.get("/reglas/actividad", response_model=ListResponse)
 def reglas_actividad(p: QueryParams = Depends(query_dependency)) -> ListResponse:
     return svc.listar_reglas_actividad(p)

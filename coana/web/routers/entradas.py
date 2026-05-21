@@ -38,3 +38,20 @@ def leer_tree(
     if res is None:
         raise HTTPException(status_code=404, detail=f"Árbol no encontrado: {ruta!r}")
     return res
+
+
+@router.get("/ficha")
+def ficha_fichero(
+    ruta: str = Query(..., description="Ruta relativa a data/entrada/ (o nombre del fichero)"),
+) -> dict:
+    """Devuelve la ficha descriptiva del fichero (descripción + descripción
+    por campo) extraída de la especificación.
+
+    Si no hay ficha para ese fichero, devuelve `{descripción: "", campos: {}}`.
+    """
+    from coana.util.diccionario_ficheros import ficha_para
+    from pathlib import Path
+
+    nombre = Path(ruta).name
+    ficha = ficha_para(nombre)
+    return ficha or {"descripción": "", "campos": {}}

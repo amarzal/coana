@@ -311,13 +311,29 @@ export function PresupuestoDistribucionOTOP() {
         <div className="flex flex-col gap-6">
             <Cabecera
                 title="Presupuesto · Distribución mantenimientos OTOP"
-                subtitle="Distribución de los costes centrales de mantenimiento, limpieza y seguridad entre centros, según presencia superficial."
+                subtitle="Reparto de los costes centrales de mantenimiento, limpieza y seguridad entre centros, según la presencia superficial calculada por OTOP."
             />
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-                <strong>Pendiente.</strong> El reparto se calcula al vuelo
-                durante la fase 1 pero no se persiste a parquet. Esta vista
-                aparecerá cuando las matrices de presencia se materialicen
-                (igual que «Superficies / Presencia centros»).
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+                <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                    Resumen por centro y elemento de coste
+                </h2>
+                <DataTable
+                    endpoint="/api/presupuesto/otop-resumen"
+                    queryKey="presupuesto:otop:resumen"
+                    rowKey="_centro_de_coste"
+                    showPopoverOnRowClick
+                />
+            </div>
+            <div className="rounded-md border border-slate-200 bg-white p-4">
+                <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                    Detalle del centro con mayor importe
+                </h2>
+                <DataTable
+                    endpoint="/api/presupuesto/otop-detalle"
+                    queryKey="presupuesto:otop:detalle"
+                    rowKey="asiento"
+                    showPopoverOnRowClick
+                />
             </div>
         </div>
     );

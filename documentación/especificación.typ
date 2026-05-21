@@ -101,7 +101,7 @@ coana/                          # paquete Python principal
     gen_especificacion.py       # compila documentación/especificación.typ
     visor_entradas.py           # visor heredado en Streamlit
   fase1/                        # generación de UC
-    __init__.py                 # orquestador `ejecutar()` con las 11 etapas
+    __init__.py                 # orquestador `ejecutar()` con las 8 etapas
     presupuesto/                # ContextoPresupuesto + TraductorPresupuesto
     inventario/                 # ContextoInventario + procesamiento
     nóminas/                    # preprocesar_nóminas, _generar_reparto_ss_persona
@@ -275,7 +275,8 @@ A modo de checkpoint, una ejecución completa sobre los datos de 2025 debe produ
     [nóminas-PDI], val("1 161"), val("2 199 432,47"),
     [despidos], val("104"), val("195 588,03"),
     [indemnizaciones], val("361"), val("295 959,24"),
-    [cargos], val("46"), val("165 020,83"),
+    [cargos (proy. específico, #ruta("uc_cargos.parquet"))], val("46"), val("165 020,83"),
+    [cargos (proy. general, reparto en #ruta("cargos_uc.parquet"))], val("723"), val("1 786 371,42"),
     [regla-23], val("54 821"), val("50 989 760,52"),
     [seguridad-social], val("11 204"), val("21 529 118,93"),
     table.hline(),
@@ -4763,7 +4764,7 @@ Para cada (per_id, proyecto presupuestario):
 + *Horas.* `horas = h_sem × días_efectivos / 7`.
 
 El #campo("origen") es #val("proyecto") y el #campo("origen_id") es el proyecto presupuestario (o la clave artificial `contrato-{id}` cuando no haya). La actividad debe ser tan detallada como sea posible:
-- ``1AA`` (art 60) → `transf-60-{proyecto presupuestario}`.
+- `1AA` (art 60) → `transf-60-{proyecto presupuestario}`.
 - Resto con proyecto presupuestario conocido → `{actividad_base}-{proyecto presupuestario}` (p. ej. `ai-nacional-XXX`, `transf-XXX`, `cátedras-aulas-empresa-XXX`).
 - Sin proyecto presupuestario → actividad base genérica.
 
@@ -4909,6 +4910,79 @@ Por compatibilidad con el visor y la fase 2, los outputs históricos se mantiene
 - #ruta("auxiliares", "nóminas", "persona_ss.parquet"): reparto de SS por (per_id, actividad, centro_de_coste). Se calcula agregando por per_id el reparto por expediente.
 
 El visor *Personal · PDI/PVI* agrega los expedientes por per_id como overview. La columna Δ del master debería ser 0 para cada expediente; cuando una persona descuadra, el desglose por concepto en la pestaña *Resumen / Cuadre* señala el expediente concreto y la causa (típicamente un servicio sin mapeo en #ruta("servicios.xlsx") que impide repartir la SS del expediente).
+
+
+= Fase 2: Informes consolidados
+
+La fase 2 produce, sobre el conjunto de UC generadas por la fase 1, una colección de informes normalizados que siguen la plantilla del modelo Crue 2024 (cuadros 10.1 a 10.7 del capítulo 10) más un *constructor de informes a la carta* que permite recorrer las UC en cualquier permutación de los tres ejes (centro de coste, actividad, elemento de coste). El módulo vive en #ruta("coana", "fase2") y se invoca con
+
+#raw("uv run coana informes")
+
+que regenera todos los cuadros normalizados como artefactos paralelos: un YAML estructurado (datos crudos), un XLSX con tipografía Calibri (lista para imprimir) y una sección dedicada en #ruta("documentación", "informes", "informes.typ") que se compila a PDF con #raw("uv run informes"). El documento Typst único carga los YAML con #raw("yaml(\"…\")") en tiempo de compilación, así que el flujo es: editar prosa a mano y reejecutar #raw("uv run informes") tras cada nueva pasada de fase 1.
+
+== Estructura común de los cuadros normalizados
+
+Cada cuadro 10.x se modela con una *plantilla SUE* hardcoded (lista fija de filas a mostrar, con código numérico oficial, slug del árbol y rótulo) y un *árbol* sobre el que se computan los importes. La función `importes_por_nodo` en #ruta("coana", "fase2", "calculo.py") agrega, para cada slug X del árbol, la suma `A(X) + B(X)` (lo asignado directamente a X más lo que cuelga de sus descendientes); el motor común `generar_cuadro_jerárquico` de #ruta("coana", "fase2", "_cuadro_jerarquico.py") aplica la plantilla y emite YAML+XLSX con tres columnas: importe, `% elemento` (sobre el grupo nivel-1 inmediato) y `% total` (solo en filas nivel-1).
+
+Los slugs de la plantilla pueden coincidir o no con los del fichero #ruta("data", "entrada", "estructuras", "<árbol>.tree"). Los árboles que carga la fase 2 son los *enriquecidos* tras la fase 1 (#ruta("data", "fase1", "<árbol>.tree")), porque la fase 1 añade nodos dinámicamente (grupos de investigación, cátedras UNESCO, etc.) que un cuadro como el 10.4 necesita ver. Las UC cuyo slug cae fuera del subárbol de cualquier nodo nivel-1 de la plantilla aparecen al final del cuadro en una fila «Sin clasificar en plantilla SUE».
+
+== Catálogo de cuadros normalizados
+
+=== Cuadro 10.1 — Informe de elementos de coste
+
+Lista plana del árbol de elementos de coste según la plantilla oficial (códigos 01, 01.01 … 09.03). Para cada nodo, importe absoluto + `% elemento` dentro de su grupo nivel-1 + `% total` sobre el total general. El #ruta("coana", "fase2", "cuadro_10_1.py") implementa la plantilla; usa la columna #campo("elemento_de_coste") de las UC.
+
+Cifras 2025: total #val("152 779 410,82 €") repartidos como 01 Costes de personal #val("113,5 M") · 03 Bienes y servicios #val("10,4 M") · 04 Servicios exteriores #val("16,4 M") · 05 Tributos · 06 Costes financieros · 07 Amortizaciones #val("6,3 M") · 09 Transferencias #val("3,0 M"). Sin filas «sin clasificar» (toda la masa cae bajo algún nodo de la plantilla).
+
+=== Cuadro 10.3 — Informe general de ingresos por actividades
+
+Plantilla del SUE con cinco niveles jerárquicos. Mientras la fase 1 no procese los ingresos, esta vista emite la estructura completa con importes a #val("0,00 €") y un aviso visible *Estructura preliminar*. El #ruta("coana", "fase2", "cuadro_10_3.py") contiene la plantilla de 34 filas estables; los niveles dinámicos del PDF original (ámbito de conocimiento, grado N, máster N, programa de doctorado N) se generarán cuando entren los ingresos al pipeline.
+
+=== Cuadro 10.4 — Informe de costes por centros de coste según su finalidad
+
+Plantilla SUE sobre el árbol de centros de coste (8 nodos nivel-1: docencia, investigación, docencia e investigación, apoyo, extensión universitaria, soporte, anexos, agrupaciones). Para varios subgrupos se exigen filas nivel-3 con los hijos del árbol enriquecido (facultades, institutos, departamentos, áreas administrativas, etc.); el set `_EXPANDIR_NIVEL_3` en #ruta("cuadro_10_4.py") controla qué slugs se desglosan.
+
+Cifras 2025: total #val("152,8 M") repartidos como 01 Docencia #val("30,3 M") · 02 Investigación #val("37,7 M") · 03 Docencia e investigación #val("25,9 M") · 04 Apoyo #val("11,0 M") · 05 Extensión #val("5,2 M") · 06 Soporte #val("33,1 M") · 07 Anexos · 08 Agrupaciones. *Sin clasificar* #val("≈ 9,5 M") en centros intermedios (edificios) y CC pendiente — saldrán de ese cubo cuando se implemente la fase 3 del modelo.
+
+=== Cuadro 10.5 — Informe de costes primarios por centro de coste
+
+Un sub-cuadro por cada centro nivel-1 del 10.4 (8 sub-tablas), con la misma plantilla de elementos de coste del 10.1 y tres columnas: *Directo* (UC con #campo("regla_cc") nula = el CC se conoce con exactitud del dato), *Indirecto* (asignación al CC por algoritmo de reparto) y *Primario (D+I)*. Cada sub-cuadro lleva al final tres filas adicionales:
+
+- *Total coste primario*: la suma D+I obtenida en fase 1.
+- *Centros superiores*: 0 € — pendiente de la fase 3.a del modelo (imputación de centros de nivel superior).
+- *Actividades auxiliares*: 0 € — pendiente de la fase 3.d.
+- *Total*: igual al primario mientras no se implementen las dos anteriores.
+
+Cifras 2025: suma de primarios #val("143,2 M €"); ratio directo/indirecto: 115,4 M / 27,8 M.
+
+=== Cuadro 10.7 — Composición del coste de las actividades finalistas
+
+Matriz «actividad finalista × tipo de centro». Filas: jerarquía de actividades #etqact("principales") (docencia, investigación, extensión); columnas: agrupaciones de centros (Depts., Biblioteca, Laboratorios, Aulas, DAG, Otros, Total) definidas en `_COLUMNAS` de #ruta("cuadro_10_7.py"). Solo cuentan las UC cuya actividad cuelga del subárbol #etqact("principales"); las actividades DAG, anexas y de organización no aparecen en este cuadro.
+
+Cifras 2025: total finalistas #val("80,5 M €") (≈ #val("53 %") del total general). Las columnas Biblioteca, Laboratorios y Aulas aparecen vacías porque sus UC tienen actividad DAG, no finalista; se llenarán cuando la fase 3 reimpute esos centros a actividades finalistas.
+
+== Informes a la carta
+
+El menú *Informes · A la carta* (#ruta("coana", "web", "routers", "informes_carta.py")) permite construir una vista jerárquica ad-hoc:
+
++ Seleccionar uno o más slugs en cada uno de los tres ejes (CC, actividades, EC). Selección vacía = «todos». Cada slug elegido incluye implícitamente su subárbol.
++ Elegir el orden de los tres niveles arrastrando tres fichas (CC / actividad / EC en cualquier permutación). Las fichas llevan un *handle rugoso* a la izquierda (#val("dots-grip")) y se reordenan con drag & drop nativo HTML5.
++ Pulsar *Generar*: la consulta agrega las UC filtradas y devuelve una tabla expandible con tres niveles, mostrando `n_ucs` e importe por nodo, subtotales y total.
++ Al pulsar el botón *UCs* de un nodo se abre un modal con las UC concretas que caen en esa combinación (ancestros acumulados desde la raíz).
+
+*Configuraciones guardadas*. El usuario puede dar un nombre a la combinación actual y persistirla en #ruta("data", "informes", "carta_configs", "<nombre>.yaml"); reaparece en el desplegable «Cargar…» para reaplicarla con un clic. También admite eliminar configuraciones existentes. CRUD vía endpoints #raw("/api/informes-carta/configs[/{nombre}]") (GET / PUT / DELETE).
+
+*Exportación*. Dos botones adicionales generan el mismo informe como descarga:
+
+- *Descargar Excel*: `POST /api/informes-carta/excel` produce un XLSX con la jerarquía indentada (Calibri, sombreado por nivel).
+- *Descargar PDF*: `POST /api/informes-carta/pdf` compila al vuelo un Typst inline a un PDF apaisado (#raw("typst compile --root <tmp>")).
+
+== Activación desde el visor
+
+El visor expone dos botones en el sidebar:
+
+- *Cálculo de unidades de coste* — lanza la fase 1 en segundo plano (job tipo #raw("\"fase1\"") en el manager #ruta("coana", "web", "streaming.py")).
+- *Generar informes* — lanza la fase 2 + compilación del PDF. NO abre el PDF automáticamente; un botón paralelo *Abrir PDF*, habilitado cuando el archivo existe en disco, llama a `POST /api/sistema/informes/abrir-pdf`. La salida en curso de ambos botones se canaliza al panel terminal global (#ruta("coana", "web", "frontend", "src", "lib", "terminalStore.ts")), que conserva el histórico acumulado entre ejecuciones y se autoculta a los 5 s tras pulsar el botón; un icono de terminal en el pie del sidebar permite mostrarlo/ocultarlo manualmente sin auto-hide.
 
 
 = Resultados

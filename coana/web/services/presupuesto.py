@@ -34,6 +34,8 @@ PATH_UC_SUMIN = DIR_FASE1 / "uc suministros.parquet"
 PATH_REGLAS_ACT = DIR_AUX / "conteo_reglas_presupuesto.parquet"
 PATH_REGLAS_CC = DIR_AUX / "conteo_cc_presupuesto.parquet"
 PATH_REGLAS_EC = DIR_AUX / "conteo_ec_presupuesto.parquet"
+PATH_OTOP_RESUMEN = DIR_AUX / "presupuesto" / "suministros_distribuidos.parquet"
+PATH_OTOP_DETALLE = DIR_AUX / "presupuesto" / "suministros_top_detalle.parquet"
 
 
 # Columnas que se muestran en la tabla principal y su formato.
@@ -277,6 +279,40 @@ def listar_uc_suministros(params) -> ListResponse:
         PATH_UC_SUMIN, _COLS_UC_SUMIN, params,
         ["id", "elemento_de_coste", "centro_de_coste", "actividad",
          "origen", "origen_id"],
+    )
+
+
+# Distribución mantenimientos OTOP: dos parquets persistidos por el
+# traductor de presupuesto en data/fase1/auxiliares/presupuesto/.
+_COLS_OTOP_RES: list[ColumnSpec] = [
+    ColumnSpec(name="_centro_de_coste", label="Centro de coste", format="text"),
+    ColumnSpec(name="_elemento_de_coste", label="Elemento de coste", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="porcentaje", label="% del centro", format="float"),
+    ColumnSpec(name="n", label="N apuntes", format="int"),
+]
+_COLS_OTOP_DET: list[ColumnSpec] = [
+    ColumnSpec(name="centro_de_coste", label="Centro de coste", format="text"),
+    ColumnSpec(name="elemento_de_coste", label="Elemento de coste", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="aplicación", label="Aplicación", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="porcentaje", label="% del centro", format="float"),
+    ColumnSpec(name="asiento", label="Asiento", format="text"),
+]
+
+
+def listar_otop_resumen(params) -> ListResponse:
+    return _listar(
+        PATH_OTOP_RESUMEN, _COLS_OTOP_RES, params,
+        ["_centro_de_coste", "_elemento_de_coste"],
+    )
+
+
+def listar_otop_detalle(params) -> ListResponse:
+    return _listar(
+        PATH_OTOP_DETALLE, _COLS_OTOP_DET, params,
+        ["centro_de_coste", "elemento_de_coste", "actividad", "aplicación", "asiento"],
     )
 
 

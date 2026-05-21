@@ -116,6 +116,18 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
     if not sin_pres.is_empty():
         sin_pres.write_parquet(dir_salida / "presupuesto sin uc.parquet")
 
+    # Distribución OTOP: resumen por (centro, EC) y detalle del centro
+    # top, persistidos para que el visor pueda consultarlos sin
+    # recalcularlos.
+    dir_otop = dir_stats / "presupuesto"
+    dir_otop.mkdir(parents=True, exist_ok=True)
+    sd = getattr(traductor, "suministros_distribuidos", None)
+    td = getattr(traductor, "suministros_top_detalle", None)
+    if sd is not None and not sd.is_empty():
+        sd.write_parquet(dir_otop / "suministros_distribuidos.parquet")
+    if td is not None and not td.is_empty():
+        td.write_parquet(dir_otop / "suministros_top_detalle.parquet")
+
     # sin_clasificar enriquecido con tipo_proyecto para el visor
     _non_private = [c for c in df_completo.columns if not c.startswith("_")]
     _sin_cols = _non_private.copy()

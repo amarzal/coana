@@ -7,6 +7,7 @@ import {
     type ColumnDef,
     type SortingState,
 } from "@tanstack/react-table";
+import { Funnel } from "lucide-react";
 import { api } from "@/api/client";
 import { cn } from "@/lib/cn";
 import { formatValue, type ColumnFormat } from "@/lib/format";
@@ -248,7 +249,10 @@ export function DataTable({
             {/* Barra de controles */}
             <div className="flex flex-wrap items-end gap-3">
                 <label className="flex flex-col gap-1 text-xs text-slate-500">
-                    Filtrar
+                    <span className="inline-flex items-center gap-1">
+                        <Funnel size={11} strokeWidth={2.25} aria-hidden="true" />
+                        Filtrar
+                    </span>
                     <input
                         type="text"
                         value={q}
@@ -302,17 +306,28 @@ export function DataTable({
                                     const sort = h.column.getIsSorted();
                                     const colName = h.column.id;
                                     const filtroActivo = columnFilter === colName;
+                                    const colSpec = columns.find((c) => c.name === colName);
+                                    const isNum = colSpec
+                                        ? (colSpec.format === "euro" || colSpec.format === "int"
+                                            || colSpec.format === "float" || colSpec.format === "m2")
+                                        : false;
                                     return (
                                         <th
                                             key={h.id}
                                             className={cn(
-                                                "border-b border-slate-200 px-2 py-1.5 text-left font-medium text-slate-700",
+                                                "border-b border-slate-200 px-2 py-1.5 font-medium text-slate-700",
+                                                isNum ? "text-right" : "text-left",
                                                 h.column.getCanSort() &&
                                                     "cursor-pointer select-none hover:bg-slate-100",
                                             )}
                                             onClick={h.column.getToggleSortingHandler()}
                                         >
-                                            <span className="inline-flex items-center gap-1">
+                                            <span
+                                                className={cn(
+                                                    "inline-flex items-center gap-1",
+                                                    isNum && "flex-row-reverse",
+                                                )}
+                                            >
                                                 {flexRender(
                                                     h.column.columnDef.header,
                                                     h.getContext(),
@@ -341,13 +356,13 @@ export function DataTable({
                                                     }
                                                     aria-label="Filtrar por esta columna"
                                                     className={cn(
-                                                        "ml-1 rounded px-1 leading-none",
+                                                        "inline-flex items-center rounded p-0.5",
                                                         filtroActivo
                                                             ? "bg-slate-200 text-slate-800"
                                                             : "text-slate-300 hover:bg-slate-100 hover:text-slate-600",
                                                     )}
                                                 >
-                                                    ⛛
+                                                    <Funnel size={11} strokeWidth={2.25} />
                                                 </button>
                                             </span>
                                         </th>

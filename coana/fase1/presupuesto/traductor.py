@@ -233,6 +233,24 @@ class TraductorPresupuesto:
             ruta_sin.unlink(missing_ok=True)
         print(f"  Ficheros guardados en {dir_salida}")
 
+        # Distribución OTOP: persistir el resumen por centro y el
+        # detalle del centro top para que el visor pueda mostrarlo
+        # sin recalcular.
+        dir_aux = dir_salida / "auxiliares" / "presupuesto"
+        dir_aux.mkdir(parents=True, exist_ok=True)
+        path_otop = dir_aux / "suministros_distribuidos.parquet"
+        path_top = dir_aux / "suministros_top_detalle.parquet"
+        sd = getattr(self, "suministros_distribuidos", None)
+        td = getattr(self, "suministros_top_detalle", None)
+        if sd is not None and not sd.is_empty():
+            sd.write_parquet(path_otop)
+        else:
+            path_otop.unlink(missing_ok=True)
+        if td is not None and not td.is_empty():
+            td.write_parquet(path_top)
+        else:
+            path_top.unlink(missing_ok=True)
+
     # ------------------------------------------------------------------
     # Filtro previo (spec §2-1-1)
     # ------------------------------------------------------------------
