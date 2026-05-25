@@ -106,11 +106,45 @@ def _excel_cached(path_str: str, mtime_ns: int) -> pl.DataFrame:
     return read_excel(Path(path_str))
 
 
+def _con_campos_virtuales(p: Path, df: pl.DataFrame) -> pl.DataFrame:
+    """Añade campos virtuales útiles para búsqueda. Por ahora:
+
+    - `personas.xlsx`: `nombre_completo` = nombre + apellido1 + apellido2
+      (separados por espacios, nulos descartados). Permite buscar con
+      «nombre apellido» o «apellido apellido».
+    """
+    if p.name == "personas.xlsx" and {
+        "nombre", "apellido1", "apellido2"
+    }.issubset(df.columns):
+        nombre_completo = (
+            pl.concat_str(
+                [
+                    pl.col("nombre").fill_null(""),
+                    pl.col("apellido1").fill_null(""),
+                    pl.col("apellido2").fill_null(""),
+                ],
+                separator=" ",
+            )
+            .str.replace_all(r"\s+", " ")
+            .str.strip_chars()
+            .alias("nombre_completo")
+        )
+        df = df.with_columns(nombre_completo)
+        # Reordenar: nombre_completo justo después de apellido2.
+        cols = df.columns
+        cols.remove("nombre_completo")
+        i = cols.index("apellido2") + 1
+        cols = cols[:i] + ["nombre_completo"] + cols[i:]
+        df = df.select(cols)
+    return df
+
+
 def listar_xlsx(ruta_relativa: str, params: QueryParams) -> ListResponse | None:
     p = _resolver_ruta(ruta_relativa)
     if p is None or p.suffix != ".xlsx":
         return None
     df = _excel_cached(str(p), _mtime_ns(p))
+    df = _con_campos_virtuales(p, df)
 
     columnas = [
         ColumnSpec(name=c, label=c, format=_tipo_a_format(df.schema[c]))

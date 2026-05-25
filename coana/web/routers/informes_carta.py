@@ -173,7 +173,21 @@ def consulta(filtro: Filtro) -> Resultado:
     # los slugs raíz seleccionados (o por la raíz del propio árbol si
     # no se filtró nada). Cada UC se atribuye al primer slug raíz cuyo
     # subárbol la contenga.
+    _RAÍZ_LABEL = {
+        "cc": "Todos los centros de coste",
+        "act": "Todas las actividades",
+        "ec": "Todos los elementos de coste",
+    }
+
     def _meta(eje: str, slug: str) -> tuple[str, str]:
+        # Si es la raíz «virtual» del árbol, devolver una etiqueta
+        # legible en lugar del código/descripción vacíos.
+        try:
+            raíz_id = árboles[eje].raíz.identificador
+        except AttributeError:
+            raíz_id = None
+        if raíz_id is not None and slug == raíz_id:
+            return ("—", _RAÍZ_LABEL.get(eje, "Todos"))
         try:
             nodo = árboles[eje]._nodo(slug)
             return (nodo.código, nodo.descripción)
@@ -183,18 +197,19 @@ def consulta(filtro: Filtro) -> Resultado:
     def _slugs_grupo(eje: str, df: pl.DataFrame) -> list[tuple[str, set[str]]]:
         """Slugs que sirven de raíz para el agrupamiento de este eje.
         Si el usuario seleccionó slugs en este eje, se usan tal cual
-        (cada uno con su subárbol). Si no, se enumeran los slugs
-        distintos presentes en `df`."""
+        (cada uno con su subárbol). Si no se seleccionó nada, NO se
+        desglosa al detalle máximo: se devuelve la raíz del árbol como
+        única agrupación (el usuario verá un único nodo «Todos» que
+        engloba la masa entera del eje)."""
+        del df  # ya no se usa: el sin-filtro va a la raíz, no al detalle
         if raíces_eje[eje]:
             return [
                 (s, set(descendientes_inclusivo(árboles[eje], s)))
                 for s in raíces_eje[eje]
             ]
-        col = _EJES_COLS[eje]
-        slugs = sorted(
-            s for s in df[col].drop_nulls().unique().to_list() if s
-        )
-        return [(s, {s}) for s in slugs]
+        raíz_id = árboles[eje].raíz.identificador
+        descs = set(descendientes_inclusivo(árboles[eje], raíz_id))
+        return [(raíz_id, descs)]
 
     def _construir(
         df: pl.DataFrame, nivel: int, ejes_restantes: list[str],

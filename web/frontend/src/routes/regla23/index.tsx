@@ -86,14 +86,21 @@ export function Regla23Resumen() {
 
 function Lista({
     title, subtitle, endpoint, queryKey, rowKey = "expediente",
+    showPopoverOnRowClick = false,
 }: {
     title: string; subtitle: string; endpoint: string; queryKey: string;
     rowKey?: string;
+    showPopoverOnRowClick?: boolean;
 }) {
     return (
         <div className="flex flex-col gap-6">
             <Cabecera title={title} subtitle={subtitle} />
-            <DataTable endpoint={endpoint} queryKey={queryKey} rowKey={rowKey} />
+            <DataTable
+                endpoint={endpoint}
+                queryKey={queryKey}
+                rowKey={rowKey}
+                showPopoverOnRowClick={showPopoverOnRowClick}
+            />
         </div>
     );
 }
@@ -134,10 +141,11 @@ export function Regla23DocenciaNoOficial() {
     return (
         <Lista
             title="Regla 23 · Docencia no oficial"
-            subtitle="Horas y dedicación a estudios propios, microcredenciales, doctorado y otras actividades no asociadas a titulaciones oficiales."
+            subtitle="Horas y dedicación a estudios propios, microcredenciales, doctorado y otras actividades no asociadas a titulaciones oficiales. Pincha una fila para ver el detalle completo."
             endpoint="/api/regla23/horas-no-oficiales"
             queryKey="regla23:horas"
-            rowKey="perid"
+            rowKey="gre_id"
+            showPopoverOnRowClick
         />
     );
 }

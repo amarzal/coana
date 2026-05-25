@@ -50,6 +50,7 @@ import {
     PersonalAtrasosNoVinculados,
 } from "@/routes/personal";
 import { PersonaPdi, PersonaPvi } from "@/routes/personal/PersonaPdiPvi";
+import { ReduccionesSindicales } from "@/routes/personal/ReduccionesSindicales";
 import {
     Regla23Resumen,
     Regla23DedicacionDocente,
@@ -160,6 +161,7 @@ export function App() {
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />
                         <Route path="personal/despidos" element={<Regla23Despidos />} />
                         <Route path="personal/indemnizaciones" element={<Regla23IndemnizacionesAsistencias />} />
+                        <Route path="personal/reducciones-sindicales" element={<ReduccionesSindicales />} />
                         <Route path="regla23/resumen" element={<Regla23Resumen />} />
                         <Route path="regla23/dedicacion-pdi" element={<Navigate to="/personal/pdi" replace />} />
                         <Route path="regla23/dedicacion" element={<Regla23DedicacionDocente />} />

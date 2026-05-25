@@ -1,0 +1,1 @@
+- [feedback_terse.md](feedback_terse.md) — User prefers direct, confident answers without over-hedging

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /Users/amarzal/_Activo/eco/CoAna/data -type f -name *.xlsx)",
+      "Bash(uv run:*)",
+      "Bash(ls /Users/amarzal/_Activo/eco/CoAna/data/entrada/presupuesto/*.xlsx)",
+      "Bash(python3 -c \":*)",
+      "Bash(python -c \":*)"
+    ]
+  }
+}

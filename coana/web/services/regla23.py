@@ -196,23 +196,44 @@ def listar_dedicacion_estudios(p: QueryParams) -> ListResponse:
 # ----------------------------------------------------------------------
 
 _COLS_HORAS: list[ColumnSpec] = [
-    ColumnSpec(name="perid", label="per_id", format="id"),
-    ColumnSpec(name="proyecto", label="Proyecto", format="text"),
-    ColumnSpec(name="tipo_proyecto", label="Tipo proyecto", format="text"),
-    ColumnSpec(name="nombre", label="Nombre", format="text"),
-    ColumnSpec(name="motivo", label="Motivo", format="text"),
-    ColumnSpec(name="unidad", label="Unidad", format="text"),
-    ColumnSpec(name="total", label="Total", format="float"),
-    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="fecha", label="Fecha", format="date"),
+    ColumnSpec(name="gre_ejercicio", label="Ejercicio", format="int"),
+    ColumnSpec(name="proyecto", label="Proyecto", format="text"),
+    ColumnSpec(name="tipo_proyecto", label="Tipo", format="text"),
+    ColumnSpec(name="centro_origen", label="Centro origen", format="text"),
+    ColumnSpec(name="nombre", label="Tipo curso", format="text"),
+    ColumnSpec(name="motivo", label="Motivo", format="text"),
+    ColumnSpec(name="horas", label="Horas decl.", format="float"),
+    ColumnSpec(name="horas_efectivas", label="Horas efectivas", format="float"),
+    ColumnSpec(name="importe_hora", label="€/hora", format="euro"),
+    ColumnSpec(name="importe_total", label="Importe total", format="euro"),
+    ColumnSpec(name="gre_id", label="gre_id", format="id"),
 ]
 
 
 def listar_horas_no_oficiales(p: QueryParams) -> ListResponse:
-    return _listar(
-        PATH_HORAS, _COLS_HORAS, p,
-        search=["proyecto", "nombre", "motivo", "tipo_proyecto"],
-        enriquecer_per_id=False,
+    """Listado completo de la docencia no oficial, con nombre de persona
+    enriquecido. La columna de origen en el Excel se llama ``perid``; se
+    renombra a ``per_id`` para poder cruzar con el catálogo de personas.
+    """
+    df = _safe_read(PATH_HORAS)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_HORAS, rows=[], total=0)
+    if "perid" in df.columns and "per_id" not in df.columns:
+        df = df.rename({"perid": "per_id"})
+    df = _enriq(df)
+    nombres = [c.name for c in _COLS_HORAS if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(
+        df, p,
+        search_columns=["persona", "proyecto", "tipo_proyecto",
+                        "nombre", "motivo", "centro_origen"],
+    )
+    return ListResponse(
+        columns=_COLS_HORAS, rows=_serialize(df.to_dicts()),
+        total=total, column_stats=stats,
     )
 
 

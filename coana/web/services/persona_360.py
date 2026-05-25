@@ -62,6 +62,7 @@ PATH_PERSONA_SS = DIR_NOMINAS / "persona_ss.parquet"
 PATH_PERSONA_UC = DIR_NOMINAS / "persona_uc.parquet"
 PATH_UC_REPARTO_R23 = DIR_REGLA23 / "uc_reparto_regla_23.parquet"
 PATH_SS_CALCULADOS = DIR_NOMINAS / "costes_sociales_calculados.parquet"
+PATH_SEXENIOS = DIR_ENTRADA / "investigación" / "sexenios.xlsx"
 
 # Constantes regla 23 (clases pasivas, asociados, proyectos generales)
 _PROY_GEN_NÓMINA = set(cfg_tuple("proyectos_generales_nómina"))
@@ -98,6 +99,23 @@ def _personas_cached(path_str: str, mtime: int) -> pl.DataFrame:
 
 def _personas() -> pl.DataFrame:
     return _personas_cached(str(PATH_PERSONAS), _mtime_ns(PATH_PERSONAS))
+
+
+@lru_cache(maxsize=2)
+def _sexenios_vivos_cached(mtime: int) -> frozenset[int]:
+    """per_ids con sexenio vivo en el año analizado.
+
+    Misma definición que usa el reparto de la regla 23: la persona tiene
+    al menos un sexenio cuyo #campo("fecha_fin_sexenio") está dentro de
+    los `sexenio_vivo_años` (6) años previos al fin del año.
+    """
+    del mtime
+    from coana.fase1.regla23.reparto import _sexenios_vivos as _sv
+    return frozenset(_sv(DIR_ENTRADA.parent, _AÑO))
+
+
+def _sexenios_vivos() -> frozenset[int]:
+    return _sexenios_vivos_cached(_mtime_ns(PATH_SEXENIOS))
 
 
 # Sector canónico (modelo CoAna) → códigos en RR.HH.
@@ -422,6 +440,7 @@ def _uc_retributivas_por_persona(per_ids: set[int]) -> pl.DataFrame:
 _COLS_MASTER: list[ColumnSpec] = [
     ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="sexenio_vivo", label="Sexenio vivo", format="bool"),
     ColumnSpec(name="bruto", label="Bruto cobrado", format="euro"),
     ColumnSpec(name="ss_cot", label="SS cotizada", format="euro"),
     ColumnSpec(name="ss_calc", label="SS calculada", format="euro"),
@@ -442,6 +461,10 @@ def listar_personas_sector(sector: str, p: QueryParams) -> ListResponse:
     )
     df = df.join(_personas(), on="per_id", how="left").with_columns(
         pl.col("persona").fill_null("?")
+    )
+    sex = _sexenios_vivos()
+    df = df.with_columns(
+        pl.col("per_id").is_in(list(sex)).alias("sexenio_vivo")
     )
     df = df.select([c.name for c in _COLS_MASTER if c.name in df.columns])
     df, total, stats = apply_query(df, p, search_columns=["persona"])

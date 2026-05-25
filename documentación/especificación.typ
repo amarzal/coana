@@ -51,9 +51,9 @@ A lo largo del documento usamos un vocabulario específico que es importante fij
 
 / Horas efectivas, horas iniciales, horas finales: : *Horas efectivas* o *iniciales*: producto #campo("horas") × #campo("factor") en la tabla #campo("dedicación_pdi"). *Horas finales*: las que devuelve la fase de reparto (5-7 de la regla 23) tras normalizar a la jornada anual; aparecen en #campo("dedicación_pdi_normalizada") y son las que se usan para repartir el coste.
 
-/ HND (horas no distribuidas): : Holgura $T - H_"DO" - H_"DNO" - H_G - H_I$ cuando la docencia, la gestión y la investigación iniciales no llenan la jornada anual del PDI. Se reparte entre gestión e investigación (o íntegramente a investigación si el PDI tiene un *sexenio vivo*).
+/ Sobrante (horas no distribuidas): : Holgura $S = T - H_"D" - H_G$ que queda tras situar la docencia y la gestión —ambas rígidas— en la cascada de reparto de la regla 23. Se imputa íntegro a investigación (todo PDI investiga por defecto).
 
-/ Sexenio vivo: : Sexenio de investigación cuya #campo("fecha_fin_sexenio") está a menos de #campo("sexenio_vivo_años") (6) años del fin del año analizado. Indica que la persona tiene actividad investigadora reciente acreditada; activa la regla de imputar toda la HND a investigación.
+/ Sexenio vivo: : Sexenio de investigación cuya #campo("fecha_fin_sexenio") está a menos de #campo("sexenio_vivo_años") (6) años del fin del año analizado. Indica que la persona tiene actividad investigadora reciente acreditada. Es un dato informativo: en el reparto de la regla 23, como docencia y gestión son rígidas, el sobrante siempre va a investigación, así que no entra en el cálculo.
 
 / Profesor asociado: : PDI con categoría de plaza entre las listadas en #campo("categorías_asociado_plaza") (#val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("36"), #val("44"), #val("46")). Recibe tratamiento especial en la regla 23: toda su jornada (#val("1 642 h")) se imputa a docencia, sin gestión ni investigación.
 
@@ -229,13 +229,9 @@ La pantalla *Personal · PDI/PVI* expone este cuadre en su columna #campo("delta
 
 === Reparto de la regla 23
 
-+ Para todo #campo("per_id") presente en #ruta("regla23", "dedicación_pdi_normalizada.parquet"), la suma de #campo("horas_finales") debe ser #campo("jornada_anual_pdi") (#val("1 642")) salvo dos casos:
-    - el PDI tiene categoría de profesor asociado pero ninguna fila de docencia (caso patológico: dirige tesis pero no imparte) → suma 0;
-    - la docencia + gestión iniciales del PDI exceden la jornada (#campo("anomalía") = #val("docencia + gestión exceden la jornada anual")) → la suma puede ser inferior a #val("1 642").
++ Para todo #campo("per_id") presente en #ruta("regla23", "dedicación_pdi_normalizada.parquet"), la suma de #campo("horas_finales") es #campo("jornada_anual_pdi") (#val("1 642")): la cascada reparte $T$ exactamente entre docencia, gestión e investigación, y la fracción de reducción sindical completa la jornada hasta #val("1 642"). Única excepción: personas cuyas filas iniciales tienen todas #val("0") horas efectivas, que no admiten repercusión y quedan a #val("0").
 
-+ La suma de #campo("horas_finales") sobre los grupos #val("docencia_oficial") y #val("docencia_no_oficial") es igual a la suma de #campo("horas_iniciales") de los mismos grupos (la docencia es intocable: nunca recibe horas adicionales por HND).
-
-+ Toda persona con #campo("sexenio_vivo") = #val("true") y HND > 0 imputa toda su HND al grupo #val("investigación").
++ El sobrante de la cascada va siempre al grupo #val("investigación"); ninguna fila de #val("docencia_oficial"), #val("docencia_no_oficial") o #val("gestión") tiene #campo("horas_finales") superior a su #campo("horas_iniciales") (docencia y gestión son rígidas).
 
 + Toda persona con #campo("es_asociado") = #val("true") tiene #campo("horas_finales") > 0 únicamente en filas del grupo #val("docencia_oficial") o #val("docencia_no_oficial"); las de #val("gestión") e #val("investigación") quedan a #val("0").
 
@@ -1118,9 +1114,9 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
             fecha: [Fecha de la retribución],
             perid: [Identificador de la persona que ha recibido la retribución #nota[Debería ser `per_id`, pero en la hoja está mal escrito.]],
             motivo: [Justificación del curso, suele ser el nombre del curso],
-            unidad: [Número de horas impartidas],
-            importe: [Precio del coste hora],
-            total: [Valor total de la retribución, debe coincidir con importe $times$ unidad],
+            horas: [Número de horas impartidas],
+            importe_hora: [Precio del coste hora],
+            importe_total: [Valor total de la retribución, debe coincidir con importe $times$ unidad],
             proyecto: [Codigo del proyecto ver #ruta("proyectos.xlsx") ],
             nombre: [Tipo de curso],
             gre_id: [Identificador de la retribución],
@@ -1152,6 +1148,43 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
 )
 
 #tabula_ficheros_y_campos(ficheros_campos_docencia)
+
+
+=== Reducciones del PDI
+
+El PDI puede tener reducciones de su capacidad docente por motivos diversos (cargos, sexenios, tesis dirigidas, representación sindical, etc.), expresadas en *créditos*. La fase 1 las utiliza —de momento, solo las de representación sindical, tipos 37-40— para determinar qué fracción de la jornada anual dedica cada profesor a la actividad sindical. Ver §«Reducciones por representación sindical».
+
+Las tablas se almacenan en el directorio #ruta("datos", "entrada", "reducciones pdi") y son las siguientes:
+
+#let ficheros_campos_reducciones_pdi = (
+    "tipos reducciones docentes.xlsx": (
+        descripción: [Catálogo de tipos de reducción docente. Los tipos #val("37") (UGT), #val("38") (STEPV), #val("39") (CCOO) y #val("40") (CSI-F) son los de representación sindical.],
+        campos: (
+            id: [Código (entero) del tipo de reducción.],
+            nombre: [Descripción del tipo de reducción.],
+        ),
+    ),
+    "reducciones docentes.xlsx": (
+        descripción: [Reducciones de capacidad docente concedidas al PDI: una fila por (persona, tipo de reducción, curso).],
+        campos: (
+            "tipo reducción": [Código del tipo de reducción. Ver #ruta("tipos reducciones docentes.xlsx").],
+            "curso aca": [Curso académico (entero, p. ej. #val("2025")).],
+            per_id: [Identificador (entero) de persona. Ver #ruta("data", "entrada", "nóminas", "personas.xlsx").],
+            creditos: [Créditos de reducción de ese tipo en ese curso.],
+        ),
+    ),
+    "carga docente.xlsx": (
+        descripción: [Capacidad y reducción docentes del PDI: una fila por (persona, curso).],
+        campos: (
+            per_id: [Identificador (entero) de persona.],
+            "creditos reduccion": [Créditos de reducción docente totales de la persona en el curso (incluye todos los tipos, sindicales y no sindicales).],
+            creditos: [Capacidad docente (créditos) de la persona en el curso.],
+            "curso aca": [Curso académico (entero).],
+        ),
+    ),
+)
+
+#tabula_ficheros_y_campos(ficheros_campos_reducciones_pdi)
 
 
 === Investigación
@@ -4146,9 +4179,11 @@ Antes de agrupar nada, las nóminas pasan por una cadena de filtros que descarta
 
 Adicionalmente, los cargadores de la regla 23 (POD, tesis, cargos, proyectos, grupos) descartan al final cualquier #campo("per_id") sin nómina vinculada en el año, de modo que no aparecen en #ruta("regla23", "dedicación_pdi.parquet") personas que se hayan colado por POD u otras fuentes sin tener cobro activo en el año.
 
-==== Reducciones por representación sindical (tipo 8)
+==== Reducciones por representación sindical
 
-Algunos miembros del personal disfrutan de una reducción de jornada por *representación sindical* — total (liberados al 100 %) o parcial. El coste que dejan de aportar a su actividad ordinaria se imputa al centro #etqcen("locales-sindicales") y a la actividad #etqact("acción-sindical"). El fichero #ruta("entrada", "nóminas", "reducciones laborales.xlsx") es el histórico de todas las reducciones laborales; de él tomamos solo las filas con #campo("tipo reduccion") = #val("8") (representación sindical) que solapan el año analizado. Las demás (lactancia, cuidado de hijos, etc.) se ignoran.
+Algunos miembros del personal disfrutan de una reducción de jornada por *representación sindical* — total (liberados al 100 %) o parcial. El coste que dejan de aportar a su actividad ordinaria se imputa al centro #etqcen("locales-sindicales") y a la actividad #etqact("acción-sindical"). Hay *dos mecanismos independientes y disjuntos por sector*: el PTGAS se mide en días y porcentaje de jornada (tipo 8 de #ruta("entrada", "nóminas", "reducciones laborales.xlsx")) y el PDI en créditos de reducción docente (tipos 37-40 de #ruta("entrada", "reducciones pdi", "reducciones docentes.xlsx")).
+
+*PTGAS — tipo 8.* De #ruta("entrada", "nóminas", "reducciones laborales.xlsx"), histórico de todas las reducciones laborales, tomamos solo las filas con #campo("tipo reduccion") = #val("8") (representación sindical) que solapan el año analizado. Las demás (lactancia, cuidado de hijos, etc.) se ignoran.
 
 *Factor anual X por expediente.* Para cada expediente con al menos un día de reducción tipo 8 en el año, calculamos el factor anual ponderado por días:
 
@@ -4163,18 +4198,36 @@ donde $d_i$ es el número de días de solape del periodo de reducción $i$ con e
 
 Las UC retributivas *extras* (artículo 60 y otros proyectos no generales) son finalistas y no se tocan.
 
-*Aplicación al PDI/PVI.* La masa regla 23 de cada expediente con reducción se divide igualmente:
+El helper que calcula $X$ está acotado a los expedientes PDI/PVI además de a los de PTGAS, pero en la práctica #ruta("reducciones laborales.xlsx") solo contiene PTGAS: la reducción sindical del PDI viene por la vía de los créditos que se describe a continuación.
 
-- $(1 - X) times "masa"_(p,e,"ec")$ se emite como UC sindical directa (CC #etqcen("locales-sindicales"), actividad #etqact("acción-sindical"), mismo elemento de coste) *antes* de cruzar con los pesos de actividad. Esa fracción no entra al reparto entre actividades.
-- $X times "masa"_(p,e,"ec")$ es la masa que sí entra al reparto regla 23 habitual entre las parejas (actividad, centro de coste) de la persona.
+*PDI — tipos 37-40.* La representación sindical del PDI se informa en la carpeta #ruta("entrada", "reducciones pdi") en *créditos* de reducción docente. Los tipos de reducción #val("37") (UGT), #val("38") (STEPV), #val("39") (CCOO) y #val("40") (CSI-F) de #ruta("reducciones docentes.xlsx") son los sindicales.
 
-Adicionalmente, la jornada anual de la persona en la regla 23 (fases 5-7) deja de ser $T = "JORNADA_ANUAL_PDI"$ y pasa a $X_"persona" times T$, donde $X_"persona"$ es el promedio ponderado por bruto de los $X$ de los expedientes PDI/PVI de la persona (los expedientes sin reducción cuentan con $X = 1$). Esto hace que el % de jornada cubierto por las horas registradas (POD, tesis, cargos…) sea mayor para una persona con reducción, y la masa retribuida también reducida en proporción se reparte correctamente.
+*Fracción de jornada sindical.* Para cada PDI con reducción sindical en el curso analizado:
+
+$ f_"sind" = c_"sind" / (c_"cap" - c_"red" + c_"sind") $
+
+donde $c_"sind"$ son los créditos sindicales (suma de los tipos 37-40 en #ruta("reducciones docentes.xlsx")), y $c_"cap"$ (#campo("creditos")) y $c_"red"$ (#campo("creditos reduccion")) son la capacidad y la reducción docente total de la persona en #ruta("carga docente.xlsx"). Como #campo("creditos reduccion") ya incluye los créditos sindicales, el denominador es la docencia neta impartida ($c_"cap" - c_"red"$) más los créditos sindicales: la fracción mide qué parte de la actividad «docencia + sindicato» es sindicato. Se acota a $[0, 1]$ y, junto con las horas $f_"sind" times "JORNADA_ANUAL_PDI"$, se persiste en #ruta("regla23", "reducciones_sindicales_pdi.parquet").
+
+*Integración en la regla 23.* La fracción sindical es un destino más de la dedicación de la persona:
+
+- La jornada de reparto de las fases 5-7 pasa de $T = "JORNADA_ANUAL_PDI"$ a $X_"persona" times T$, con $X_"persona" = 1 - f_"sind"$: el reparto entre docencia, gestión e investigación opera sobre la jornada *no* sindical.
+- Se emite una fila en #ruta("regla23", "dedicación_pdi_normalizada.parquet") con actividad #etqact("acción-sindical"), centro #etqcen("locales-sindicales") y $#campo("horas_finales") = f_"sind" times "JORNADA_ANUAL_PDI"$, de modo que la suma de #campo("horas_finales") de la persona sigue siendo la jornada anual completa.
+- La masa regla 23 se reparte en proporción a #campo("horas_finales"); al ser la fila sindical un peso más, la fracción correspondiente de la masa se imputa automáticamente a #etqact("acción-sindical") / #etqcen("locales-sindicales").
+
+*Profesores asociados.* Para un profesor asociado la regla 23 no reparte entre grupos: toda su jornada va a docencia. Si además es representante sindical, la fracción sindical se separa igual y el resto, $(1 - f_"sind") times "JORNADA_ANUAL_PDI"$, va íntegro a docencia (sin gestión ni investigación).
+
+*Prioridad de la reducción sindical.* El sindicato manda: la fracción sindical se descuenta primero y lo que queda, $T = X_"persona" times "JORNADA_ANUAL_PDI"$, es la jornada que reparte la regla 23. De ahí dos casos:
+
+- Cuando la docencia neta es nula ($c_"cap" = c_"red"$) el denominador colapsa a $c_"sind"$ y la fracción es #val("1"), por pequeña que sea la reducción sindical; se acepta así, sin corrección. La persona está liberada al 100 % ($X_"persona" = 0$): toda su jornada va a #etqact("acción-sindical") y su docencia, gestión e investigación quedan sin dedicación final — imparte clase, pero sin coste imputable a docencia. Se marca con la anomalía «liberación sindical del 100 %».
+- Cuando la fracción es parcial pero la docencia y la gestión iniciales superan $T$, se escalan ambas proporcionalmente para caber en $T$ (la investigación queda en 0). Se marca con «docencia y gestión escaladas a la jornada no sindical».
+
+En ambos casos la suma de #campo("horas_finales") de la persona es exactamente la jornada anual. Para el PDI #emph[sin] reducción sindical, un exceso de docencia + gestión sobre la jornada sigue siendo una anomalía que se reporta sin corregir.
 
 *Cargos académicos.* La masa del cargo (CR 19/64 + parte extra del CR 68 en proyecto general) *no* se reduce: la coexistencia de cargo asimilado al RD y representación sindical es excepcional y el cargo manda. Las UC del cargo se generan con su lógica propia.
 
 *Costes sociales.* La SS cotizada y los costes calculados de funcionarios no se procesan aparte: el reparto SS se hace por persona en proporción a sus UC retributivas, que ya están divididas (sindical / habitual). En consecuencia, la SS hereda automáticamente la fracción sindical sin código adicional.
 
-*Cifras de referencia 2025.* #val("21") expedientes con reducción tipo 8, todos del sector PAS (PTGAS). #val("201") UC sindicales generadas, por importe total #val("423 108,49 €") (incluye #val("86 734 €") de SS cotizada). Ningún expediente PDI/PVI con reducción este ejercicio.
+*Cifras de referencia 2025.* PTGAS: #val("21") expedientes con reducción tipo 8 — todos del sector PAS —, que generan #val("201") UC sindicales por importe total #val("423 108,49 €") (incluye #val("86 734 €") de SS cotizada). PDI: #val("44") representantes sindicales (tipos 37-40), de los que #val("5") son profesores asociados; suman #val("26 978") horas imputadas a #etqact("acción-sindical") y #val("875 747 €") de masa regla 23 repartida a #etqcen("locales-sindicales").
 
 ==== Agrupamiento por expediente y sector
 
@@ -4652,7 +4705,7 @@ La titulación de cada asignatura se resuelve cruzando con #ruta("entrada", "doc
 
 ===== Cargador #emph[POD] (docencia no oficial)
 
-La docencia no oficial (formación permanente, cursos UJI, OAD, idiomas, etc.) se carga desde #ruta("entrada", "docencia", "estimación horas docencia propia.xlsx"). El fichero registra una fila por #emph[acción formativa] con los campos #campo("perid") (PDI/PVI que la imparte), #campo("proyecto") (proyecto presupuestario que la financia), #campo("nombre") (tipo: cursos, mesa redonda, etc.), #campo("unidad") (horas declaradas), #campo("importe") (€/hora) y #campo("total") (= unidad × importe).
+La docencia no oficial (formación permanente, cursos UJI, OAD, idiomas, etc.) se carga desde #ruta("entrada", "docencia", "estimación horas docencia propia.xlsx"). El fichero registra una fila por #emph[acción formativa] con los campos #campo("perid") (PDI/PVI que la imparte), #campo("proyecto") (proyecto presupuestario que la financia), #campo("nombre") (tipo: cursos, mesa redonda, etc.), #campo("horas") (horas declaradas), #campo("importe_hora") (€/hora) y #campo("importe_total") (= horas × importe_hora).
 
 *Filtro previo: solo proyectos propios de docencia.* La fila se conserva si el #campo("tipo") del proyecto en #ruta("entrada", "presupuesto", "proyectos.xlsx") está en
 
@@ -4674,19 +4727,22 @@ La docencia no oficial (formación permanente, cursos UJI, OAD, idiomas, etc.) s
 
 El resto de filas (proyectos con financiación genérica, externa o no docente) se descartan. Esta acotación garantiza que solo computan como dedicación las acciones efectivamente impartidas con financiación propia de docencia.
 
-*Regularización de horas.* La triple información #campo("unidad") · #campo("importe") · #campo("total") no es fiable: en una fracción de las filas el responsable ha registrado #campo("unidad") = #val("1") con un #campo("importe") por hora descabellado, lo que infla el €/h y rebaja el número real de horas dedicadas. Heurística:
+*Regularización de horas.* La triple información #campo("horas") · #campo("importe_hora") · #campo("importe_total") no es fiable: en una fracción de las filas el responsable ha registrado #campo("horas") = #val("1") con un #campo("importe_hora") descabellado, lo que infla el €/h y rebaja el número real de horas dedicadas. Heurística:
 
-- Si #campo("importe") ≤ #val("130 €/h"): se acepta #campo("unidad") como horas.
-- Si #campo("importe") > #val("130 €/h"): el campo #campo("unidad") no es fiable; aproximamos las horas como #campo("total") / #val("80 €/h") (tarifa razonable de docencia propia).
+- Si #campo("importe_hora") ≤ #val("130 €/h"): se acepta #campo("horas") como horas.
+- Si #campo("importe_hora") > #val("130 €/h"): el campo #campo("horas") no es fiable; aproximamos las horas como #campo("importe_total") / #val("130 €/h") (tarifa razonable de docencia propia).
 
-El número resultante se llama #campo("unidad_efectiva") y es lo que se usa como horas brutas de la fila. Como en el POD oficial, el factor #val("2,5") (preparación, tutorías, evaluación) se almacena en la columna #campo("factor") para auditar; la fase de reparto lo aplicará al traducir horas a coste.
+El número resultante se llama #campo("horas_efectivas") y es lo que se usa como horas brutas de la fila. Como en el POD oficial, el factor #val("2,5") (preparación, tutorías, evaluación) se almacena en la columna #campo("factor") para auditar; la fase de reparto lo aplicará al traducir horas a coste.
 
 *Actividad y centro de coste.* La actividad se determina con la regla:
 
 - Tipo #val("OAD") y #campo("centro_origen") del proyecto = #val("UMAJ") (#emph[Universitat per a Majors]) → actividad #etqact("universidad-mayores"), centro de coste #etqcen("universidad-mayores").
-- Resto de filas (tipo #val("OAD") con otro #campo("centro_origen"), y resto de tipos #val("EPM"), #val("EPDE"), #val("EPDEX"), #val("EPC"), #val("EPMI"), #val("CUID"), #val("CUES")) → actividad #etqact("otros-docencia-propia"); el centro de coste queda «pendiente» a la espera de afinar la regla por subcentro.
+- Resto de filas con tipo #val("OAD") con otro #campo("centro_origen") → actividad #etqact("otros-docencia-propia"); para determinar el centro de coste, utiliza las misma reglas que hubieras utilizado para procesar un gasto de este proyecto.
+- El resto de tipos de proyecto, #val("EPM"), #val("EPDE"), #val("EPDEX"), #val("EPC"), #val("EPMI"), #val("CUID"), #val("CUES"), para determinar tanto la actividad como el centro de coste, utiliza las misma reglas que hubieras utilizado para procesar un gasto de este proyecto.
 
-Las filas se emiten con #campo("grupo") = #val("docencia_no_oficial"), #campo("método") = #val("et") (estimación por tipología) y #campo("origen") = #val("POD_no_oficial"), con #campo("origen_id") = #campo("gre_id") (identificador único de la acción en el fichero). Adicionalmente se persiste en #ruta("auxiliares", "nóminas", "regla_23_horas_no_oficiales.parquet") la tabla completa con #campo("unidad_efectiva"), #campo("tipo_proyecto") y #campo("centro_origen") para auditoría desde la #app.
+Las filas se emiten con #campo("grupo") = #val("docencia_no_oficial"), #campo("método") = #val("et") (estimación por tipología) y #campo("origen") = #val("POD_no_oficial"), con #campo("origen_id") = #campo("gre_id") (identificador único de la acción en el fichero). Adicionalmente se persiste en #ruta("auxiliares", "nóminas", "regla_23_horas_no_oficiales.parquet") la tabla completa con #campo("horas_efectivas"), #campo("tipo_proyecto") y #campo("centro_origen") para auditoría desde la #app.
+
+*Asignación al `per_id` de las horas correspondiente.* Las `horas_efectivas` de cada `per_id` han de tenerse en cuenta para la regla 23, insertándolas en el diccionario correspondiente tras multiplicarlas por 2,5. Al visualizar con la #app la información de actividades/centros para regla 23, hemos de ver qué docencia no oficial tiene la persona en horas.
 
 ===== Cargador #emph[tesis]
 
@@ -4830,22 +4886,17 @@ Una vez completada la tabla #campo("dedicación_pdi"), un módulo final (#campo(
 
 *Caso especial: profesor asociado.* Si la categoría de plaza vigente en el año está entre las once asociadas a profesor asociado (códigos #val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("36"), #val("44"), #val("46") en #ruta("entrada", "nóminas", "categorías plazas.xlsx")), la jornada $T$ entera se imputa a sus actividades docentes proporcionalmente a las horas iniciales efectivas. No hay gestión ni investigación.
 
-*Caso general.* Para el resto del PDI:
+*Caso general — reparto en cascada.* Para el resto del PDI la jornada $T$ se reparte por *prioridad estricta*: primero docencia, luego gestión, y la investigación absorbe lo que quede. *Docencia y gestión son rígidas*: se respetan tal cual si caben y se recortan si no, pero *nunca se inflan*. La investigación es elástica: se contrae si su valor inicial no cabe en el hueco disponible, o absorbe las horas no distribuidas si cabe.
 
-+ *Docencia intocable.* $H_"DO"^"def" = H_"DO"$ y $H_"DNO"^"def" = H_"DNO"$. La docencia impartida no se ajusta proporcionalmente: las horas son las que son.
-+ *Gestión fija.* $H_G^"def" = H_G$ (ya viene calculada por el cargador de cargos, con su dedicación porcentual u horaria del catálogo).
-+ *Pendientes para investigación.* $P_I = T - H_"DO" - H_"DNO" - H_G$.
-+ *Investigación final.*
-    - Si $H_I > P_I > 0$: se ESCALA la investigación a $P_I$ (la persona declara más horas de investigación de las que caben). $H_I^"def" = P_I$, $H_"ND" = 0$.
-    - Si $0 < H_I lt.eq P_I$: $H_I^"def" = H_I$, $H_"ND" = P_I - H_I$.
-    - Si $P_I lt.eq 0$ (docencia + gestión exceden $T$): $H_I^"def" = 0$, $H_"ND" = 0$, y se marca la anomalía #val("docencia + gestión exceden la jornada anual").
-+ *Reparto de $H_"ND"$ (cuando > 0):*
-    - La docencia es *intocable* y nunca recibe horas adicionales por HND.
-    - Si la persona tiene *sexenio vivo* (#ruta("entrada", "investigación", "sexenios.xlsx"): max(#campo("fecha_fin_sexenio")) hace menos de 6 años respecto al fin del año analizado): $H_"ND"$ se imputa íntegramente a investigación.
-    - Si no tiene sexenio vivo: $H_"ND"$ se reparte entre *gestión* e *investigación* proporcionalmente a sus horas iniciales efectivas ($H_G$ y $H_I$).
-    - Si la persona no tiene horas iniciales ni en gestión ni en investigación, $H_"ND"$ va por defecto a investigación (toda persona del PDI investiga). Si no hay ninguna fila de investigación todavía, se sintetiza una nueva con actividad #etqact("ai") (umbrella) y el centro del grupo principal de la persona (o #val("pendiente") si no se conoce).
++ *Docencia.* $H_"D"^"def" = min(H_"DO" + H_"DNO", T)$. Si la docencia impartida cabe en $T$ se toma entera; si la supera (poco habitual), consume toda la jornada disponible.
++ *Gestión.* $H_G^"def" = min(H_G, T - H_"D"^"def")$, sobre lo que quede tras la docencia.
++ *Investigación.* $H_I^"def" = T - H_"D"^"def" - H_G^"def"$ (el hueco que queda). Si la $H_I$ inicial superaba el hueco, queda contraída a él; si era menor, las horas no distribuidas se imputan a investigación (todo PDI investiga por defecto).
 
-*Caso especial vicerrectorados.* Los vicerrectores tienen #val("75 %") de dedicación al cargo. El #val("25 %") restante se imputa a investigación automáticamente vía el algoritmo anterior (porque su $H_I$ inicial absorbe ese hueco). El rector, con dedicación #val("100 %") al cargo, no tiene espacio para investigación: $P_I = 0$ y queda con cero horas de investigación.
+Por construcción, docencia + gestión + investigación suman siempre exactamente $T$. Si la docencia y la gestión iniciales no caben en $T$, la gestión —o, en el límite, la propia docencia— se recorta y se marca la anomalía #val("docencia + gestión superan la jornada disponible"). Si a la persona le corresponden horas de investigación y no tiene ninguna fila de ese grupo, se sintetiza una con actividad #etqact("ai") (umbrella) y el centro de su grupo principal (o #val("pendiente") si no se conoce).
+
+El #campo("sexenio_vivo") (último sexenio finalizado en los últimos seis años) se conserva como dato informativo de la persona pero *no afecta al reparto*: como docencia y gestión son rígidas, las horas no distribuidas solo pueden ir a investigación.
+
+*Caso especial: vicerrectorados.* Un vicerrector tiene el #val("75 %") de dedicación al cargo (su $H_G$ es el 75 % de las horas no docentes); el 25 % restante queda como sobrante y se reparte según la regla anterior. El rector, con el #val("100 %") de dedicación al cargo, no deja sobrante.
 
 *Repercusión a actividades concretas.* Una vez determinadas las horas finales por grupo, se reparten entre las actividades concretas que la persona aportó a ese grupo (con sus distintos #campo("origen_id")) en proporción a las horas iniciales efectivas. Las dos categorías docentes (oficial y no oficial) comparten total: si la docencia oficial era 200 h y la no oficial 50 h, se conservan ambos números íntegros.
 

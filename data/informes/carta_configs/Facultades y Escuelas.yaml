@@ -4,9 +4,10 @@ centros_de_coste:
 - fcje
 - fcs
 actividades:
-- principales
+- docencia
+- otros-docencia-propia
 elementos_de_coste: []
 orden:
-- ec
-- act
 - cc
+- act
+- ec

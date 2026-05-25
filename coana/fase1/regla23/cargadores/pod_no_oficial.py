@@ -10,21 +10,32 @@ de los tipos #val("EPM"), #val("EPDE"), #val("EPDEX"), #val("EPC"),
 financiación genérica) se descarta.
 
 Regularización de horas: los datos de origen guardan tres campos por
-fila — #campo("unidad") (horas), #campo("importe") (€/hora) y
-#campo("total") (= unidad × importe). En la práctica hay casos en que
-se ha registrado `unidad = 1` con un importe por hora descabellado, lo
-que falsea las horas. Heurística: si #campo("importe") > #val("130 €/h")
-asumimos que el campo unidad no es fiable y aproximamos las horas como
-#campo("total") / #val("80 €/h"); si no, dejamos #campo("unidad") como
-está.
+fila — #campo("horas") (horas declaradas), #campo("importe_hora") (€/hora)
+y #campo("importe_total") (= horas × importe_hora). En la práctica hay
+casos en que se ha registrado `horas = 1` con un `importe_hora`
+descabellado, lo que falsea las horas. Heurística: si
+#campo("importe_hora") > #val("130 €/h") asumimos que el campo `horas`
+no es fiable y aproximamos las horas como #campo("importe_total") /
+#val("130 €/h") (tarifa razonable de docencia propia); si no, dejamos
+#campo("horas") como está.
 
-Actividad y centro de coste:
-- OAD + centro_origen UMAJ → actividad #etqact("universidad-mayores"),
-  CC #etqcc("universidad-mayores").
-- OAD + cualquier otro centro_origen → actividad
-  #etqact("otros-docencia-propia"), CC «pendiente».
-- Resto de tipos (EPM, EPDE, EPDEX, EPC, EPMI, CUID, CUES) → actividad
-  #etqact("otros-docencia-propia"), CC «pendiente».
+Actividad y centro de coste — se aplican las mismas reglas del
+clasificador presupuestario:
+
+- *OAD + centro_origen UMAJ* → actividad #etqact("universidad-mayores"),
+  centro #etqcc("universidad-mayores") (caso especial fijo).
+- *OAD + otro centro_origen* → actividad fija #etqact("otros-docencia-propia");
+  centro tomado de la TABLA-TRADUCCIÓN-DEPARTAMENTOS aplicada al
+  `centro_origen` del proyecto (es el `_CC_GENÉRICO` que usa el
+  clasificador de centros de coste).
+- *Resto de tipos (EPM, EPDE, EPDEX, EPC, EPMI, CUID, CUES/CUEX)* →
+  actividad = `<prefijo>-<proyecto>` según la regla «Formación
+  permanente» (EPM → `másteres-formación-permanente-<proyecto>`,
+  EPC → `cursos-formación-permanente-<proyecto>`, EPMI →
+  `microcredenciales-<proyecto>`, etc.). Centro tomado también de la
+  TABLA-TRADUCCIÓN-DEPARTAMENTOS sobre el `centro_origen`.
+
+Si el `centro_origen` no está en la tabla, el centro cae a «pendiente».
 
 Las horas se imputan con factor ×2,5 (igual que la docencia oficial:
 una hora de impartición lleva preparación + tutorías + evaluación) y
@@ -39,6 +50,7 @@ import polars as pl
 
 from coana.util import read_excel
 from coana.util.configuración import cfg_float
+from coana.fase1.clasificador_centros_coste import _CC_GENÉRICO
 
 _FACTOR_DOCENTE: float = cfg_float("factor_impartición_docente")
 
@@ -48,11 +60,27 @@ TIPOS_PROYECTO_NO_OFICIAL: tuple[str, ...] = (
     "EPM", "EPDE", "EPDEX", "EPC", "EPMI", "CUID", "CUES", "OAD",
 )
 
-# Umbral de €/h por encima del cual no nos fiamos del campo `unidad`.
+# Regla «Formación permanente» del clasificador de actividades
+# (especificación §«Determinación de la actividad»): el tipo de proyecto
+# determina el prefijo de la actividad, al que se concatena el proyecto.
+ACTIVIDAD_POR_TIPO: dict[str, str] = {
+    "EPM": "másteres-formación-permanente",
+    "EPDE": "diplomas-especialización",
+    "EPDEX": "diplomas-experto",
+    "EPC": "cursos-formación-permanente",
+    "EPMI": "microcredenciales",
+    "CUID": "cursos-idiomas",
+    "CUEX": "cursos-extranjeros",
+    # `CUES` aparece como variante observada del tipo CUEX en la
+    # cláusula de filtro previa; se trata como sinónimo.
+    "CUES": "cursos-extranjeros",
+}
+
+# Umbral de €/h por encima del cual no nos fiamos del campo `horas`.
 _UMBRAL_IMPORTE_HORA: float = 130.0
-# Divisor que aproxima las horas a partir del `total` cuando el dato
-# original es sospechoso (≈ tarifa razonable €/h).
-_TARIFA_REGULARIZADA: float = 80.0
+# Divisor que aproxima las horas a partir del `importe_total` cuando el
+# dato original es sospechoso (tarifa razonable €/h de docencia propia).
+_TARIFA_REGULARIZADA: float = 130.0
 
 
 def cargar_pod_no_oficial(
@@ -67,7 +95,7 @@ def cargar_pod_no_oficial(
     Si se pasa `expedientes`, se restringe a per_id de PDI/PVI. Si se
     pasa `dir_salida_auxiliar`, se persiste un parquet de detalle
     `regla_23_horas_no_oficiales.parquet` con todas las columnas
-    originales más `tipo_proyecto`, `centro_origen` y `unidad_efectiva`
+    originales más `tipo_proyecto`, `centro_origen` y `horas_efectivas`
     para auditoría desde la app.
     """
     src = ruta_base / "entrada" / "docencia" / "estimación horas docencia propia.xlsx"
@@ -94,12 +122,13 @@ def cargar_pod_no_oficial(
     if df.is_empty():
         return _esquema_vacío()
 
-    # Regularización de horas: si €/h > umbral, aproximar por total/tarifa.
+    # Regularización de horas: si €/h > umbral, aproximar por
+    # importe_total / tarifa razonable.
     df = df.with_columns(
-        pl.when(pl.col("importe") > _UMBRAL_IMPORTE_HORA)
-        .then(pl.col("total") / pl.lit(_TARIFA_REGULARIZADA))
-        .otherwise(pl.col("unidad"))
-        .alias("unidad_efectiva")
+        pl.when(pl.col("importe_hora") > _UMBRAL_IMPORTE_HORA)
+        .then(pl.col("importe_total") / pl.lit(_TARIFA_REGULARIZADA))
+        .otherwise(pl.col("horas"))
+        .alias("horas_efectivas")
     )
 
     # Solo PDI/PVI (en la nómina el sector PVI viene codificado como `PI`).
@@ -119,34 +148,53 @@ def cargar_pod_no_oficial(
         dir_salida_auxiliar.mkdir(parents=True, exist_ok=True)
         df.write_parquet(dir_salida_auxiliar / "regla_23_horas_no_oficiales.parquet")
 
-    # Resolver actividad y centro_de_coste fila a fila.
+    # Resolver actividad y centro_de_coste aplicando las reglas del
+    # clasificador presupuestario (ver docstring del módulo).
     es_oad = pl.col("tipo_proyecto") == "OAD"
     es_umaj = pl.col("centro_origen") == "UMAJ"
+    es_oad_umaj = es_oad & es_umaj
+    es_oad_no_umaj = es_oad & ~es_umaj
+
+    # Actividad: regla «Formación permanente» — prefijo + proyecto.
+    prefijo_act = pl.col("tipo_proyecto").replace_strict(
+        ACTIVIDAD_POR_TIPO, default=None, return_dtype=pl.Utf8,
+    )
+    actividad_formación = pl.concat_str(
+        [prefijo_act, pl.lit("-"), pl.col("proyecto").cast(pl.Utf8)],
+    )
     actividad = (
-        pl.when(es_oad & es_umaj).then(pl.lit("universidad-mayores"))
-        .otherwise(pl.lit("otros-docencia-propia"))
+        pl.when(es_oad_umaj).then(pl.lit("universidad-mayores"))
+        .when(es_oad_no_umaj).then(pl.lit("otros-docencia-propia"))
+        .when(prefijo_act.is_null()).then(pl.lit("otros-docencia-propia"))
+        .otherwise(actividad_formación)
+    )
+
+    # Centro de coste: TABLA-TRADUCCIÓN-DEPARTAMENTOS (_CC_GENÉRICO) sobre
+    # `centro_origen` del proyecto, p. ej. DADEM → daem, IUDT → iudt.
+    cc_traducido = pl.col("centro_origen").replace_strict(
+        _CC_GENÉRICO, default=None, return_dtype=pl.Utf8,
     )
     centro_cc = (
-        pl.when(es_oad & es_umaj).then(pl.lit("universidad-mayores"))
-        .otherwise(pl.lit("pendiente"))
+        pl.when(es_oad_umaj).then(pl.lit("universidad-mayores"))
+        .otherwise(cc_traducido.fill_null(pl.lit("pendiente")))
     )
 
     detalle = pl.concat_str([
         pl.lit("Proyecto "), pl.col("proyecto"),
         pl.lit(" ("), pl.col("tipo_proyecto"), pl.lit(")"),
         pl.lit(" · "), pl.col("nombre").fill_null(""),
-        pl.lit(" · "), pl.col("unidad_efectiva").round(2).cast(pl.Utf8),
-        pl.lit(" h ("), pl.col("total").round(2).cast(pl.Utf8), pl.lit(" €)"),
+        pl.lit(" · "), pl.col("horas_efectivas").round(2).cast(pl.Utf8),
+        pl.lit(" h ("), pl.col("importe_total").round(2).cast(pl.Utf8), pl.lit(" €)"),
     ])
 
     return (
-        df.filter(pl.col("unidad_efectiva") > 0)
+        df.filter(pl.col("horas_efectivas") > 0)
         .with_columns(actividad.alias("actividad"), centro_cc.alias("centro_de_coste"))
         .select(
             pl.col("perid").cast(pl.Int64).alias("per_id"),
             pl.col("actividad"),
             pl.col("centro_de_coste"),
-            pl.col("unidad_efectiva").cast(pl.Float64).alias("horas"),
+            pl.col("horas_efectivas").cast(pl.Float64).alias("horas"),
             pl.lit("et").alias("método"),
             pl.lit(_FACTOR_DOCENTE).alias("factor"),
             pl.lit("docencia_no_oficial").alias("grupo"),

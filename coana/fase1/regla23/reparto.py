@@ -5,38 +5,37 @@ grupo, factor) y aplica las fases 5, 6 y 7 del modelo de la regla 23
 para obtener las horas FINALES por (per_id, actividad, centro_de_coste)
 que cubren exactamente la jornada anual T = 1642 h de cada PDI.
 
-Algoritmo (por persona):
+Algoritmo (por persona) — reparto en cascada por prioridad estricta:
 
 1. Horas iniciales efectivas por grupo:
    - HDO  = Σ horas × factor sobre grupo='docencia_oficial'
    - HDNO = Σ horas × factor sobre grupo='docencia_no_oficial'
    - HG   = Σ horas sobre grupo='gestión'
    - HI   = Σ horas sobre grupo='investigación'
-   - HE   = 0 (no hay registro en la UJI)
+   - DOC  = HDO + HDNO
 
-2. Caso especial profesor asociado: toda la jornada T se imputa a las
-   actividades docentes (oficial + no oficial) en proporción a sus
-   horas iniciales efectivas. Sin gestión ni investigación.
+2. Jornada a repartir: T = JORNADA_ANUAL_PDI × X_persona, con
+   X_persona = 1 − fracción de reducción sindical. La fracción sindical
+   se imputa aparte a la actividad `acción-sindical`; T es lo que queda.
 
-3. Caso general:
-   - La docencia se respeta tal cual: HDO_def = HDO, HDNO_def = HDNO.
-   - HG está fija (ya calculada por el cargador `cargos.py` como
-     `% × (T - HDO - HDNO)` o como cantidad horaria absoluta).
-   - Pendientes_inv = T - HDO - HDNO - HG.
-   - Si HI > Pendientes_inv > 0: se ESCALA investigación a Pendientes_inv
-     proporcionalmente a las horas iniciales de cada actividad.
-   - Si HI ≤ Pendientes_inv: HI_def = HI; HND = Pendientes_inv - HI.
-   - Si Pendientes_inv ≤ 0 (docencia + gestión exceden T): HI_def = 0,
-     HND = 0; el exceso se reporta como anomalía pero no se corrige
-     (la docencia es intocable).
+3. Cascada de valores absolutos sobre T. Docencia y gestión son
+   RÍGIDAS — se respetan tal cual si caben, se recortan si no, y nunca
+   se inflan. La investigación absorbe el hueco que queda:
+   - doc_final = min(DOC, T)
+   - ges_final = min(HG, T − doc_final)
+   - inv_final = T − doc_final − ges_final   (≥ 0)
+   Así, investigación se contrae si su HI inicial supera el hueco
+   disponible, y absorbe las horas no distribuidas si HI < hueco.
+   La suma docencia + gestión + investigación es siempre exactamente T.
 
-4. Reparto de HND (si > 0):
-   - Sexenio "vivo" (último sexenio finaliza dentro de los 6 años
-     previos al fin del año): HND → investigación.
-   - Sin sexenio vivo: HND se reparte entre los tres grupos
-     proporcionalmente al peso inicial (HDO+HDNO, HG, HI).
+4. El `sexenio_vivo` es un dato informativo de la persona pero no
+   afecta al reparto: con docencia y gestión rígidas, las horas no
+   distribuidas solo pueden ir a investigación.
 
-5. Repercusión a actividades concretas: las horas finales de cada
+5. Caso especial profesor asociado: toda T a docencia, sin gestión ni
+   investigación.
+
+6. Repercusión a actividades concretas: las horas finales de cada
    grupo se reparten entre sus actividades concretas en proporción a
    las horas iniciales efectivas.
 
@@ -112,11 +111,25 @@ def aplicar_reparto_regla_23(
         pl.col("per_id").is_in(list(sexenios_vivos)).alias("sexenio_vivo"),
     )
 
-    # Factor X_persona por reducción sindical (PDI/PVI). La jornada
-    # anual base de la persona pasa de T a X_persona × T. X_persona se
-    # calcula como promedio ponderado por bruto sobre sus expedientes
-    # PDI/PVI; los expedientes sin reducción cuentan con X = 1.
-    x_persona = _x_persona_por_reducción_sindical(ruta_base, año)
+    # Factor X_persona por reducción sindical: la jornada de reparto
+    # pasa de T a X_persona × T y la fracción (1 − X_persona) se imputa a
+    # la actividad `acción-sindical`. Dos fuentes independientes y
+    # complementarias (ver especificación, §«Reducciones sindicales»):
+    #  - PTGAS — tipo 8 de `reducciones laborales.xlsx` (días y % de
+    #    jornada). `_x_persona_por_reducción_sindical` está acotado a
+    #    PDI/PVI; en la práctica devuelve {} porque ese fichero solo
+    #    contiene PTGAS.
+    #  - PDI — tipos 37-40 de `reducciones docentes.xlsx` (créditos
+    #    traducidos a fracción de jornada).
+    # Se combinan: X_persona = X_tipo8 × (1 − fracción_PDI).
+    from coana.fase1.regla23.reducción_sindical_pdi import fracción_sindical_pdi
+    x_tipo8 = _x_persona_por_reducción_sindical(ruta_base, año)
+    fracción_pdi = fracción_sindical_pdi(ruta_base, año)
+    x_persona: dict[int, float] = {}
+    for _p in set(x_tipo8) | set(fracción_pdi):
+        _x = x_tipo8.get(_p, 1.0) * (1.0 - fracción_pdi.get(_p, 0.0))
+        if _x < 1.0:
+            x_persona[_p] = max(0.0, _x)
     if x_persona:
         fx_df = pl.DataFrame(
             {"per_id": list(x_persona.keys()), "_x_persona": list(x_persona.values())},
@@ -128,57 +141,43 @@ def aplicar_reparto_regla_23(
     else:
         pivot = pivot.with_columns(pl.lit(1.0).alias("_x_persona"))
 
-    # Calcular, por persona, horas finales por grupo y anomalía.
-    # Vectorizamos con expresiones polars.
+    # ---- Fases 5-7: reparto en cascada de la jornada ----
+    # T (jornada anual menos la dedicación sindical) se reparte por
+    # prioridad estricta: docencia, luego gestión, luego investigación.
     HDO = pl.col("docencia_oficial")
     HDNO = pl.col("docencia_no_oficial")
     HG = pl.col("gestión")
     HI = pl.col("investigación")
     T = pl.lit(jornada) * pl.col("_x_persona")
     DOC = HDO + HDNO  # docencia total efectiva
-    pendientes = T - DOC - HG
+    # Cascada de valores absolutos: docencia y, sobre lo que quede,
+    # gestión. Ambas son rígidas — se respetan tal cual si caben y solo
+    # se recortan si no caben en lo disponible. La investigación
+    # absorbe el resto: si la inicial cabe en el hueco, queda igual y
+    # las horas no distribuidas se le imputan; si la supera, se contrae
+    # al hueco. El sexenio vivo no afecta al reparto porque docencia y
+    # gestión no admiten horas no distribuidas (se conserva como dato
+    # informativo, pero no entra en el cálculo).
+    doc_base = pl.min_horizontal(DOC, T)
+    ges_base = pl.min_horizontal(HG, T - doc_base)
+    sobrante = T - doc_base - ges_base   # ≥ 0; hueco para investigación
+    # Exceso: docencia + gestión iniciales no caben en T.
     exceso_doc_ges = (DOC + HG) > T
 
-    # HI final (escalado si HI > pendientes; 0 si pendientes <= 0)
-    hi_final = (
-        pl.when(pendientes <= 0).then(0.0)
-        .when(HI > pendientes).then(pendientes)
-        .otherwise(HI)
-    )
-    hnd = (
-        pl.when(pendientes <= 0).then(0.0)
-        .when(HI > pendientes).then(0.0)
-        .otherwise(pendientes - HI)
-    )
+    doc_final = doc_base
+    ges_final = ges_base
+    inv_final = sobrante
 
-    # Reparto HND. La docencia es intocable: NO se le suma HND. El HND
-    # se reparte entre gestión e investigación proporcionalmente a sus
-    # horas iniciales efectivas. Si la persona no tiene ni gestión ni
-    # investigación iniciales (resto a 0), el HND va íntegramente a
-    # investigación (toda persona del PDI investiga por defecto).
-    es_sexenio = pl.col("sexenio_vivo")
-    peso_resto = HG + HI
-    hnd_a_ges = (
-        pl.when(es_sexenio | (hnd <= 0)).then(0.0)
-        .when(peso_resto <= 0).then(0.0)
-        .otherwise(hnd * HG / peso_resto)
-    )
-    hnd_a_inv = (
-        pl.when(hnd <= 0).then(0.0)
-        .when(es_sexenio).then(hnd)
-        .when(peso_resto <= 0).then(hnd)
-        .otherwise(hnd * HI / peso_resto)
-    )
-
-    # Horas finales por grupo. La docencia se respeta tal cual.
-    doc_final = DOC
-    ges_final = HG + hnd_a_ges
-    inv_final = hi_final + hnd_a_inv
-
-    # Caso asociado: toda T a docencia (si tiene docencia inicial > 0).
+    # Caso asociado: toda T a docencia (si tiene docencia inicial > 0),
+    # sin gestión ni investigación.
     doc_final = pl.when(pl.col("es_asociado") & (DOC > 0)).then(T).otherwise(doc_final)
     ges_final = pl.when(pl.col("es_asociado")).then(0.0).otherwise(ges_final)
     inv_final = pl.when(pl.col("es_asociado")).then(0.0).otherwise(inv_final)
+
+    # Liberación sindical del 100 % (X_persona = 0 ⇒ T = 0): la cascada
+    # deja docencia, gestión e investigación en 0 por sí sola; se marca
+    # como bandera para la anomalía.
+    sin_jornada = pl.col("_x_persona") <= 0.0
 
     pivot = pivot.with_columns(
         DOC.alias("h_doc_inicial"),
@@ -188,6 +187,7 @@ def aplicar_reparto_regla_23(
         ges_final.alias("h_ges_final"),
         inv_final.alias("h_inv_final"),
         exceso_doc_ges.alias("_anom_exceso"),
+        sin_jornada.alias("_sin_jornada"),
     )
 
     # Repercusión a actividades concretas. Para cada (per_id, grupo,
@@ -201,7 +201,7 @@ def aplicar_reparto_regla_23(
             "h_doc_inicial", "h_doc_final",
             "h_ges_inicial", "h_ges_final",
             "h_inv_inicial", "h_inv_final",
-            "es_asociado", "sexenio_vivo", "_anom_exceso",
+            "es_asociado", "sexenio_vivo", "_anom_exceso", "_sin_jornada",
         ),
         on="per_id", how="left",
     )
@@ -230,8 +230,13 @@ def aplicar_reparto_regla_23(
     anomalía_expr = (
         pl.when(pl.col("anomalía").is_not_null())
         .then(pl.col("anomalía"))
+        .when(pl.col("_sin_jornada") & pl.col("_anom_exceso"))
+        .then(pl.lit(
+            "liberación sindical del 100 %: docencia, gestión e "
+            "investigación sin dedicación final"
+        ))
         .when(pl.col("_anom_exceso") & ~pl.col("es_asociado"))
-        .then(pl.lit("docencia + gestión exceden la jornada anual"))
+        .then(pl.lit("docencia + gestión superan la jornada disponible"))
         .otherwise(pl.lit(None, dtype=pl.Utf8))
     )
 
@@ -253,6 +258,14 @@ def aplicar_reparto_regla_23(
     )
     if sintéticas.height > 0:
         salida = pl.concat([salida, sintéticas], how="vertical_relaxed")
+
+    # Filas de dedicación a la representación sindical: la fracción
+    # (1 − X_persona) de la jornada anual de cada representante. Se
+    # emiten desde `x_persona` (no desde `pivot`) para no perder a quien
+    # tenga reducción sindical pero ninguna otra dedicación registrada.
+    sindicales = _filas_sindicales(x_persona, asociados, sexenios_vivos, jornada)
+    if sindicales.height > 0:
+        salida = pl.concat([salida, sindicales], how="vertical_relaxed")
 
     dir_out = ruta_base / "fase1" / "regla23"
     dir_out.mkdir(parents=True, exist_ok=True)
@@ -360,6 +373,49 @@ def _columnas_salida() -> dict[str, pl.DataType]:
         "es_asociado": pl.Boolean,
         "sexenio_vivo": pl.Boolean,
     }
+
+
+def _filas_sindicales(
+    x_persona: dict[int, float],
+    asociados: set[int],
+    sexenios: set[int],
+    jornada: float,
+) -> pl.DataFrame:
+    """Una fila de dedicación `acción-sindical` por representante sindical.
+
+    Las horas finales son `(1 − X_persona) × jornada`. El centro de
+    coste y la actividad son los mismos que usa la reducción sindical
+    del PTGAS (tipo 8), de modo que PDI y PTGAS confluyen en el mismo
+    par (`acción-sindical`, `locales-sindicales`).
+    """
+    from coana.fase1.nóminas.reducciones_sindicales import (
+        ACTIVIDAD_SINDICAL,
+        CC_SINDICAL,
+    )
+
+    items = [(int(p), 1.0 - x) for p, x in x_persona.items() if x < 1.0]
+    if not items:
+        return pl.DataFrame(schema=_columnas_salida())
+    per_ids = [p for p, _ in items]
+    horas = [round(f * jornada, 4) for _, f in items]
+    n = len(per_ids)
+    return pl.DataFrame(
+        {
+            "per_id": per_ids,
+            "actividad": [ACTIVIDAD_SINDICAL] * n,
+            "centro_de_coste": [CC_SINDICAL] * n,
+            "grupo": ["acción-sindical"] * n,
+            "origen": ["reducción-sindical"] * n,
+            "origen_id": [None] * n,
+            "horas_iniciales": horas,
+            "horas_finales": horas,
+            "detalle": ["dedicación a representación sindical"] * n,
+            "anomalía": [None] * n,
+            "es_asociado": [p in asociados for p in per_ids],
+            "sexenio_vivo": [p in sexenios for p in per_ids],
+        },
+        schema=_columnas_salida(),
+    )
 
 
 def _sexenios_vivos(ruta_base: Path, año: int) -> set[int]:

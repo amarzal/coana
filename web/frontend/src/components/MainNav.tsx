@@ -109,6 +109,7 @@ const GROUPS: Group[] = [
             { label: "Atrasos a no vinculados", to: "/personal/atrasos-no-vinculados" },
             { label: "Despidos", to: "/personal/despidos" },
             { label: "Indemnizaciones asistencias", to: "/personal/indemnizaciones" },
+            { label: "Reducciones sindicales", to: "/personal/reducciones-sindicales" },
             { label: "Anomalías PDI", to: "/personal/anomalias" },
             {
                 label: "Cargos académicos",

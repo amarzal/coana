@@ -171,6 +171,15 @@ def generar_dedicación_pdi(
         dedicación["per_id"].n_unique(),
     )
 
+    log.info("Calculando reducciones sindicales del PDI (tipos 37-40)…")
+    from coana.fase1.regla23.reducción_sindical_pdi import reducciones_sindicales_pdi
+    red_sind = reducciones_sindicales_pdi(ruta_base, año=año)
+    log.info(
+        "  reducciones_sindicales_pdi.parquet: %s personas, %.0f h a acción sindical",
+        f"{len(red_sind):,}",
+        float(red_sind["horas_sindicales"].sum()) if not red_sind.is_empty() else 0.0,
+    )
+
     log.info("Aplicando reparto (fases 5-7 de la regla 23)…")
     normalizada = aplicar_reparto_regla_23(ruta_base, año=año)
     log.info(
