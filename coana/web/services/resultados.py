@@ -224,14 +224,18 @@ def _nominas_raw() -> pl.DataFrame:
 
 def _seccion_origen_presupuesto(origen_id: str) -> list[RecordSection]:
     df = _apuntes_presupuesto()
-    if df.is_empty() or "registro" not in df.columns:
+    if df.is_empty() or "asiento" not in df.columns:
         return []
-    # Las UC de presupuesto guardan la base del registro (sin "/AÑO");
-    # los apuntes lo serializan como "12964/2025". Aceptamos ambas formas.
-    sub = df.filter(
-        (pl.col("registro") == origen_id)
-        | pl.col("registro").str.starts_with(f"{origen_id}/")
-    )
+    # Las UC de presupuesto guardan `asiento` como `origen_id` (entero).
+    # NO confundir con `registro`, que es un identificador distinto del
+    # apunte y se serializa como "<N>/AÑO" — la N puede coincidir
+    # numéricamente con un `asiento` de otro apunte sin estar
+    # relacionados, así que cruzar por `registro` da apuntes erróneos.
+    try:
+        oid = int(origen_id)
+    except (TypeError, ValueError):
+        return []
+    sub = df.filter(pl.col("asiento").cast(pl.Int64) == oid)
     if sub.is_empty():
         return []
     rows = sub.head(20).to_dicts()

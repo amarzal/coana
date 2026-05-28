@@ -139,70 +139,44 @@ _VICERRECT_PREFIJOS: dict[str, str] = {
     "6711": "dag-org-vicerrectorados-adquisiciones-bibliográficas",
 }
 
-# 8G022: prefijo de aplicación → sufijo de actividad (dag-{depto}-{sufijo})
-_8G022_SUFIJOS: dict[str, str] = {
-    "21":   "tributos",
-    "221":  "arrendamiento-bienes",
-    "222":  "reparación-conservación",
-    "223":  "suministros",
-    "224":  "transportes-comunicaciones",
-    "225":  "trabajos-realizados-otras-empresas",
-    "226":  "primas-seguros",
-    "227":  "material-oficina",
-    "228":  "gastos-diversos",
-    "23":   "indemnizaciones-razón-servicio",
-    "3":    "gastos-financieros",
-    "6711": "adquisiciones-bibliográficas",
+# Regla §2847 «Gastos generales desde servicios»: proyecto en
+# {1G010 INFRAESTRUCTURA TIC BÀSICA, 9G082 MANTENIMIENTO OTOP} con
+# subcentro en la lista de servicios → etiqueta `dag-sgc-*` según
+# el capítulo/artículo/concepto/aplicación.
+_GASTOS_GENERALES_SERVICIOS_PREFIJOS: dict[str, str] = {
+    "21":   "dag-sgc-tributos",
+    "221":  "dag-sgc-arrendamiento-bienes",
+    "222":  "dag-sgc-reparación-conservación",
+    "223":  "dag-sgc-suministros",
+    "224":  "dag-sgc-transportes-comunicaciones",
+    "225":  "dag-sgc-trabajos-realizados-otras-empresas",
+    "226":  "dag-sgc-primas-seguros",
+    "227":  "dag-sgc-material-oficina",
+    "228":  "dag-sgc-gastos-diversos",
+    "23":   "dag-sgc-indemnizaciones-razón-servicio",
+    "3":    "dag-sgc-gastos-financieros",
+    "6711": "dag-sgc-adquisiciones-bibliográficas",
 }
 
-# 8G022: centro (departamento) → slug del departamento
-_CENTRO_DEPTO_SLUG_8G022: dict[str, str] = {
-    "DADEM": "daem",    "DCAMN": "dbbcn",   "DCICO": "dcc",
-    "DDPRI": "ddpri",   "DDPUB": "ddpub",   "DDTSE": "updtssee",
-    "DEANG": "dea",     "DECIC": "dicc",    "DECON": "deco",
-    "DEDES": "dede",    "DEMEC": "dmc",     "DESID": "desid",
-    "DFICE": "dfs",     "DFICO": "dfc",     "DFISI": "dfis",
-    "DFISO": "dfce",    "DHIST": "dhga",    "DINFE": "upi",
-    "DIQUI": "deq",     "DLSIN": "dlsi",    "DMATE": "dmat",
-    "DMEDI": "upm",     "DPDID": "dpdcsll", "DPSIB": "dpbcp",
-    "DPSIE": "dpeesm",  "DQFIA": "dqfa",    "DQUIO": "dqio",
-    "DTRAD": "dtc",
-}
-
-# 1G010/9G082: subcentros en lista, prefijo de aplicación → actividad
-_OTROS_SERVICIOS_PREFIJOS: dict[str, str] = {
-    "21":   "dag-otros-servicios-tributos",
-    "221":  "dag-otros-servicios-arrendamiento-bienes",
-    "222":  "dag-otros-servicios-reparación-conservación",
-    "223":  "dag-otros-servicios-suministros",
-    "224":  "dag-otros-servicios-transportes-comunicaciones",
-    "225":  "dag-otros-servicios-trabajos-realizados-otras-empresas",
-    "226":  "dag-otros-servicios-primas-seguros",
-    "227":  "dag-otros-servicios-material-oficina",
-    "228":  "dag-otros-servicios-gastos-diversos",
-    "23":   "dag-otros-servicios-indemnizaciones-razón-servicio",
-    "3":    "dag-otros-servicios-gastos-financieros",
-    "6711": "dag-otros-servicios-adquisiciones-bibliográficas",
-}
-
-_OTROS_SERVICIOS_SUBCENTROS: list[str] = [
+_GASTOS_GENERALES_SERVICIOS_SUBCENTROS: list[str] = [
     "CP", "P3", "OL", "F3", "GA", "I2", "F2", "S9", "OC", "L2", "GI", "DI", "R9",
 ]
 
-# R48: SC001 — prefijo de aplicación → actividad
+# R48: SC001 — prefijo de aplicación → actividad (spec §2740,
+# regla «Gastos generales desde gerencia o servicios centrales»).
 _SC001_PREFIJOS: dict[str, str] = {
-    "221": "dag-sgc-tributos",
-    "222": "dag-sgc-arrendamiento-bienes",
-    "223": "dag-sgc-reparación-conservación",
-    "224": "dag-sgc-suministros",
-    "225": "dag-sgc-transportes-comunicaciones",
-    "226": "dag-sgc-trabajos-realizados-otras-empresas",
-    "227": "dag-sgc-primas-seguros",
-    "228": "dag-sgc-material-oficina",
-    "3": "dag-sgc-gastos-diversos",
-    "6711": "dag-sgc-gastos-financieros",
-    "23": "dag-org-gerencia",
-    "21": "dag-org-gerencia-indemnizaciones-razón-servicio",
+    "21": "dag-sgc-tributos",
+    "221": "dag-sgc-arrendamiento-bienes",
+    "222": "dag-sgc-reparación-conservación",
+    "223": "dag-sgc-suministros",
+    "224": "dag-sgc-transportes-comunicaciones",
+    "225": "dag-sgc-trabajos-realizados-otras-empresas",
+    "226": "dag-sgc-primas-seguros",
+    "227": "dag-sgc-material-oficina",
+    "228": "dag-sgc-gastos-diversos",
+    "3": "dag-sgc-gastos-financieros",
+    "6711": "dag-sgc-adquisiciones-bibliográficas",
+    "23": "dag-sgc",
 }
 
 # R49: centro → actividad (00G, proyecto=00000, capítulo≠4)
@@ -752,9 +726,9 @@ def _reglas_actividad(
          cap_ne_4 & (tp == "20G") & (subcentro == "EMP") & (tl != "00"),
          pl.lit("ait-financiación-externa")),
 
-        ("[Tesis Doctorales] 07G → dag-doctorado",
-         cap_ne_4 & (tp == "07G"),
-         pl.lit("dag-doctorado")),
+        ("[Tratamiento específico del doctorado] 07G/DOCT → dag-escuela-doctorado",
+         cap_ne_4 & ((tp == "07G") | (tp == "DOCT")),
+         pl.lit("dag-escuela-doctorado")),
 
         ("[Formación permanente] EPM → +=másteres-formación-permanente",
          cap_ne_4 & (tp == "EPM"),
@@ -796,13 +770,13 @@ def _reglas_actividad(
          cap_ne_4 & (tp == "OAD") & (subcentro != "UMAJ"),
          pl.lit("otros-docencia-propia")),
 
-        ("[Sin proyectos] OAT, tl=00 → ai-financiación-propia",
+        ("[Otras actividades de transferencia] OAT, tl=00 → +=ai-financiación-propia",
          cap_ne_4 & (tp == "OAT") & (tl == "00"),
-         pl.lit("ai-financiación-propia")),
+         pl.lit("+=ai-financiación-propia")),
 
-        ("[Sin proyectos] OAT, tl≠00 → ait-financiación-externa",
+        ("[Otras actividades de transferencia] OAT, tl≠00 → +=ait-financiación-externa",
          cap_ne_4 & (tp == "OAT") & (tl != "00"),
-         pl.lit("ait-financiación-externa")),
+         pl.lit("+=ait-financiación-externa")),
 
         ("DEP → deportes",
          cap_ne_4 & (tp == "DEP"),
@@ -936,14 +910,15 @@ def _reglas_actividad(
             pl.lit(act),
         ))
 
-    # 1G010/9G082, subcentro en lista: prefijo → dag-otros-servicios-*
-    base_otros_servicios = (
+    # Regla §2847 «Gastos generales desde servicios»: 1G010/9G082 +
+    # subcentro en la lista → `dag-sgc-*` según aplicación.
+    base_gg_servicios = (
         cap_ne_4
         & pl.col("proyecto").is_in(["1G010", "9G082"])
-        & subcentro.is_in(_OTROS_SERVICIOS_SUBCENTROS)
+        & subcentro.is_in(_GASTOS_GENERALES_SERVICIOS_SUBCENTROS)
     )
     for prefijo, act in sorted(
-        _OTROS_SERVICIOS_PREFIJOS.items(), key=lambda kv: -len(kv[0])
+        _GASTOS_GENERALES_SERVICIOS_PREFIJOS.items(), key=lambda kv: -len(kv[0])
     ):
         match = (
             pl.col("aplicación") == prefijo
@@ -951,37 +926,28 @@ def _reglas_actividad(
             else pl.col("aplicación").str.starts_with(prefijo)
         )
         reglas.append((
-            f"1G010/9G082, sub→otros-servicios: {prefijo} → {act}",
-            base_otros_servicios & match,
+            f"[Gastos generales desde servicios] 1G010/9G082, sub∈lista: {prefijo} → {act}",
+            base_gg_servicios & match,
             pl.lit(act),
         ))
 
-    # 8G022, departamento: prefijo → dag-{depto}-{sufijo}
-    base_8g022 = (
+    # Regla §2873 «Departamentos» — proyecto 8G022
+    # (MANTENIMENT D'EQUIPS D'INVESTIGACIÓ): la actividad es
+    # `dag-{departamento}` traduciendo el centro con
+    # TABLA-TRADUCCIÓN-DEPARTAMENTOS. No se baja a más detalle (no se
+    # añade el sufijo de aplicación) porque el elemento de coste
+    # —siempre `conservación-instalaciones` para 8G022— ya da esa
+    # granularidad.
+    reglas.append((
+        "[Departamentos] 8G022, depto → dag-DEPARTAMENTO",
         cap_ne_4
         & (pl.col("proyecto") == "8G022")
-        & centro.is_in(list(_CENTRO_DEPTO_SLUG_8G022.keys()))
-    )
-    for prefijo, sufijo in sorted(
-        _8G022_SUFIJOS.items(), key=lambda kv: -len(kv[0])
-    ):
-        match = (
-            pl.col("aplicación") == prefijo
-            if len(prefijo) == 4
-            else pl.col("aplicación").str.starts_with(prefijo)
-        )
-        reglas.append((
-            f"8G022, depto: {prefijo} → dag-DEPTO-{sufijo}",
-            base_8g022 & match,
-            pl.concat_str([
-                pl.lit("dag-"),
-                centro.replace(
-                    list(_CENTRO_DEPTO_SLUG_8G022.keys()),
-                    list(_CENTRO_DEPTO_SLUG_8G022.values()),
-                ),
-                pl.lit(f"-{sufijo}"),
-            ]),
-        ))
+        & centro.is_in(list(_CENTRO_DEPTOS.keys())),
+        centro.replace(
+            list(_CENTRO_DEPTOS.keys()),
+            list(_CENTRO_DEPTOS.values()),
+        ),
+    ))
 
     # =============================================================
     # Aplicar reglas secuencialmente con conteo e importe

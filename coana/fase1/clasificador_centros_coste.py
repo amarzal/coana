@@ -144,6 +144,12 @@ _CC_GENÉRICO: dict[str, str] = {
     "VRI": "vri",
     "VRSPII": "vrspii",
     "INVES": "otros-investigación",
+    # SC001 fuera de la distribución OTOP: gasto de la organización
+    # que se imputa al centro `UJI` (raíz organizativa; identificador
+    # en mayúsculas porque es el único nodo «especial»). Spec §2740 da
+    # la actividad; el centro es `UJI` para que se reparta downstream
+    # entre todos los centros en la proporción que les toque.
+    "SC001": "UJI",
 }
 
 # Aplicaciones de suministros centrales que se distribuyen por centro de coste

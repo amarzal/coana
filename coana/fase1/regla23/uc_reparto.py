@@ -29,6 +29,15 @@ import polars as pl
 from coana.util import read_excel
 
 
+# Concepto retributivo de los incentivos / productividad anual («OTVARS»),
+# que se abona en marzo por el ejercicio anterior. Cuando es la única
+# retribución variable del año (V) y la persona no tiene dedicación
+# detectable, asumimos que es un cobro residual de alguien que ya no está
+# en activo y lo imputamos a (UJI, UJI) en vez de (pendiente, pendiente).
+_CR_INCENTIVOS_AÑO_ANTERIOR = "67"
+_MES_INCENTIVOS = 3
+
+
 def generar_uc_reparto_regla_23(
     ruta_base: Path,
     año: int = 2025,
@@ -178,23 +187,52 @@ def generar_uc_reparto_regla_23(
 
     # Personas con masa pero sin dedicación → fallback a (pendiente,
     # pendiente) con peso 1 (toda la masa de la persona a esa única
-    # fila) para no perder importe del coste analítico.
+    # fila) para no perder importe del coste analítico. Para personas
+    # cuyo perfil retributivo encaja con «PDI cesado/fallecido cobrando
+    # incentivos del año anterior» (única retribución variable en marzo,
+    # concepto retributivo 67 y, opcionalmente, atrasos posteriores) se
+    # imputan a (UJI, UJI) en vez de (pendiente, pendiente).
     sin_ded = masa_pp.join(
         totales.select("per_id"), on="per_id", how="anti",
     )
     if not sin_ded.is_empty():
-        imp_huérf = float(sin_ded["importe_ec"].sum())
-        n_personas = sin_ded["per_id"].n_unique()
-        print(
-            f"    ⚠ {n_personas:,} personas con masa regla 23 sin "
-            f"dedicación calculada ({imp_huérf:,.2f} €) — repartido a "
-            f"(actividad=pendiente, centro=pendiente)."
+        incentivos_residuales = _detecta_incentivos_residuales(
+            masa, sin_ded.select("per_id").unique(),
         )
+        sin_ded = sin_ded.join(incentivos_residuales, on="per_id", how="left")
+        sin_ded = sin_ded.with_columns(
+            pl.col("_es_incentivos_residuales").fill_null(False)
+        )
+        n_uji = sin_ded.filter(pl.col("_es_incentivos_residuales"))["per_id"].n_unique()
+        n_pendientes = sin_ded.filter(~pl.col("_es_incentivos_residuales"))["per_id"].n_unique()
+        imp_pend = float(
+            sin_ded.filter(~pl.col("_es_incentivos_residuales"))["importe_ec"].sum()
+        )
+        imp_uji = float(
+            sin_ded.filter(pl.col("_es_incentivos_residuales"))["importe_ec"].sum()
+        )
+        if n_pendientes > 0:
+            print(
+                f"    ⚠ {n_pendientes:,} personas con masa regla 23 sin "
+                f"dedicación calculada ({imp_pend:,.2f} €) — repartido a "
+                f"(actividad=pendiente, centro=pendiente)."
+            )
+        if n_uji > 0:
+            print(
+                f"    ℹ {n_uji:,} personas con masa regla 23 sin "
+                f"dedicación pero con perfil de incentivos residuales "
+                f"({imp_uji:,.2f} €) — repartido a (UJI, UJI)."
+            )
         sin_ded_uc = sin_ded.select(
             "per_id", "expediente", "_ec", "importe_ec",
-        ).with_columns(
-            pl.lit("pendiente").alias("actividad"),
-            pl.lit("pendiente").alias("centro_de_coste"),
+            pl.when(pl.col("_es_incentivos_residuales"))
+              .then(pl.lit("UJI"))
+              .otherwise(pl.lit("pendiente"))
+              .alias("actividad"),
+            pl.when(pl.col("_es_incentivos_residuales"))
+              .then(pl.lit("UJI"))
+              .otherwise(pl.lit("pendiente"))
+              .alias("centro_de_coste"),
             pl.lit(1.0).alias("peso"),
         )
     else:
@@ -245,6 +283,53 @@ def generar_uc_reparto_regla_23(
     dir_out.mkdir(parents=True, exist_ok=True)
     uc_out.write_parquet(dir_out / "uc_reparto_regla_23.parquet")
     return uc_out
+
+
+def _detecta_incentivos_residuales(
+    masa: pl.DataFrame, personas: pl.DataFrame,
+) -> pl.DataFrame:
+    """Marca personas cuyo perfil retributivo es «solo incentivos del año
+    anterior». Criterio sobre la *masa regla 23* del año:
+
+    - Tiene al menos una línea con #campo("tipo_coste") = #val("V")
+      (retribución variable propia del ejercicio).
+    - Esa retribución variable está concentrada en marzo y el único
+      #campo("concepto_retributivo") variable es #val("67") (OTVARS
+      / incentivos del ejercicio anterior).
+
+    Las atrasos (#campo("tipo_coste") = #val("I")) no cuentan: pueden
+    estar o no, y en cualquier mes.
+
+    Devuelve un DataFrame con (#campo("per_id"),
+    #campo("_es_incentivos_residuales") = #val("True")). Sólo incluye
+    filas marcadas, para que el `join` sea económico.
+    """
+    if personas.is_empty() or masa.is_empty():
+        return pl.DataFrame(schema={
+            "per_id": pl.Int64,
+            "_es_incentivos_residuales": pl.Boolean,
+        })
+    n_v = masa.filter(pl.col("tipo_coste") == "V")
+    if n_v.is_empty():
+        return pl.DataFrame(schema={
+            "per_id": pl.Int64,
+            "_es_incentivos_residuales": pl.Boolean,
+        })
+    perfil_v = (
+        n_v.group_by("per_id")
+        .agg(
+            pl.col("fecha").dt.month().unique().sort().alias("_meses_V"),
+            pl.col("concepto_retributivo").cast(pl.Utf8).unique().sort().alias("_crs_V"),
+        )
+    )
+    marcadas = perfil_v.filter(
+        (pl.col("_meses_V") == pl.lit([_MES_INCENTIVOS]))
+        & (pl.col("_crs_V") == pl.lit([_CR_INCENTIVOS_AÑO_ANTERIOR]))
+    ).join(personas, on="per_id", how="inner").select(
+        "per_id",
+        pl.lit(True).alias("_es_incentivos_residuales"),
+    )
+    return marcadas
 
 
 def _esquema_vacío() -> pl.DataFrame:

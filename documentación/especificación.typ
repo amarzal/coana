@@ -55,7 +55,12 @@ A lo largo del documento usamos un vocabulario específico que es importante fij
 
 / Sexenio vivo: : Sexenio de investigación cuya #campo("fecha_fin_sexenio") está a menos de #campo("sexenio_vivo_años") (6) años del fin del año analizado. Indica que la persona tiene actividad investigadora reciente acreditada. Es un dato informativo: en el reparto de la regla 23, como docencia y gestión son rígidas, el sobrante siempre va a investigación, así que no entra en el cálculo.
 
-/ Profesor asociado: : PDI con categoría de plaza entre las listadas en #campo("categorías_asociado_plaza") (#val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("36"), #val("44"), #val("46")). Recibe tratamiento especial en la regla 23: toda su jornada (#val("1 642 h")) se imputa a docencia, sin gestión ni investigación.
+/ Figura puramente docente: : PDI cuyo rol contractual es exclusivamente la docencia, sin dedicación estructural a investigación ni a gestión. Incluye dos colectivos:
+
+  - *Professors associats* (PAA, PAL y variantes): contratos a tiempo parcial con dedicación docente acotada.
+  - *Professors substituts* (PS): contratos temporales para cubrir bajas docentes.
+
+  Se identifican porque la categoría de plaza vigente en el año está en #campo("categorías_docencia_pura_plaza") (#val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("32"), #val("36"), #val("44"), #val("46")). Reciben tratamiento especial en la regla 23: toda su jornada anual (#val("1 642 h")) se imputa a docencia, sin gestión ni investigación. La columna #campo("es_asociado") de #ruta("regla23", "dedicación_pdi_normalizada.parquet") marca a estas personas (el nombre se conserva por compatibilidad; semánticamente significa «figura puramente docente»).
 
 / Retribuciones «extra» o «extras»: : Líneas de nómina en proyecto NO general (es decir, fuera de TABLA-PROYECTOS-GENERALES-NÓMINA), o líneas con conceptos retributivos especiales (CR 19/64 que no quepan en el reparto de cargos, CR 47 de despidos en proyecto específico, etc.). Generan UC línea a línea (clasificadas por los módulos de actividad y centro), en contraposición a la masa regla 23 que se reparte por horas.
 
@@ -351,7 +356,7 @@ Las constantes están agrupadas conceptualmente:
     [*Grupos de investigación*], [#campo("grupos_horas_coordinador_semana")],
     [*Seguridad social calculada*],
     [#campo("ss_base_máxima") · #campo("ss_tipo_contingencias_comunes") · #campo("ss_tipo_reducción_cc_trabajador") · #campo("ss_tipo_mei") · #campo("ss_tipo_formación_profesional") · #campo("ss_cuota_solidaridad_factor_tramo1") · #campo("ss_cuota_solidaridad_factor_tramo2") · #campo("ss_cuota_solidaridad_tipo_tramo1") · #campo("ss_cuota_solidaridad_tipo_tramo2") · #campo("ss_cuota_solidaridad_tipo_tramo3")],
-    [*Categorías*], [#campo("categorías_asociado_plaza") · #campo("categorías_pdi_funcionario")],
+    [*Categorías*], [#campo("categorías_docencia_pura_plaza") · #campo("categorías_pdi_funcionario")],
     [*Proyectos generales*], [#campo("proyectos_generales_nómina") · #campo("proyectos_generales_cargos")],
     [*Cargos académicos*], [#campo("pagas_extra_cargo")],
     table.hline(),
@@ -1356,7 +1361,7 @@ El programa trabaja secuencialmente en dos fases. Cada fase tiene una serie de e
 
 - *Fase 1*: generación de unidades de coste a partir de los datos de entrada. El orquestador (#campo("coana.fase1.ejecutar")) ejecuta las etapas en este orden:
     + *Inventario y superficies* — enriquece el inventario, calcula las matrices de presencia por centro y prepara la distribución de superficies necesaria para suministros y amortizaciones.
-    + *Enriquecimiento del árbol de centros de coste con los grupos de investigación* — añade un nodo por grupo de #ruta("entrada", "investigación", "grupos a institutos.xlsx") bajo su instituto o bajo el nodo virtual #etqcen("inves").
+    + *Enriquecimiento del árbol de centros de coste con los grupos de investigación* — añade un nodo por grupo de #ruta("entrada", "investigación", "grupos a institutos.xlsx") bajo su instituto o bajo el nodo virtual #etqcen("inves"). Además, siempre crea bajo #etqcen("inves") el centro virtual #etqcen("no-adscritos-a-grupo-de-investigación"), que absorbe el coste del PDI con horas repercutidas a investigación pero sin grupo adscrito.
     + *Presupuesto* — filtra los apuntes presupuestarios de gasto, aplica las reglas de clasificación de elementos de coste, centros de coste y actividades, y produce las UC presupuestarias.
     + *Suministros (energía, agua, gas)* — reparte el coste de los apuntes especiales de SC001 entre los centros con presencia en cada zona/edificio/complejo.
     + *Amortizaciones* — calcula la amortización anual de los bienes inventariables vivos y los reparte entre centros de coste según presencia.
@@ -2608,6 +2613,9 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         - y #campo("tipo de línea de financiación") es #val("00"), la actividad es #etqact("ait-financiación-propia")
         - en otro caso, la actividad es #etqact("ait-financiación-externa")
 
+    - #nombre-regla[Tratamiento específico del doctorado]
+        - y #campo("tipo de proyecto") es #val("DOCT") (proyectos doctorado) o #val("07G"), la actividad es #etqact("dag-escuela-doctorado")
+
     - #nombre-regla[Formación permanente]
         en los siguientes casos, el #campo("tipo de proyecto") determina la actividad sumando el proyecto:
 
@@ -2617,7 +2625,6 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
 
             table.header(table.hline(), campo("tipo de proyecto"), [actividad], table.hline()),
             table.hline(),
-            val("07G"), [#etqact("doctorado") + #campo("proyecto")],
             val("EPM"), [#etqact("másteres-formación-permanente") + #campo("proyecto")],
             val("EPDE"), [#etqact("diplomas-especialización") + #campo("proyecto")],
             val("EPDEX"), [#etqact("diplomas-experto") + #campo("proyecto")],
@@ -2637,10 +2644,9 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         - en otro caso, la actividad es #etqact("otros-docencia-propia")
 
     - #nombre-regla[Otras actividades de transferencia]
-        y #campo("tipo de proyecto") es #val("OAT"),
-
-        - y #campo("tipo de línea de financiación") es #val("00"), la actividad es #etqact("ait-financiación-propia")
-        - en otro caso, la actividad es #etqact("ait-financiación-externa")
+        - y #campo("tipo de proyecto") es #val("OAT")
+            - y #campo("tipo de línea de financiación") es #val("00"), la actividad es #etqact("ait-financiación-propia") + #campo("proyecto")
+            - en otro caso, la actividad es #etqact("ait-financiación-externa") + #campo("proyecto")
 
     - #nombre-regla[Otras actividades de extensión universitaria]
         y #campo("tipo de proyecto") es #val("15G"),
@@ -2870,7 +2876,7 @@ Sean los #campo("subcentro") de vicerrectorados: #val("VA"), #val("VCL"), #val("
         ))
 
     - #nombre-regla[Departamentos]
-        y #campo("proyecto") es #val("8G022") (MANTENIMENT D'EQUIPS D'INVESTIGACIÓ), la actividad es #etq("dag-DEPARTAMENTO") usando la TABLA-TRADUCCIÓN-DEPARTAMENTOS.
+        y #campo("proyecto") es #val("8G022") (MANTENIMENT D'EQUIPS D'INVESTIGACIÓ), la actividad es #etq("dag-DEPARTAMENTO") usando la TABLA-TRADUCCIÓN-DEPARTAMENTOS. No se baja a más detalle (no se añade el sufijo de aplicación) porque el elemento de coste, que aquí siempre es #etqele("conservación-instalaciones"), ya aporta esa granularidad.
 
 ]
 
@@ -3121,6 +3127,11 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             [4167], [Unitat d'Encàrrecs, Convenis i  Subvencions], [#etqcen("gencisub")], [#etqact("dag-gencisub")],
             [2822], [Unitat d'Igualtat], [#etqcen("ui")], [#etqact("dag-otros-servicios-promoción-fomento-igualdad")],
             [218], [Servei d'Informàtica], [#etqcen("uiic")], [#etqact("dag-otros-servicios-ti")],
+            [4667],
+            [Unitat d'Infraestructures Informàtiques de Campus],
+            [#etqcen("uiic")],
+            [#etqact("dag-otros-servicios-ti")],
+
             [4487], [Unitat d'Orientació], [#etqcen("uo")], [#etqact("dag-uo")],
             [4687],
             [Unitat de Dinamització i Participació de l'Estudiantat i Associacions],
@@ -3373,9 +3384,13 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
             val("VPEE/%"), etqcen("vpee"),
             val("VRI/%"), etqcen("vri"),
             val("VRSPII/%"), etqcen("vrspii"),
+            val("SC001/%"), etqcen("UJI"),
 
             table.hline(),
         ))
+
+    - #nombre-regla[Servicios centrales como coste de la organización]
+        Los apuntes con #campo("centro") = #val("SC001") que NO entren en la distribución OTOP (aplicaciones distintas de #val("2251"), #val("2252"), #val("2222"), #val("2223") y #val("2225")) son gasto de la organización en su conjunto y se imputan al centro raíz #etqcen("UJI"). Desde ahí se reparten downstream entre los centros productivos en la proporción que les toque.
 
 ]
 
@@ -4214,7 +4229,7 @@ donde $c_"sind"$ son los créditos sindicales (suma de los tipos 37-40 en #ruta(
 - Se emite una fila en #ruta("regla23", "dedicación_pdi_normalizada.parquet") con actividad #etqact("acción-sindical"), centro #etqcen("locales-sindicales") y $#campo("horas_finales") = f_"sind" times "JORNADA_ANUAL_PDI"$, de modo que la suma de #campo("horas_finales") de la persona sigue siendo la jornada anual completa.
 - La masa regla 23 se reparte en proporción a #campo("horas_finales"); al ser la fila sindical un peso más, la fracción correspondiente de la masa se imputa automáticamente a #etqact("acción-sindical") / #etqcen("locales-sindicales").
 
-*Profesores asociados.* Para un profesor asociado la regla 23 no reparte entre grupos: toda su jornada va a docencia. Si además es representante sindical, la fracción sindical se separa igual y el resto, $(1 - f_"sind") times "JORNADA_ANUAL_PDI"$, va íntegro a docencia (sin gestión ni investigación).
+*Figuras puramente docentes (associats y substituts).* Para un professor associat (PAA/PAL) o substitut (PS) la regla 23 no reparte entre grupos: toda su jornada va a docencia. Si además es representante sindical, la fracción sindical se separa igual y el resto, $(1 - f_"sind") times "JORNADA_ANUAL_PDI"$, va íntegro a docencia (sin gestión ni investigación).
 
 *Prioridad de la reducción sindical.* El sindicato manda: la fracción sindical se descuenta primero y lo que queda, $T = X_"persona" times "JORNADA_ANUAL_PDI"$, es la jornada que reparte la regla 23. De ahí dos casos:
 
@@ -4627,7 +4642,33 @@ El criterio se aplica fila a fila:
             - *PVI*: `piyotper-pid-cargos`. Para PVI el campo de categoría no determina por sí solo el XXX (haría falta cruzar perceptor + provisión, lo que añadiría complejidad sin ganancia: los cargos de PVI son muy infrecuentes), así que se usa por defecto `pid` (personal investigador docente).
             - Otros sectores: no aplica (los cargos académicos solo existen en PDI y PVI).
 
-            *Centro de coste y actividad*: campos #campo("centro") y #campo("actividad") de la fila del cargo en #ruta("cargos.xlsx"). Cuando estos campos contengan patrones (en lugar de etiquetas concretas del árbol), se resolverán siguiendo reglas que se definirán en una sección aparte. #nota[Reglas de resolución de patrones de actividad y centro pendientes de definir.]
+            *Centro de coste y actividad*: campos #campo("centro") y #campo("actividad") de la fila del cargo en #ruta("cargos.xlsx"). Pueden contener etiquetas literales del árbol (p. ej. #etqcen("secretaría-general"), #etqact("dag-secretaría-general")) o patrones que se resuelven en tiempo de ejecución a partir de la fila correspondiente de #ruta("personas cargos.xlsx") y de los catálogos auxiliares. Los patrones reconocidos son:
+
+            #table(
+                columns: (auto, 1fr),
+                stroke: 0.5pt + luma(80%),
+                inset: 5pt,
+                table.header([*Patrón*], [*Resolución*]),
+                val("SERVICIO"),
+                [Se sustituye por el centro de coste del #campo("servicio") de la fila vía #ruta("entrada", "inventario", "servicios.xlsx"). Si la actividad tiene #val("dag-SERVICIO"), el resultado es #val("dag-{centro}") (ya que la actividad del servicio en el catálogo es siempre #val("dag-{slug}")).],
+                val("CENTROTITULACION"),
+                [Se sustituye por el centro de coste de la #campo("titulación") de la fila vía #ruta("entrada", "docencia", "titulaciones actividad centro.xlsx"). Aplica en ambos campos (actividad y centro).],
+                val("TITULACIÓN"),
+                [Se sustituye por la actividad propia de la #campo("titulación") en el mismo catálogo (p. ej. #etqact("grado-derecho")).],
+            )
+
+            *Propagación entre periodos.* `personas cargos.xlsx` lleva una fila por curso académico. Es habitual que el periodo activo no tenga #campo("servicio")/#campo("titulación") informados y los anteriores sí (o viceversa). Antes de aplicar el resolver — y antes incluso de filtrar por periodo de cobro, para que se aproveche también el histórico cerrado del mismo cargo — los nulos se rellenan con la *moda* del grupo (#campo("per_id"), #campo("cargo")): el valor más frecuente entre las filas no nulas. La moda es más robusta que «primer no nulo» cuando convive un código antiguo (de un plan de estudios extinguido) con muchas filas modernas del código vigente.
+
+            *Fallback cruzado.* Si tras la resolución por titulación los patrones #val("CENTROTITULACION") o #val("TITULACIÓN") siguen presentes (porque la titulación no está informada en ese cargo), se reintenta con el #campo("servicio") y su mapeo en #ruta("servicios.xlsx"). Cubre los cargos asociados al centro y no a una titulación concreta — vicedecanos «de centro», directores de departamento, etc.
+
+            *Overrides hiper-específicos.* Como última red de seguridad para casos en que ni titulación ni servicio están informados ni se pueden inferir del histórico, hay dos tablas en #campo("coana/fase1/cargos.py"):
+
+            - `_OVERRIDES_TITULACION_CARGO: (per_id, cargo) → titulación`. Se inyecta *antes* de la propagación, así que tiene prioridad sobre el histórico (útil cuando el histórico apunta a otra titulación distinta de la que la persona coordina ahora). A partir de ahí el resolver actúa con normalidad y produce actividad+centro vía #ruta("titulaciones actividad centro.xlsx").
+            - `_OVERRIDES_CENTRO_CARGO: (per_id, cargo) → centro`. Es la última red: si tras todo lo anterior siguen presentes #val("SERVICIO") o #val("CENTROTITULACION"), se sustituyen por este centro. Aplica también cuando el cargo no es de docencia (p. ej. una vicedecana que opera «de centro» sin coordinar titulación, o una subdirectora de calidad adscrita a un centro que no concuerda con el servicio académico de la persona).
+
+            Si tras todos los pasos persiste algún patrón en mayúsculas, la UC se marca con la anomalía #val("patrón sin resolver (servicio/titulación faltante)") y se muestra en la #app para depuración manual.
+
+            *Resumen del orden de resolución* (de mayor a menor prioridad): (1) override de titulación, (2) propagación por moda, (3) resolver de patrones con titulación/servicio según catálogos, (4) fallback cruzado titulación↔servicio, (5) override de centro.
 
             *Cargos vigentes sin periodo de cobro* (cargos no remunerados, como direcciones de cátedras no retribuidas): aparecen en la #app como informativos pero no entran al reparto.
 
@@ -4826,7 +4867,7 @@ El #campo("origen") es #val("proyecto") y el #campo("origen_id") es el proyecto 
 
 Los nodos `{actividad_base}-XXX` o `transf-60-XXX` se insertan dinámicamente en el árbol de actividades como hijos de su actividad base.
 
-El *centro de coste* ha de ser el del grupo de investigación al que está adscrita la persona. Si la persona está en N grupos activos en el año, las horas se reparten proporcionalmente a los días activos en cada grupo (una fila por grupo). Si la persona no está en ningún grupo, se emite la fila con `centro_de_coste = pendiente` y anomalía `persona sin grupo de investigación activo en el año`. Si el anexo no casa con ninguna regla, la fila se emite con `actividad = pendiente` y anomalía con el `codex`.
+El *centro de coste* ha de ser el del grupo de investigación al que está adscrita la persona. Si la persona está en N grupos activos en el año, las horas se reparten proporcionalmente a los días activos en cada grupo (una fila por grupo). Si la persona no está en ningún grupo, se emite la fila con #campo("centro_de_coste") = #etqcen("no-adscritos-a-grupo-de-investigación") y anomalía `persona sin grupo de investigación activo en el año`. Si el anexo no casa con ninguna regla, la fila se emite con `actividad = pendiente` y anomalía con el `codex`.
 
 En la #app, muestra para cada `per_id` su participación en proyectos y contratos.
 
@@ -4884,7 +4925,7 @@ Una vez completada la tabla #campo("dedicación_pdi"), un módulo final (#campo(
 
 *Horas efectivas iniciales por grupo.* Para cada persona se calculan, a partir de #campo("dedicación_pdi"), las horas efectivas (#campo("horas") $times$ #campo("factor")) agregadas en cuatro grupos: $H_"DO"$ (docencia oficial), $H_"DNO"$ (docencia no oficial), $H_G$ (gestión, ya prorrateada por el cargador de cargos) y $H_I$ (investigación + transferencia). No hay $H_E$ (extensión) en la UJI: si en el futuro se incorporan registros de extensión, se sumarán a docencia para el reparto.
 
-*Caso especial: profesor asociado.* Si la categoría de plaza vigente en el año está entre las once asociadas a profesor asociado (códigos #val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("36"), #val("44"), #val("46") en #ruta("entrada", "nóminas", "categorías plazas.xlsx")), la jornada $T$ entera se imputa a sus actividades docentes proporcionalmente a las horas iniciales efectivas. No hay gestión ni investigación.
+*Caso especial: figuras puramente docentes (associats y substituts).* Si la categoría de plaza vigente en el año está entre las listadas en #campo("categorías_docencia_pura_plaza") (códigos #val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("32"), #val("36"), #val("44"), #val("46") en #ruta("entrada", "nóminas", "categorías plazas.xlsx")), la jornada $T$ entera se imputa a sus actividades docentes proporcionalmente a las horas iniciales efectivas. No hay gestión ni investigación. Esto incluye dos colectivos con tratamiento idéntico: los #emph[professors associats] (PAA, PAL y variantes) y los #emph[professors substituts] (PS), ambos contractualmente docentes y sin obligación de investigar.
 
 *Caso general — reparto en cascada.* Para el resto del PDI la jornada $T$ se reparte por *prioridad estricta*: primero docencia, luego gestión, y la investigación absorbe lo que quede. *Docencia y gestión son rígidas*: se respetan tal cual si caben y se recortan si no, pero *nunca se inflan*. La investigación es elástica: se contrae si su valor inicial no cabe en el hueco disponible, o absorbe las horas no distribuidas si cabe.
 
@@ -4892,7 +4933,7 @@ Una vez completada la tabla #campo("dedicación_pdi"), un módulo final (#campo(
 + *Gestión.* $H_G^"def" = min(H_G, T - H_"D"^"def")$, sobre lo que quede tras la docencia.
 + *Investigación.* $H_I^"def" = T - H_"D"^"def" - H_G^"def"$ (el hueco que queda). Si la $H_I$ inicial superaba el hueco, queda contraída a él; si era menor, las horas no distribuidas se imputan a investigación (todo PDI investiga por defecto).
 
-Por construcción, docencia + gestión + investigación suman siempre exactamente $T$. Si la docencia y la gestión iniciales no caben en $T$, la gestión —o, en el límite, la propia docencia— se recorta y se marca la anomalía #val("docencia + gestión superan la jornada disponible"). Si a la persona le corresponden horas de investigación y no tiene ninguna fila de ese grupo, se sintetiza una con actividad #etqact("ai") (umbrella) y el centro de su grupo principal (o #val("pendiente") si no se conoce).
+Por construcción, docencia + gestión + investigación suman siempre exactamente $T$. Si la docencia y la gestión iniciales no caben en $T$, la gestión —o, en el límite, la propia docencia— se recorta y se marca la anomalía #val("docencia + gestión superan la jornada disponible"). Si a la persona le corresponden horas de investigación y no tiene ninguna fila de ese grupo, se sintetiza una con actividad #etqact("ai") (umbrella) y el centro de su grupo principal; si la persona no está adscrita a ningún grupo de investigación, ese centro es #etqcen("no-adscritos-a-grupo-de-investigación") (un nodo virtual hijo de #etqcen("inves") que se crea siempre en el árbol de centros de coste).
 
 El #campo("sexenio_vivo") (último sexenio finalizado en los últimos seis años) se conserva como dato informativo de la persona pero *no afecta al reparto*: como docencia y gestión son rígidas, las horas no distribuidas solo pueden ir a investigación.
 
@@ -4912,6 +4953,14 @@ El módulo #campo("uc_reparto.py") (#ruta("coana", "fase1", "regla23", "uc_repar
 + Para cada (per_id, elemento_de_coste) se distribuye el importe entre los pares (#campo("actividad"), #campo("centro_de_coste")) de la persona con peso #emph[horas_finales] / Σ #emph[horas_finales] (esto es, equivalente al #emph[% de jornada] que devuelve la #app). Cada combinación (per_id, ec, actividad, centro) genera una unidad de coste con origen #val("regla_23") y origen_id codificando los cuatro campos.
 
 Las personas con masa regla 23 pero sin ninguna fila en #campo("dedicación_pdi_normalizada") (PDI/PVI sin POD, tesis, cargos ni proyectos en el año) reciben su masa íntegra en una UC con #etqact("pendiente") / #etqcen("pendiente") y aparecen reportadas como aviso en la salida de fase 1.
+
+Hay un caso especial sistemático: el PDI fallecido o cesado que cobra en el año en curso únicamente los #emph[incentivos] devengados el año anterior (más, eventualmente, algún atraso). Su perfil retributivo en la masa regla 23 es:
+
+- Al menos una línea con #campo("tipo_coste") = #val("V") (retribución variable propia del ejercicio).
+- Esa retribución variable está concentrada exclusivamente en el mes de marzo y con un único #campo("concepto_retributivo") = #val("67") (OTVARS / incentivos del ejercicio anterior).
+- Las atrasos (#campo("tipo_coste") = #val("I")) pueden estar o no estar y en cualquier mes; no cuentan a estos efectos.
+
+A esas personas, en vez de imputarles la masa a (#etqcen("pendiente"), #etqact("pendiente")), se les imputa a (#etqcen("UJI"), #etqact("UJI")): el coste se reconoce como gasto general de la institución, no atribuible ya a ninguna actividad concreta (la actividad sucedió el año anterior). La detección automática se hace en #campo("_detecta_incentivos_residuales") y los parámetros (mes y concepto retributivo) son las constantes #campo("_MES_INCENTIVOS") y #campo("_CR_INCENTIVOS_AÑO_ANTERIOR") en #ruta("coana", "fase1", "regla23", "uc_reparto.py").
 
 La salida es #ruta("fase1", "regla23", "uc_reparto_regla_23.parquet") con esquema UC estándar (#campo("id"), #campo("elemento_de_coste"), #campo("centro_de_coste"), #campo("actividad"), #campo("importe"), #campo("origen") = #val("regla_23"), #campo("origen_id"), #campo("origen_porción")) más una columna adicional #campo("per_id") para trazabilidad. Estas UC se incorporan al combinado de fase 1 y bajan a la fase 2 como cualquier otra UC retributiva.
 
@@ -5671,7 +5720,7 @@ Igual que el anterior, sin #campo("horas"), #campo("método") ni #campo("factor"
     [#campo("horas_finales")],
     [Float64],
     [Horas tras las fases 5-7 de la regla 23. Suman #campo("jornada_anual_pdi") por persona (salvo casos anómalos).],
-    [#campo("es_asociado")], [Boolean], [La persona tiene categoría de plaza de profesor asociado en el año.],
+    [#campo("es_asociado")], [Boolean], [La persona es una figura puramente docente (associat PAA/PAL o substitut PS) en el año. El nombre de la columna se conserva por compatibilidad histórica.],
     [#campo("sexenio_vivo")],
     [Boolean],
     [La persona tiene un sexenio finalizado en los últimos #campo("sexenio_vivo_años") años.],

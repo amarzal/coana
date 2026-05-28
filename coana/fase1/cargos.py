@@ -34,6 +34,54 @@ from coana.util.excel_cache import read_excel
 from coana.util.configuración import cfg_float as _cfg_float, cfg_tuple as _cfg_tuple
 _PROYECTOS_GENERALES: tuple[str, ...] = _cfg_tuple("proyectos_generales_cargos")
 
+
+# Overrides hiper-específicos para resolver el sentinel CENTROTITULACION
+# de `cargos.xlsx` en filas concretas de `personas cargos.xlsx` cuando
+# ni titulación ni servicio están informados. Última red de seguridad,
+# fila a fila, antes de marcar como «patrón sin resolver».
+#
+# Clave: (per_id, cargo). Valor: centro de coste resultante.
+_OVERRIDES_CENTRO_CARGO: dict[tuple[int, int], str] = {
+    # Amparo López Merí, Vicedegana FCHS — sin titulación ni servicio
+    # en personas cargos.xlsx; opera como vicedecana «de centro».
+    (263437, 192): "fchs",
+    # Cristina Giménez García, registrada como cargo 178 (Director
+    # departament) pero en realidad Directora del Plan de Vida
+    # Saludable adscrita al Vicerectorat d'Estudiantat i Vida
+    # Saludable (servicio 4251 → centro `vevs`, actividad `dag-vevs`).
+    # Su fila activa en personas cargos.xlsx no trae servicio.
+    (14512, 178): "vevs",
+    # María Ibáñez Martínez, cargo 489 (Subdirectora per a la
+    # Coordinació de la Qualitat): adscrita a la Escola de Doctorat
+    # (centro `ed`). Su fila no trae servicio ni titulación.
+    (17322, 489): "ed",
+}
+
+
+# Overrides hiper-específicos para fijar la titulación en filas
+# concretas de `personas cargos.xlsx` cuyo campo `titulación` esté en
+# null. Se aplica antes del resolver de patrones, así que `TITULACIÓN`
+# y `CENTROTITULACION` se resuelven después con normalidad vía
+# `titulaciones actividad centro.xlsx`.
+_OVERRIDES_TITULACION_CARGO: dict[tuple[int, int], int] = {
+    # Marina Pavan, Coordinadora d'Intercanvi de Grau en Economia
+    # (titulación 211 → grado-economía/fcje). La fila activa de su
+    # cargo 198 no trae titulación informada.
+    (310197, 198): 211,
+    # Edgar Bresó (Coord. Pràctiques Externes Internacionals): Psicología.
+    (64363, 389): 219,
+    # Alba Puig (Coord. d'Intercanvi): Grau en ADE.
+    (135911, 198): 210,
+    # Francisco Trujillo (Tutor d'intercanvi): Grau en Relacions Laborals i RH.
+    (141086, 200): 201,
+    # Simone Alfarano (Coord. d'Intercanvi): Bachelor Int. Business Economics.
+    (203280, 198): 257,
+    # Gabriele Tedeschi (Coord. d'Intercanvi): Grau en ADE.
+    (537722, 198): 210,
+    # Anna Vera Raga (Tutor d'intercanvi): Grau en Dret.
+    (866263, 200): 213,
+}
+
 # Número de pagas extras anuales del cargo «ocultas» en el CR 68 que
 # hay que estimar para evitar duplicidad. Origen:
 # data/configuración.xlsx (clave `pagas_extra_cargo`).
@@ -225,6 +273,41 @@ def generar_cargos_uc(
     cat = read_excel(cat_path)
     rd = read_excel(rd_path)
 
+    # Inyección de overrides cableados (per_id, cargo) → titulación.
+    # Se aplica ANTES de la propagación para que tenga prioridad sobre
+    # el histórico de la persona en ese cargo (puede que en años
+    # anteriores la persona coordinara otra titulación distinta).
+    if _OVERRIDES_TITULACION_CARGO:
+        _ov_tit = _OVERRIDES_TITULACION_CARGO
+        pc = pc.with_columns(
+            pl.struct(["per_id", "cargo"]).map_elements(
+                lambda s: _ov_tit.get(
+                    (int(s["per_id"]), int(s["cargo"]))
+                    if s["per_id"] is not None and s["cargo"] is not None
+                    else None
+                ),
+                return_dtype=pl.Int64,
+            ).alias("_ov_tit_v")
+        ).with_columns(
+            pl.coalesce("_ov_tit_v", "titulación").alias("titulación"),
+        ).drop("_ov_tit_v")
+
+    # Propagación entre filas del mismo (per_id, cargo) ANTES de filtrar
+    # por periodo de cobro: rellena los nulos de `servicio`/`titulación`
+    # con el valor histórico más frecuente del mismo cargo de la
+    # persona. La moda es más robusta que «primero no nulo»: cuando hay
+    # filas antiguas con un código distinto (típicamente porque la
+    # titulación cambió de código tras un cambio de plan) y muchas
+    # filas modernas con el código actual, gana el actual.
+    pc = pc.with_columns(
+        pl.col("servicio").fill_null(
+            pl.col("servicio").drop_nulls().mode().first()
+        ).over("per_id", "cargo"),
+        pl.col("titulación").fill_null(
+            pl.col("titulación").drop_nulls().mode().first()
+        ).over("per_id", "cargo"),
+    )
+
     # 1) Total CR 19/64 en proyecto general por persona en el año.
     cr = pl.col("concepto_retributivo").cast(pl.Utf8)
     proy = pl.col("proyecto").cast(pl.Utf8)
@@ -385,6 +468,13 @@ def generar_cargos_uc(
     # los campos `act_cargo` y `cc_cargo` que vienen de cargos.xlsx.
     mapping_serv = _cargar_mapping_servicio()
     mapping_tit = _cargar_mapping_titulaciones(ruta_base)
+    # Overrides hiper-específicos (per_id, cargo) → centro_de_coste para
+    # casos en que ni titulación ni servicio están informados en
+    # `personas cargos.xlsx`. Última red de seguridad antes de marcar
+    # como «patrón sin resolver».
+    overrides_centro = _OVERRIDES_CENTRO_CARGO
+    # `_OVERRIDES_TITULACION_CARGO` ya se aplicó arriba antes de la
+    # propagación (con prioridad sobre el histórico).
 
     def _resolver(row: dict) -> dict:
         act = row.get("act_cargo") or ""
@@ -403,7 +493,10 @@ def generar_cargos_uc(
                         act = act.replace("SERVICIO", cc_resuelto)
                         cc = cc.replace("SERVICIO", cc_resuelto)
         tit = row.get("titulación")
-        if tit is not None and ("TITULACIÓN" in act or "TITULACIÓN" in cc or "CENTROTITULACION" in cc):
+        if tit is not None and (
+            "TITULACIÓN" in act or "TITULACIÓN" in cc
+            or "CENTROTITULACION" in act or "CENTROTITULACION" in cc
+        ):
             try:
                 tit_key = int(tit)
             except (ValueError, TypeError):
@@ -411,15 +504,70 @@ def generar_cargos_uc(
             mp_t = mapping_tit.get(tit_key) if tit_key is not None else None
             if mp_t is not None:
                 act_t, cc_t = mp_t
-                if "CENTROTITULACION" in cc and cc_t:
-                    cc = cc.replace("CENTROTITULACION", cc_t)
+                # CENTROTITULACION → centro de coste de la titulación.
+                # Aplica tanto en `act` como en `cc` para soportar
+                # patrones tipo `dag-CENTROTITULACION`.
+                if cc_t:
+                    if "CENTROTITULACION" in cc:
+                        cc = cc.replace("CENTROTITULACION", cc_t)
+                    if "CENTROTITULACION" in act:
+                        act = act.replace("CENTROTITULACION", cc_t)
+                # TITULACIÓN → actividad de la titulación.
                 if act_t:
                     act = act.replace("TITULACIÓN", act_t)
                     cc = cc.replace("TITULACIÓN", act_t)
+        # Fallback: si CENTROTITULACION o TITULACIÓN siguen presentes
+        # (titulación nula o sin mapeo), intentar resolverlos con el
+        # `servicio` de la fila (centro+actividad del servicio en
+        # `servicios.xlsx`). Cubre cargos cuyo titular no coordina una
+        # titulación concreta — vicedecanos «de centro», directores de
+        # departamento, etc.
+        if (
+            "CENTROTITULACION" in act or "CENTROTITULACION" in cc
+            or "TITULACIÓN" in act or "TITULACIÓN" in cc
+        ):
+            srv = row.get("servicio")
+            if srv is not None:
+                try:
+                    srv_key = str(int(srv))
+                except (ValueError, TypeError):
+                    srv_key = str(srv)
+                mp = mapping_serv.get(srv_key)
+                if mp is not None:
+                    cc_resuelto = mp[0] or ""
+                    act_resuelta = mp[1] or ""
+                    if cc_resuelto:
+                        act = act.replace("CENTROTITULACION", cc_resuelto)
+                        cc = cc.replace("CENTROTITULACION", cc_resuelto)
+                    if act_resuelta:
+                        act = act.replace("TITULACIÓN", act_resuelta)
+                        cc = cc.replace("TITULACIÓN", act_resuelta)
+        # Última red: override hiper-específico (per_id, cargo) cuando ni
+        # titulación ni servicio están informados. Sustituye tanto
+        # `CENTROTITULACION` como `SERVICIO` (ambos identifican el
+        # centro) en los campos `act` y `cc`.
+        if (
+            "CENTROTITULACION" in act or "CENTROTITULACION" in cc
+            or "SERVICIO" in act or "SERVICIO" in cc
+        ):
+            pid = row.get("per_id")
+            cid = row.get("cargo")
+            if pid is not None and cid is not None:
+                try:
+                    clave = (int(pid), int(cid))
+                except (ValueError, TypeError):
+                    clave = None
+                cc_resuelto = overrides_centro.get(clave) if clave else None
+                if cc_resuelto:
+                    for token in ("CENTROTITULACION", "SERVICIO"):
+                        act = act.replace(token, cc_resuelto)
+                        cc = cc.replace(token, cc_resuelto)
         return {"act_resuelta": act, "cc_resuelto": cc}
 
     activas = activas.with_columns(
-        pl.struct(["act_cargo", "cc_cargo", "servicio", "titulación"]).map_elements(
+        pl.struct(
+            ["act_cargo", "cc_cargo", "servicio", "titulación", "per_id", "cargo"]
+        ).map_elements(
             _resolver,
             return_dtype=pl.Struct({"act_resuelta": pl.Utf8, "cc_resuelto": pl.Utf8}),
         ).alias("_resuelto"),

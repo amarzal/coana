@@ -96,7 +96,7 @@ _COLUMNS_PDI: list[ColumnSpec] = [
     ColumnSpec(name="per_id", label="per_id", format="id"),
     ColumnSpec(name="persona", label="Persona", format="text"),
     ColumnSpec(name="sindicato", label="Sindicato", format="text"),
-    ColumnSpec(name="es_asociado", label="Asociado", format="bool"),
+    ColumnSpec(name="es_asociado", label="Solo docencia", format="bool"),
     ColumnSpec(name="creditos_capacidad", label="Créd. capacidad", format="float"),
     ColumnSpec(name="creditos_reduccion", label="Créd. reducción", format="float"),
     ColumnSpec(name="creditos_sindicales", label="Créd. sindicales", format="float"),

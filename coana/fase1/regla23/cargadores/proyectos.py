@@ -40,7 +40,7 @@ El centro de coste se obtiene del grupo de investigación al que está
 adscrita la persona. Si la persona está en N grupos activos, sus horas
 se reparten proporcionalmente a los días activos en cada grupo (una
 fila por grupo). Si no está en ningún grupo, se emite una sola fila
-con ``centro_de_coste = pendiente`` y anomalía.
+con ``centro_de_coste = no-adscritos-a-grupo-de-investigación`` y anomalía.
 """
 
 from __future__ import annotations
@@ -309,10 +309,11 @@ def cargar_proyectos(
             .alias("horas")
         )
 
+    from coana.fase1.investigación import NO_ADSCRITOS_CC
     cc = (
         pl.when(pl.col("id_grupo").is_not_null())
         .then(pl.concat_str([pl.lit("grupo-investigación-"), pl.col("id_grupo")]))
-        .otherwise(pl.lit("pendiente"))
+        .otherwise(pl.lit(NO_ADSCRITOS_CC))
         .alias("centro_de_coste")
     )
 

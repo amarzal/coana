@@ -32,8 +32,8 @@ Algoritmo (por persona) — reparto en cascada por prioridad estricta:
    afecta al reparto: con docencia y gestión rígidas, las horas no
    distribuidas solo pueden ir a investigación.
 
-5. Caso especial profesor asociado: toda T a docencia, sin gestión ni
-   investigación.
+5. Caso especial figuras puramente docentes (associats PAA/PAL y
+   substituts PS): toda T a docencia, sin gestión ni investigación.
 
 6. Repercusión a actividades concretas: las horas finales de cada
    grupo se reparten entre sus actividades concretas en proporción a
@@ -61,10 +61,11 @@ from coana.util.configuración import cfg_int, cfg_set
 # romper imports históricos.
 JORNADA_ANUAL_PDI: float = float(cfg_int("jornada_anual_pdi"))
 
-# Categorías de plaza que cuentan como profesor asociado (PAA/PAL).
-# Origen: data/entrada/nóminas/categorías plazas.xlsx, filas con nombre
-# que contiene "Associat/da" y sector PDI.
-_CATEGORIAS_ASOCIADO: set[str] = cfg_set("categorías_asociado_plaza")
+# Categorías de plaza puramente docentes: profesores associats (PAA/PAL
+# y variantes) y substituts (PS). Su tratamiento en la regla 23 es
+# idéntico: toda su jornada va a docencia, sin gestión ni investigación.
+# Origen: `data/configuración.xlsx`, clave `categorías_docencia_pura_plaza`.
+_CATEGORIAS_DOCENCIA_PURA: set[str] = cfg_set("categorías_docencia_pura_plaza")
 
 
 def aplicar_reparto_regla_23(
@@ -85,7 +86,7 @@ def aplicar_reparto_regla_23(
     )
 
     sexenios_vivos = _sexenios_vivos(ruta_base, año)
-    asociados = _per_ids_asociados(ruta_base, año)
+    docencia_pura = _per_ids_docencia_pura(ruta_base, año)
 
     # Agregaciones por (per_id, grupo): horas efectivas totales.
     por_grupo = (
@@ -107,7 +108,10 @@ def aplicar_reparto_regla_23(
             pivot = pivot.with_columns(pl.lit(0.0).alias(col))
 
     pivot = pivot.with_columns(
-        pl.col("per_id").is_in(list(asociados)).alias("es_asociado"),
+        # Mantenemos el nombre `es_asociado` como interfaz pública del
+        # parquet de salida; semánticamente ahora marca "figura puramente
+        # docente" (associat o substitut).
+        pl.col("per_id").is_in(list(docencia_pura)).alias("es_asociado"),
         pl.col("per_id").is_in(list(sexenios_vivos)).alias("sexenio_vivo"),
     )
 
@@ -168,7 +172,8 @@ def aplicar_reparto_regla_23(
     ges_final = ges_base
     inv_final = sobrante
 
-    # Caso asociado: toda T a docencia (si tiene docencia inicial > 0),
+    # Caso docencia pura (associats PAA/PAL y substituts PS): toda T a
+    # docencia (si tiene docencia inicial > 0),
     # sin gestión ni investigación.
     doc_final = pl.when(pl.col("es_asociado") & (DOC > 0)).then(T).otherwise(doc_final)
     ges_final = pl.when(pl.col("es_asociado")).then(0.0).otherwise(ges_final)
@@ -252,7 +257,8 @@ def aplicar_reparto_regla_23(
 
     # Personas con h_inv_final > 0 pero sin fila de investigación: emitir
     # fila sintética en la actividad umbrella `ai` y el centro de su
-    # grupo principal (o `pendiente` si no se conoce).
+    # grupo principal (o `no-adscritos-a-grupo-de-investigación` si no
+    # se conoce grupo).
     sintéticas = _filas_sintéticas_investigación(
         ruta_base, año, pivot, df,
     )
@@ -263,7 +269,7 @@ def aplicar_reparto_regla_23(
     # (1 − X_persona) de la jornada anual de cada representante. Se
     # emiten desde `x_persona` (no desde `pivot`) para no perder a quien
     # tenga reducción sindical pero ninguna otra dedicación registrada.
-    sindicales = _filas_sindicales(x_persona, asociados, sexenios_vivos, jornada)
+    sindicales = _filas_sindicales(x_persona, docencia_pura, sexenios_vivos, jornada)
     if sindicales.height > 0:
         salida = pl.concat([salida, sindicales], how="vertical_relaxed")
 
@@ -282,8 +288,11 @@ def _filas_sintéticas_investigación(
     """Genera filas para personas con h_inv_final > 0 sin fila inicial.
 
     Activitad: ``ai`` (umbrella). Centro: ``grupo-investigación-{id}`` si
-    la persona pertenece a un grupo válido principal, ``pendiente`` si no.
+    la persona pertenece a un grupo válido principal,
+    ``no-adscritos-a-grupo-de-investigación`` si no.
     """
+    from coana.fase1.investigación import NO_ADSCRITOS_CC
+
     # Personas que ya tienen alguna fila de investigación: NO se sintetiza.
     con_inv = (
         df_inicial.filter(pl.col("grupo") == "investigación")
@@ -297,11 +306,12 @@ def _filas_sintéticas_investigación(
     if candidatas.is_empty():
         return pl.DataFrame(schema=_columnas_salida())
 
-    # Centro: grupo principal de la persona.
+    # Centro: grupo principal de la persona; si no tiene grupo, va al
+    # centro virtual `no-adscritos-a-grupo-de-investigación`.
     centros = _centro_por_persona(ruta_base, año)
     candidatas = candidatas.join(centros, on="per_id", how="left")
     candidatas = candidatas.with_columns(
-        pl.col("centro_de_coste").fill_null(pl.lit("pendiente"))
+        pl.col("centro_de_coste").fill_null(pl.lit(NO_ADSCRITOS_CC))
     )
 
     return candidatas.select(
@@ -313,7 +323,10 @@ def _filas_sintéticas_investigación(
         pl.lit(None, dtype=pl.Utf8).alias("origen_id"),
         pl.lit(0.0).alias("horas_iniciales"),
         pl.col("h_inv_final").alias("horas_finales"),
-        pl.lit("HND repercutida a investigación (sin actividad concreta)").alias("detalle"),
+        pl.when(pl.col("centro_de_coste") == pl.lit(NO_ADSCRITOS_CC))
+          .then(pl.lit("HND repercutida a investigación (sin grupo adscrito)"))
+          .otherwise(pl.lit("HND repercutida a investigación (sin actividad concreta)"))
+          .alias("detalle"),
         pl.lit(None, dtype=pl.Utf8).alias("anomalía"),
         pl.col("es_asociado"),
         pl.col("sexenio_vivo"),
@@ -377,7 +390,7 @@ def _columnas_salida() -> dict[str, pl.DataType]:
 
 def _filas_sindicales(
     x_persona: dict[int, float],
-    asociados: set[int],
+    docencia_pura: set[int],
     sexenios: set[int],
     jornada: float,
 ) -> pl.DataFrame:
@@ -411,7 +424,7 @@ def _filas_sindicales(
             "horas_finales": horas,
             "detalle": ["dedicación a representación sindical"] * n,
             "anomalía": [None] * n,
-            "es_asociado": [p in asociados for p in per_ids],
+            "es_asociado": [p in docencia_pura for p in per_ids],
             "sexenio_vivo": [p in sexenios for p in per_ids],
         },
         schema=_columnas_salida(),
@@ -434,12 +447,15 @@ def _sexenios_vivos(ruta_base: Path, año: int) -> set[int]:
     return set(vivos["per_id"].to_list())
 
 
-def _per_ids_asociados(ruta_base: Path, año: int) -> set[int]:
-    """Per_ids del PDI con categoría de profesor asociado en el año.
+def _per_ids_docencia_pura(ruta_base: Path, año: int) -> set[int]:
+    """Per_ids con categoría de plaza puramente docente (associat o
+    substitut) activa en el año.
 
     Determinado vía `nóminas y seguridad social.xlsx` (categoría_plaza
     × expediente), cruzando con `expedientes recursos humanos.xlsx`
-    para obtener el per_id.
+    para obtener el per_id. Las categorías de plaza consideradas son
+    las de `_CATEGORIAS_DOCENCIA_PURA` (config
+    `categorías_docencia_pura_plaza`).
     """
     nom_path = ruta_base / "entrada" / "nóminas" / "nóminas y seguridad social.xlsx"
     exp_path = ruta_base / "entrada" / "nóminas" / "expedientes recursos humanos.xlsx"
@@ -451,10 +467,10 @@ def _per_ids_asociados(ruta_base: Path, año: int) -> set[int]:
         return set()
     nom = nom.with_columns(pl.col("categoría_plaza").cast(pl.Utf8).str.zfill(2))
     nom_año = nom.filter(pl.col("fecha").dt.year() == año)
-    asociados = nom_año.filter(pl.col("categoría_plaza").is_in(list(_CATEGORIAS_ASOCIADO)))
-    if asociados.is_empty():
+    docencia = nom_año.filter(pl.col("categoría_plaza").is_in(list(_CATEGORIAS_DOCENCIA_PURA)))
+    if docencia.is_empty():
         return set()
-    join = asociados.select("expediente").unique().join(
+    join = docencia.select("expediente").unique().join(
         exp.select("expediente", "per_id"), on="expediente", how="inner",
     )
     return set(join["per_id"].to_list())
