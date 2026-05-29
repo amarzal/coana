@@ -783,6 +783,7 @@ def listar_totales_actividad_centro(
 
 _COLS_DED_LABORAL: list[ColumnSpec] = [
     ColumnSpec(name="sector", label="Sector", format="text"),
+    ColumnSpec(name="departamento", label="Departamento", format="text"),
     ColumnSpec(name="expediente", label="Expediente", format="id"),
     ColumnSpec(name="categoría_plaza_nombre", label="Categoría plaza", format="text"),
     ColumnSpec(name="categoría_nombre", label="Categoría RR.HH.", format="text"),
@@ -800,7 +801,7 @@ def listar_relación_laboral_persona(per_id: int) -> ListResponse:
     mes en los que la persona figura en esa combinación, y nº de meses.
     """
     from coana.web.services.lookups import (
-        lookup_categoria, lookup_categoria_plaza,
+        lookup_categoria, lookup_categoria_plaza, lookup_servicio,
     )
 
     nom_path = DIR_ENTRADA / "nóminas" / "nóminas y seguridad social.xlsx"
@@ -824,10 +825,16 @@ def listar_relación_laboral_persona(per_id: int) -> ListResponse:
     # (aplicación que empieza por "12"), igual que el `bruto` del visor
     # de cuadres.
     _no_ss = ~pl.col("aplicación").cast(pl.Utf8).fill_null("").str.starts_with("12")
+    _serv = (
+        pl.col("servicio").cast(pl.Utf8)
+        if "servicio" in nom_p.columns
+        else pl.lit(None, dtype=pl.Utf8)
+    )
     agg = (
         nom_p.with_columns(
             pl.col("categoría_plaza").cast(pl.Utf8).str.zfill(2).alias("_cp"),
             pl.col("categoría").cast(pl.Utf8).alias("_cat"),
+            _serv.alias("_servicio"),
         )
         .group_by("sector", "expediente", "_cp", "_cat")
         .agg(
@@ -835,6 +842,8 @@ def listar_relación_laboral_persona(per_id: int) -> ListResponse:
             pl.col("fecha").max().alias("hasta"),
             pl.col("fecha").n_unique().alias("meses"),
             pl.col("importe").filter(_no_ss).sum().alias("cobrado"),
+            # Servicio predominante del periodo (departamento de la persona).
+            pl.col("_servicio").drop_nulls().mode().first().alias("_servicio"),
         )
         .sort(["sector", "expediente", "desde"])
     )
@@ -856,6 +865,9 @@ def listar_relación_laboral_persona(per_id: int) -> ListResponse:
         cat = r.get("_cat") or ""
         nom_cp = lookup_categoria_plaza(cp).get("nombre") or ""
         nom_cat = lookup_categoria(cat).get("nombre") or ""
+        serv = r.get("_servicio") or ""
+        nom_serv = lookup_servicio(serv).get("nombre") or "" if serv else ""
+        depto_str = f"{serv} — {nom_serv}" if nom_serv else (serv or "")
         es_func = r.get("es_funcionario")
         if es_func in (1, True) or str(es_func).upper() == "S":
             func_str = "S"
@@ -865,6 +877,7 @@ def listar_relación_laboral_persona(per_id: int) -> ListResponse:
             func_str = ""
         filas.append({
             "sector": r.get("sector") or "",
+            "departamento": depto_str,
             "expediente": r.get("expediente"),
             "categoría_plaza_nombre": f"{cp} — {nom_cp}" if cp else "",
             "categoría_nombre": f"{cat} — {nom_cat}" if cat else "",

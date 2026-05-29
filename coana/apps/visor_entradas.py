@@ -77,6 +77,17 @@ def _load_excel(path: str) -> pl.DataFrame:
     return read_excel(path)
 
 
+def _pod_num(df: pl.DataFrame) -> pl.DataFrame:
+    """Fuerza a numérico los créditos del POD (el POD enriquecido puede
+    traerlos como texto al haber celdas vacías → inferencia a string)."""
+    casts = [
+        pl.col(c).cast(pl.Float64, strict=False)
+        for c in ("créditos_impartidos", "créditos_computables")
+        if c in df.columns
+    ]
+    return df.with_columns(casts) if casts else df
+
+
 def _fmt_m2(v: float) -> str:
     """Formatea metros cuadrados en notación europea."""
     return f"{v:,.2f} m²".replace(",", "X").replace(".", ",").replace("X", ".")
@@ -2857,7 +2868,7 @@ def _mostrar_anomalias_pdi():
             st.warning(f"Fichero no encontrado: `{p}`")
             return
 
-    docencia_df = _read_xl(str(doc_path))
+    docencia_df = _pod_num(_read_xl(str(doc_path)))
     ag = _read_xl(str(ag_path))
     gr = _read_xl(str(gr_path))
     est = _read_xl(str(est_path))
@@ -3932,7 +3943,7 @@ def _mostrar_regla23():
                     # Filas de pod para ese (per_id, asignatura)
                     pod_path = DIR_ENTRADA / "docencia" / "pod.xlsx"
                     if pod_path.exists():
-                        pod_raw = _load_excel(str(pod_path))
+                        pod_raw = _pod_num(_load_excel(str(pod_path)))
                         pod_f = pod_raw.filter(
                             (pl.col("per_id") == per_id_sel)
                             & (pl.col("asignatura") == asig_sel)
@@ -4349,7 +4360,7 @@ def _mostrar_personal():
                     # Usar read_excel directamente (sin @st.cache_data) para evitar
                     # problemas de caché de streamlit con las tablas de referencia.
                     from coana.util import read_excel as _read_xl
-                    docencia_df = _read_xl(str(doc_path))
+                    docencia_df = _pod_num(_read_xl(str(doc_path)))
                     doc_per = docencia_df.filter(pl.col("per_id") == per_id)
                     if not doc_per.is_empty():
                         df_doc = doc_per.select("asignatura", "créditos_impartidos")

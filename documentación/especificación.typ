@@ -350,7 +350,7 @@ Las constantes están agrupadas conceptualmente:
         table.hline(),
     ),
     [*Ejercicio*], [#campo("año_analizado")],
-    [*Regla 23*], [#campo("jornada_anual_pdi") · #campo("factor_impartición_docente") · #campo("sexenio_vivo_años")],
+    [*Regla 23*], [#campo("jornada_anual_pdi") · #campo("factor_impartición_docente") · #campo("sexenio_vivo_años") · #campo("másteres_ficticios_pod") · #campo("umbral_residual_regla23")],
     [*Tesis*],
     [#campo("tesis_horas_tiempo_completo") · #campo("tesis_horas_tiempo_parcial") · #campo("tesis_pct_tutor") · #campo("tesis_pct_directores")],
     [*Grupos de investigación*], [#campo("grupos_horas_coordinador_semana")],
@@ -1106,7 +1106,7 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "docencia") y
         ),
     ),
     "estudios.xlsx": (
-        descripción: [Fichero con los estudios de grado y máster. Un mismo estudio puede instanciarse con varias titulaciones. Por ejemplo, cada edición del plan de estudios de una misma titulación se representa como una titulación diferente de un mismo estudio.],
+        descripción: [Fichero con los estudios de grado y máster. Un mismo estudio puede instanciarse con varias titulaciones. Por ejemplo, cada edición del plan de estudios de una misma titulación se representa como una titulación diferente de un mismo estudio. *Nota:* un mismo código de #campo("estudio") puede aparecer en varias filas (distintas ediciones del nombre). Al construir el catálogo de titulaciones se deduplica por código de estudio y el número de titulaciones por asignatura se cuenta por titulaciones #emph[distintas]; en caso contrario, una asignatura de grado con su estudio repetido se confundiría con una asignatura de varias titulaciones y se marcaría, erróneamente, como #val("máster múltiple no resuelto").],
         campos: (
             estudio: [Identificador (entero, >90000).],
             nombre: [Nombre del estudio],
@@ -4742,7 +4742,9 @@ Para cada fila de #ruta("entrada", "docencia", "pod.xlsx") aplicamos el siguient
 
 Las horas brutas registradas son #val("créditos_computables × 10 × peso"). El factor #val("2,5") de la regla 23 (que recoge la preparación de clases, exámenes, tutorías, etc.) se almacena en la columna #campo("factor") para auditar; el cálculo final lo aplicará la fase de reparto.
 
-La titulación de cada asignatura se resuelve cruzando con #ruta("entrada", "docencia", "asignaturas grados.xlsx") y #ruta("entrada", "docencia", "asignaturas másteres.xlsx"). La actividad y centro de coste asociados a cada titulación los toma de #ruta("entrada", "docencia", "titulaciones actividad centro.xlsx"). Las titulaciones todavía no mapeadas se emiten con #val("actividad = pendiente"), #val("centro = pendiente") y anomalía #val("titulación sin mapeo a actividad/centro").
+*Rescate de períodos «ocultos».* Los semestres con peso #val("0 %") (sem 1 del curso anterior y sem 2 del curso actual) son la docencia de ambos cursos que cae fuera del año natural. Normalmente se descartan, pero hay personas —típicamente associats o substituts— a quienes se les ha asignado POD en los dos cursos pero *únicamente* en esos semestres fuera de rango, de modo que su docencia en-rango suma #val("0") créditos y caerían a #etqact("pendiente"). Para ellas se aplica una segunda instancia: si una persona no tiene *ningún* crédito computable en el rango del año natural, se rescatan sus filas de los períodos ocultos a peso completo (#val("100 %")) y su coste se imputa a las titulaciones que impartió en esos períodos, en proporción a sus créditos. Quien sí tiene docencia en rango (aunque sea poca) ignora por completo los períodos ocultos. Estas filas se marcan en #campo("detalle") como rescatadas de período fuera del año natural.
+
+La titulación de cada asignatura se resuelve cruzando con #ruta("entrada", "docencia", "asignaturas grados.xlsx") y #ruta("entrada", "docencia", "asignaturas másteres.xlsx"). Antes del cruce se descartan del mapeo de másteres los *másteres ficticios* listados en la configuración (clave #val("másteres_ficticios_pod"), p.ej. el #val("49900")): son másteres sin alumnado matriculado cuyas asignaturas pertenecen también a algún máster real, por el que se captura su coste y dedicación. Filtrarlos no pierde ninguna asignatura y evita la duplicación espuria de horas que provocaría el cruce. La actividad y centro de coste asociados a cada titulación los toma de #ruta("entrada", "docencia", "titulaciones actividad centro.xlsx"). Las titulaciones todavía no mapeadas se emiten con #val("actividad = pendiente"), #val("centro = pendiente") y anomalía #val("titulación sin mapeo a actividad/centro").
 
 ===== Cargador #emph[POD] (docencia no oficial)
 
@@ -4961,6 +4963,49 @@ Hay un caso especial sistemático: el PDI fallecido o cesado que cobra en el añ
 - Las atrasos (#campo("tipo_coste") = #val("I")) pueden estar o no estar y en cualquier mes; no cuentan a estos efectos.
 
 A esas personas, en vez de imputarles la masa a (#etqcen("pendiente"), #etqact("pendiente")), se les imputa a (#etqcen("UJI"), #etqact("UJI")): el coste se reconoce como gasto general de la institución, no atribuible ya a ninguna actividad concreta (la actividad sucedió el año anterior). La detección automática se hace en #campo("_detecta_incentivos_residuales") y los parámetros (mes y concepto retributivo) son las constantes #campo("_MES_INCENTIVOS") y #campo("_CR_INCENTIVOS_AÑO_ANTERIOR") en #ruta("coana", "fase1", "regla23", "uc_reparto.py").
+
+*Caso especial sistemático: associats assistencials (PAA) de ciencias de la salud sin docencia en el POD.* Los #etq("PAA") (#emph[Professor/a Associat/da Assistencial]) son personal clínico que imparte la práctica asistencial de los grados de ciencias de la salud, una docencia que no figura en el POD. Cuando un #etq("PAA") no tiene ninguna carga en el POD (y por tanto caería a #etqact("pendiente")), es su *departamento* —resuelto a partir del #campo("servicio") de su nómina vía #ruta("entrada", "inventario", "servicios.xlsx")— el que decide la titulación a la que va su coste, siempre al *Grado* correspondiente y con centro #etqcen("fcs") (Facultat de Ciències de la Salut):
+
+#table(
+    columns: (auto, auto, auto),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*Departamento (centro)*], [*actividad*], [*centro*], table.hline()),
+    [#etqcen("upm") · Medicina], [#etqact("grado-medicina")], [#etqcen("fcs")],
+    [#etqcen("upi") · Infermeria], [#etqact("grado-enfermería")], [#etqcen("fcs")],
+    [#etqcen("dpbcp") · Psicologia Bàsica, Clínica i Psicobiologia], [#etqact("grado-psicología")], [#etqcen("fcs")],
+    [#etqcen("dpeesm") · Psicologia Evolutiva, Educativa, Social i Metodologia], [#etqact("grado-psicología")], [#etqcen("fcs")],
+    table.hline(),
+)
+
+Esta regla se aplica antes del fallback genérico a #etqact("pendiente") / #etqcen("UJI"); un #etq("PAA") de un departamento no listado mantiene el comportamiento por defecto. La detección y el mapeo están en #campo("_DEPTO_SALUD_A_GRADO") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
+
+*Caso especial sistemático: personal investigador (PVI/PI) sin proyecto ni grupo imputable.* El personal investigador (elemento de coste con prefijo #val("piyotper")) cobra a menudo de proyectos generales sin estar adscrito a ningún proyecto ni grupo concreto, de modo que no tiene dedicación calculable y caería a #etqact("pendiente"). En ese caso su masa se imputa a la investigación con financiación propia del Vicerrectorado de Investigación: actividad #etqact("otras-ait-financiación-propia"), centro #etqcen("vi"). Las constantes son #campo("_INVESTIGADOR_SIN_PROYECTO_ACT") y #campo("_INVESTIGADOR_SIN_PROYECTO_CC") en #ruta("coana", "fase1", "regla23", "uc_reparto.py").
+
+*Caso especial sistemático: funcionarios en servicios especiales.* Un funcionario en situación de servicios especiales en otra administración deja de prestar servicio en la UJI —y por tanto no tiene docencia, gestión ni investigación que imputar—, pero la UJI le sigue abonando sus *trienios* consolidados (la antigüedad corre a cargo de la administración de origen). Su huella en la masa regla 23 es inconfundible: percibe trienios (#campo("CR 03")) y, en su caso, la parte proporcional de la paga extra, *sin sueldo base* (#campo("CR 01")). Ese gasto, que no corresponde a ninguna actividad realizada en la UJI, se imputa a (#etqcen("UJI"), #etqact("UJI")) como gasto general de la institución. La detección está en #campo("_detecta_servicios_especiales") y los conceptos en las constantes #campo("_CR_TRIENIOS") y #campo("_CR_SOU_BASE") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
+
+*Caso especial sistemático: figuras puramente docentes sin POD.* Los associats (#campo("pdi-as")) y substituts (#campo("pdi-ps")) que no figuran en el POD del año (ni en sus períodos ocultos) y que no son #etq("PAA") de ciencias de la salud son, en su mayoría, contratos breves o finiquitos que no llegaron a generar carga docente registrada. Su masa se imputa a estudios oficiales de la institución: actividad #etqact("estudios-oficiales"), centro #etqcen("UJI"). Las constantes son #campo("_DOCENTE_PURO_SIN_POD_ACT") y #campo("_DOCENTE_PURO_SIN_POD_CC"), con los prefijos de elemento de coste en #campo("_EC_DOCENTE_PURO_PREFIJOS") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
+
+*Regla escoba (última instancia).* Lo que ninguna regla anterior captura es ruido residual: cobros puntuales de poca cuantía (finiquitos, atrasos sueltos) sin patrón común. Para no dejarlos en #etqact("pendiente") indefinidamente, se barren a (#etqcen("UJI"), #etqact("UJI")) *siempre que la masa residual total de la persona sea inferior al umbral* #campo("umbral_residual_regla23") (configurable, por defecto #val("500 €")). Si la masa residual es igual o superior al umbral, la persona se mantiene en (#etqcen("pendiente"), #etqact("pendiente")) como anomalía real: es la red de seguridad que evita que un importe material e inexplicado se diluya silenciosamente en gasto general.
+
+El orden de precedencia de los fallbacks para personas con masa pero sin dedicación es, de mayor a menor: override individual (se aparta antes del reparto) → #etq("PAA") de salud → incentivos residuales (#etqcen("UJI")) → investigador sin proyecto (#etqcen("vi")) → servicios especiales (#etqcen("UJI")) → figura puramente docente sin POD (#etqact("estudios-oficiales")) → residual bajo umbral (#etqcen("UJI")) → #etqact("pendiente") (masa ≥ umbral, anomalía).
+
+*Overrides individuales (casos super-específicos).* Algunas personas tienen una situación laboral que ninguna regla automática puede inferir a partir de los datos disponibles (nóminas, POD, proyectos…), pero cuyo destino correcto es conocido por revisión manual. Para esos casos se mantiene una tabla de overrides por #campo("per_id") en #ruta("coana", "fase1", "regla23", "uc_reparto.py"): cuando una persona figura en ella, *toda* su masa regla 23 se imputa íntegramente al par (#campo("actividad"), #campo("centro_de_coste")) indicado, con prioridad sobre el reparto por dedicación y sobre cualquier otro fallback (incluidos #etqcen("pendiente") y #etqcen("UJI")). La tabla actual:
+
+#table(
+    columns: (auto, 1.4fr, auto, auto),
+    stroke: 0.5pt + luma(80%),
+    inset: 6pt,
+    table.header(table.hline(), [*per_id*], [*Motivo*], [*actividad*], [*centro*], table.hline()),
+    [#val("91758")],
+    [PAL que no impartía docencia reglada: prestaba apoyo en el Centre d'Autoaprenentatge de Llengües (CAL). Su coste, aunque figura como docente, es asimilable al del PTGAS y corresponde íntegramente al servicio de lenguas.],
+    [#etqact("cursos-idiomas")], [#etqcen("slt")],
+    table.hline(),
+    [#val("148067")],
+    [PAL del Centre d'Autoaprenentatge de Llengües (CAL), mismo caso que #val("91758").],
+    [#etqact("cursos-idiomas")], [#etqcen("slt")],
+    table.hline(),
+)
 
 La salida es #ruta("fase1", "regla23", "uc_reparto_regla_23.parquet") con esquema UC estándar (#campo("id"), #campo("elemento_de_coste"), #campo("centro_de_coste"), #campo("actividad"), #campo("importe"), #campo("origen") = #val("regla_23"), #campo("origen_id"), #campo("origen_porción")) más una columna adicional #campo("per_id") para trazabilidad. Estas UC se incorporan al combinado de fase 1 y bajan a la fase 2 como cualquier otra UC retributiva.
 

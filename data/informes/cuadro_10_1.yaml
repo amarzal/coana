@@ -1,20 +1,20 @@
 id: cuadro_10_1
 título: Informe de elementos de coste
 encabezado_concepto: Elemento de coste
-total: 152779411.69
+total: 152779410.95
 filas:
 - código: '01'
   slug: costes-personal
   nombre: Costes de personal
   nivel: 1
-  importe: 116634350.94
+  importe: 116634350.2
   pct_elemento: 100.0
   pct_total: 76.3417
 - código: '01.01'
   slug: salario-pdi
   nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
   nivel: 2
-  importe: 54533632.56
+  importe: 54533631.98
   pct_elemento: 46.7561
   pct_total: null
 - código: '01.02'
@@ -29,21 +29,21 @@ filas:
   slug: salario-piyotper
   nombre: Costes del Personal Investigador laboral y de otro personal
   nivel: 2
-  importe: 10666638.68
+  importe: 10666638.71
   pct_elemento: 9.1454
   pct_total: null
 - código: '01.04'
   slug: ss
   nombre: Cotizaciones sociales a cargo del empleador
   nivel: 2
-  importe: 17165983.39
+  importe: 17165983.46
   pct_elemento: 14.7178
   pct_total: null
 - código: '01.05'
   slug: prevsoc-funcs
   nombre: Previsión social de funcionarios (costes calculados)
   nivel: 2
-  importe: 4697604.29
+  importe: 4697604.03
   pct_elemento: 4.0276
   pct_total: null
 - código: '01.06'

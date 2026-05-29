@@ -8,6 +8,13 @@ Año natural 2025 = sem 2 del curso 2024-25 (100 %) + sem 1 del curso
 2025-26 (50 %). Los semestres 1 del curso 2024-25 y 2 del curso 2025-26
 no caen en el año natural y se descartan.
 
+Excepción (rescate de períodos «ocultos»): si una persona no tiene
+NINGÚN crédito computable en el rango del año natural pero sí impartió
+docencia en esos semestres fuera de rango, se rescatan esas filas a peso
+completo (1,0). Así su coste se imputa a las titulaciones que impartió en
+los períodos ocultos, en proporción a sus créditos, en lugar de caer a
+(actividad=pendiente, centro=pendiente).
+
 1 crédito ECTS equivale a 10 horas de impartición. El factor ×2,5 de la
 regla 23 se almacena en la columna ``factor`` para auditar; las horas
 brutas (sin multiplicar por 2,5) son las "horas registradas".
@@ -20,12 +27,20 @@ from pathlib import Path
 import polars as pl
 
 from coana.util import read_excel
-from coana.util.configuración import cfg_float
+from coana.util.configuración import cfg_float, cfg_set
 
 # Factor ×2,5 de la regla 23 sobre las horas de impartición de
 # docencia. Origen: data/configuración.xlsx
 # (clave `factor_impartición_docente`).
 _FACTOR_DOCENTE: float = cfg_float("factor_impartición_docente")
+
+# Másteres ficticios (sin alumnado matriculado): se descartan al cruzar
+# el POD con `asignaturas másteres`. Cada una de sus asignaturas
+# pertenece también a un máster real, por el que se captura su coste y
+# dedicación, así que filtrarlos no pierde ninguna asignatura y evita el
+# fan-out espurio del cruce. Origen: data/configuración.xlsx
+# (clave `másteres_ficticios_pod`).
+_MÁSTERES_FICTICIOS: set[str] = cfg_set("másteres_ficticios_pod")
 
 
 def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
@@ -44,6 +59,9 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
     )
     asig_másteres = (
         read_excel(ruta_base / "entrada" / "docencia" / "asignaturas másteres.xlsx")
+        # Descartar los másteres ficticios antes del cruce: sus asignaturas
+        # se capturan por su máster real (ver `_MÁSTERES_FICTICIOS`).
+        .filter(~pl.col("máster").cast(pl.Utf8).is_in(_MÁSTERES_FICTICIOS))
         .select(
             pl.col("asignatura"),
             pl.col("máster").alias("titulación"),
@@ -57,8 +75,10 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
         .select("titulación", "actividad", "centro")
     )
 
-    # Peso del año natural por (curso, semestre)
-    pod = pod.with_columns(
+    # Peso del año natural por (curso, semestre). El año natural está a
+    # caballo de dos cursos: sem 2 del curso anterior (100 %), sem 1 del
+    # curso actual (100 %) y la mitad de cada anual (50 %).
+    peso_en_rango = (
         pl.when(
             (pl.col("curso_académico") == año_curso_anterior)
             & (pl.col("semestre") == "2")
@@ -74,6 +94,34 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
         )
         .then(0.5)
         .otherwise(0.0)
+    )
+    # Períodos «ocultos»: la docencia de ambos cursos que cae FUERA del año
+    # natural (sem 1 del curso anterior y sem 2 del curso actual).
+    es_oculto = (
+        ((pl.col("curso_académico") == año_curso_anterior) & (pl.col("semestre") == "1"))
+        | ((pl.col("curso_académico") == año) & (pl.col("semestre") == "2"))
+    )
+    cred = pl.col("créditos_computables").cast(pl.Float64, strict=False).fill_null(0.0)
+    pod = pod.with_columns(
+        peso_en_rango.alias("_peso_en_rango"),
+        es_oculto.alias("_oculto"),
+        (cred * peso_en_rango).alias("_cred_en_rango"),
+    )
+    # Personas con alguna docencia dentro del rango del año natural.
+    con_en_rango = pod.group_by("per_id").agg(
+        (pl.col("_cred_en_rango").sum() > 0).alias("_tiene_en_rango")
+    )
+    pod = pod.join(con_en_rango, on="per_id", how="left")
+    # Peso efectivo: el del rango; y SOLO para quien no tiene ninguna
+    # docencia en el rango (0 créditos en-rango), se rescatan los períodos
+    # ocultos a peso completo (1,0) para imputar su coste a las
+    # titulaciones que impartió fuera del año natural.
+    pod = pod.with_columns(
+        pl.when(pl.col("_peso_en_rango") > 0)
+        .then(pl.col("_peso_en_rango"))
+        .when((~pl.col("_tiene_en_rango")) & pl.col("_oculto"))
+        .then(1.0)
+        .otherwise(0.0)
         .alias("peso_año_natural")
     ).filter(pl.col("peso_año_natural") > 0)
 
@@ -83,11 +131,7 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
 
     # horas brutas = créditos × 10 × peso (impartición sin factor 2,5)
     pod = pod.with_columns(
-        (
-            pl.col("créditos_computables").fill_null(0.0)
-            * 10.0
-            * pl.col("peso_año_natural")
-        ).alias("horas")
+        (cred * 10.0 * pl.col("peso_año_natural")).alias("horas")
     ).filter(pl.col("horas") > 0)
 
     # Agregar por (per_id, asignatura, curso, semestre, titulación) para colapsar
@@ -102,6 +146,7 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
         "tipo_titulación",
         "actividad",
         "centro",
+        "_oculto",
     ).agg(pl.col("horas").sum())
 
     anomalía = (
@@ -117,6 +162,9 @@ def cargar_pod(ruta_base: Path, año: int = 2025) -> pl.DataFrame:
         pl.lit(" · titulación "), pl.col("titulación").cast(pl.Utf8),
         pl.lit(" ("), pl.col("tipo_titulación"), pl.lit(")"),
         pl.lit(" · "), pl.col("horas").round(2).cast(pl.Utf8), pl.lit(" h registradas"),
+        pl.when(pl.col("_oculto"))
+          .then(pl.lit(" · rescatado de período fuera del año natural (sin docencia en rango)"))
+          .otherwise(pl.lit("")),
     ])
 
     return pod.select(

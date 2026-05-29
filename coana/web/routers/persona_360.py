@@ -58,6 +58,15 @@ def persona_uc(
     return svc.listar_uc_persona_completa(sector, per_id, p)
 
 
+@router.get("/{sector}/personas/{per_id}/nomina", response_model=ListResponse)
+def persona_nomina(
+    sector: str, per_id: int, p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    """Detalle línea a línea de la nómina del año de la persona."""
+    _check_sector(sector)
+    return svc.nomina_persona(sector, per_id, p)
+
+
 # ---- Aliases hacia endpoints ya existentes en regla23 (reutilizados) ----
 
 @router.get("/{sector}/personas/{per_id}/laboral", response_model=ListResponse)

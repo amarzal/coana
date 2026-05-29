@@ -568,6 +568,96 @@ def cuadre_persona(sector: str, per_id: int) -> ListResponse:
     return ListResponse(columns=_COLS_CUADRE, rows=filas, total=len(filas))
 
 
+# -------------------------------------------------------------------- nómina
+
+
+_COLS_NOMINA: list[ColumnSpec] = [
+    ColumnSpec(name="fecha", label="Mes", format="date"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="tipo_coste", label="Tipo coste", format="text"),
+    ColumnSpec(name="concepto_retributivo", label="Concepto retributivo", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="flujo", label="Flujo / destino", format="text"),
+    ColumnSpec(name="proyecto", label="Proyecto", format="text"),
+    ColumnSpec(name="aplicación", label="Aplicación", format="text"),
+    ColumnSpec(name="servicio", label="Servicio", format="text"),
+]
+_SEARCH_NOMINA = [
+    "concepto_retributivo", "flujo", "proyecto", "servicio", "tipo_coste", "aplicación",
+]
+
+
+def _catalogo_nombre(path: Path, key: str) -> pl.DataFrame:
+    """Catálogo `key → nombre` con la columna nombre renombrada a
+    `_n_<key>`. Vacío si el fichero no existe o no tiene `nombre`."""
+    alias = f"_n_{key}"
+    if not path.exists():
+        return pl.DataFrame(schema={key: pl.Utf8, alias: pl.Utf8})
+    d = read_excel(path)
+    if key not in d.columns or "nombre" not in d.columns:
+        return pl.DataFrame(schema={key: pl.Utf8, alias: pl.Utf8})
+    return d.select(
+        pl.col(key).cast(pl.Utf8),
+        pl.col("nombre").cast(pl.Utf8).alias(alias),
+    ).unique(subset=key)
+
+
+def nomina_persona(sector: str, per_id: int, params: QueryParams) -> ListResponse:
+    """Detalle línea a línea de la nómina del año de la persona.
+
+    Incluye TODOS sus expedientes (no solo los del sector), con el nombre
+    de cada concepto retributivo y tipo de coste, y el `flujo` que
+    canaliza cada línea hacia su UC (la misma clasificación que usa el
+    cuadre: masa-regla-23, ss, despidos, cargos-reparto, etc.).
+    """
+    nom = _nóminas_personas({int(per_id)})
+    if nom is None or nom.is_empty():
+        return ListResponse(columns=_COLS_NOMINA, rows=[], total=0)
+    nom = _conceptos_clasificados(nom)
+
+    cr_cat = _catalogo_nombre(
+        DIR_ENTRADA / "nóminas" / "conceptos retributivos.xlsx", "concepto_retributivo")
+    tc_cat = _catalogo_nombre(
+        DIR_ENTRADA / "nóminas" / "tipos coste plantilla.xlsx", "tipo_coste")
+    sv_cat = _catalogo_nombre(
+        DIR_ENTRADA / "inventario" / "servicios.xlsx", "servicio")
+
+    def _compose(code_col: str, name_col: str) -> pl.Expr:
+        code = pl.col(code_col).cast(pl.Utf8)
+        return (
+            pl.when(pl.col(name_col).is_not_null() & (pl.col(name_col) != ""))
+            .then(pl.concat_str([code, pl.lit(" — "), pl.col(name_col)]))
+            .otherwise(code.fill_null(""))
+        )
+
+    df = (
+        nom.with_columns(
+            pl.col("concepto_retributivo").cast(pl.Utf8),
+            pl.col("tipo_coste").cast(pl.Utf8),
+            pl.col("servicio").cast(pl.Utf8),
+        )
+        .join(cr_cat, on="concepto_retributivo", how="left")
+        .join(tc_cat, on="tipo_coste", how="left")
+        .join(sv_cat, on="servicio", how="left")
+        .with_columns(
+            pl.col("fecha").dt.strftime("%Y-%m-%d").alias("fecha"),
+            _compose("concepto_retributivo", "_n_concepto_retributivo").alias("concepto_retributivo"),
+            _compose("tipo_coste", "_n_tipo_coste").alias("tipo_coste"),
+            _compose("servicio", "_n_servicio").alias("servicio"),
+            pl.col("proyecto").cast(pl.Utf8),
+            pl.col("aplicación").cast(pl.Utf8),
+            pl.col("concepto").alias("flujo"),
+        )
+    )
+    df = df.select([c.name for c in _COLS_NOMINA if c.name in df.columns])
+    if not params.sort_by:
+        df = df.sort(["fecha", "flujo", "concepto_retributivo"])
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_NOMINA)
+    return ListResponse(
+        columns=_COLS_NOMINA, rows=df.to_dicts(), total=total, column_stats=stats,
+    )
+
+
 def _uc_persona_por_concepto(sector: str, per_id: int) -> dict[str, float]:
     """Mapa {origen_uc: suma_importes} para una persona (todos los
     expedientes, no solo los del sector indicado).

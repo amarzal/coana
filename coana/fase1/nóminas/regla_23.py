@@ -19,6 +19,12 @@ from pathlib import Path
 import polars as pl
 
 from coana.util.excel_cache import read_excel
+from coana.util.configuración import cfg_set
+
+# Másteres ficticios (sin alumnado): se descartan del catálogo de
+# titulaciones igual que en el cargador POD, para no inflar el número de
+# titulaciones por asignatura. Origen: data/configuración.xlsx.
+_MÁSTERES_FICTICIOS: set[str] = cfg_set("másteres_ficticios_pod")
 
 
 def _expedientes_pdi_pvi(expedientes: pl.DataFrame) -> pl.DataFrame:
@@ -34,6 +40,12 @@ def _cargar_pod(ruta_base: Path) -> pl.DataFrame | None:
     if not pod_path.exists():
         return None
     pod = read_excel(pod_path)
+    # El POD enriquecido puede traer los créditos como texto (celdas vacías
+    # → inferencia a string). Forzamos numérico para los cálculos y filtros.
+    pod = pod.with_columns(
+        pl.col("créditos_impartidos").cast(pl.Float64, strict=False).fill_null(0.0),
+        pl.col("créditos_computables").cast(pl.Float64, strict=False).fill_null(0.0),
+    )
     return pod.filter(
         ~((pl.col("créditos_impartidos") == 0) & (pl.col("créditos_computables") == 0))
     )
@@ -49,7 +61,12 @@ def _asignatura_titulaciones(ruta_base: Path) -> pl.DataFrame:
     """
     d = Path(ruta_base) / "entrada" / "docencia"
     ag = read_excel(d / "asignaturas grados.xlsx").select("asignatura", "grado")
-    am = read_excel(d / "asignaturas másteres.xlsx").select("asignatura", "máster")
+    am = (
+        read_excel(d / "asignaturas másteres.xlsx")
+        .select("asignatura", "máster")
+        # Descartar los másteres ficticios, igual que el cargador POD.
+        .filter(~pl.col("máster").cast(pl.Utf8).is_in(_MÁSTERES_FICTICIOS))
+    )
     gr = read_excel(d / "grados.xlsx").select(
         pl.col("grado").alias("titulación"),
         pl.col("nombre").alias("nombre_titulación"),
@@ -61,9 +78,12 @@ def _asignatura_titulaciones(ruta_base: Path) -> pl.DataFrame:
         "estudio",
         "oficial",
     )
+    # `estudios.xlsx` tiene códigos `estudio` repetidos (varias ediciones
+    # con el mismo código). Sin deduplicar, el join de abajo multiplica
+    # las filas de cada asignatura y falsea el recuento de titulaciones.
     est = read_excel(d / "estudios.xlsx").select(
         "estudio", pl.col("nombre").alias("nombre_estudio"),
-    )
+    ).unique(subset="estudio", keep="first")
 
     COLS = ["asignatura", "tipo", "titulación", "nombre_titulación",
             "estudio", "nombre_estudio", "oficial"]
@@ -88,7 +108,11 @@ def _asignatura_titulaciones(ruta_base: Path) -> pl.DataFrame:
         .join(est, on="estudio", how="left")
         .select(COLS)
     )
-    return pl.concat([grado_tit, máster_tit], how="vertical")
+    # Garantía: una sola fila por (asignatura, titulación), por si alguna
+    # otra tabla de referencia introdujera duplicados.
+    return pl.concat([grado_tit, máster_tit], how="vertical").unique(
+        subset=["asignatura", "titulación"], keep="first",
+    )
 
 
 def _cargar_pod_másteres(ruta_base: Path) -> pl.DataFrame | None:
@@ -124,7 +148,7 @@ def _resolver_titulación_efectiva(
     asig_tit = _asignatura_titulaciones(ruta_base)
     n_tit_por_asig = (
         asig_tit.group_by("asignatura")
-        .agg(pl.len().alias("_n_tit"))
+        .agg(pl.col("titulación").n_unique().alias("_n_tit"))
     )
     pod_n = pod.join(n_tit_por_asig, on="asignatura", how="left")
 

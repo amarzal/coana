@@ -73,7 +73,7 @@ export function PersonaPdiPvi({ sector }: { sector: Sector }) {
                             <LaboralTab sector={sector} perId={perId} />
                         )}
                         {activeTab === "nomina" && (
-                            <NominaTab perId={perId} />
+                            <NominaTab sector={sector} perId={perId} />
                         )}
                         {activeTab === "regla23" && (
                             <Regla23Tab sector={sector} perId={perId} />
@@ -136,22 +136,22 @@ function LaboralTab({ sector, perId }: { sector: Sector; perId: number }) {
     );
 }
 
-function NominaTab({ perId }: { perId: number }) {
+function NominaTab({ sector, perId }: { sector: Sector; perId: number }) {
     return (
         <div className="flex flex-col gap-3">
             <p className="text-xs text-slate-500">
-                Líneas de nómina de todos los expedientes de la persona,
-                agrupadas por flujo conceptual. La vista detallada por
-                expediente está disponible en{" "}
-                <em>Personal · Expedientes (legacy)</em>; aquí se muestra
-                un resumen agregado.
+                Detalle línea a línea de la nómina del año (todos los
+                expedientes de la persona). Cada fila incluye el concepto
+                retributivo, el tipo de coste y el <em>flujo</em> que canaliza
+                ese importe hacia su UC (la misma clasificación del cuadre).
             </p>
-            <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-                Pestaña en construcción. De momento usa la pestaña{" "}
-                <em>UC generadas</em> para ver el destino de cada flujo,
-                y <em>Resumen / Cuadre</em> para el total por concepto.
-                Sugerencia: per_id {perId}.
-            </div>
+            <DataTable
+                key={`nomina-${perId}`}
+                endpoint={`/api/persona360/${sector}/personas/${perId}/nomina`}
+                queryKey={`persona360:${sector}:${perId}:nomina`}
+                rowKey="concepto_retributivo"
+                reorderImportes={false}
+            />
         </div>
     );
 }
