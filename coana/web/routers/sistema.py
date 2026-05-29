@@ -92,6 +92,35 @@ def fase1_status(job_id: str) -> JobInfo:
 
 
 # ----------------------------------------------------------------------
+# Reparto de actividades (costes dag → actividades no-dag).
+# Reutiliza el job manager y el stream genérico `/fase1/{id}/stream`.
+# ----------------------------------------------------------------------
+
+@router.post("/reparto/run", response_model=JobInfo)
+def run_reparto() -> JobInfo:
+    """Lanza el reparto de actividades (en segundo plano)."""
+    job = streaming.start_reparto()
+    if job is None:
+        actual = streaming.get_current()
+        if actual is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Ya hay un job en ejecución ({actual.kind}, id {actual.id})",
+            )
+        raise HTTPException(status_code=409, detail="No se pudo arrancar el job")
+    return _to_info(job)
+
+
+@router.get("/reparto/current", response_model=JobInfo | None)
+def reparto_current() -> JobInfo | None:
+    """Job de reparto en curso o último ejecutado, si lo hay."""
+    job = streaming.get_current()
+    if job is None or job.kind != "reparto":
+        return None
+    return _to_info(job)
+
+
+# ----------------------------------------------------------------------
 # Generación de informes (Fase 2 + compilación Typst + abrir PDF).
 # ----------------------------------------------------------------------
 

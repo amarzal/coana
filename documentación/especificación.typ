@@ -242,7 +242,7 @@ La pantalla *Personal · PDI/PVI* expone este cuadre en su columna #campo("delta
 
 + Para cada (#campo("per_id"), #campo("actividad"), #campo("centro_de_coste")) la suma de #campo("origen_porción") de las UC de #ruta("regla23", "uc_reparto_regla_23.parquet") iguala (con redondeo) la proporción de #campo("horas_finales") en ese par sobre el total de la persona.
 
-+ Para cada #campo("per_id") en #ruta("regla23", "uc_reparto_regla_23.parquet"), la suma de #campo("importe") iguala la masa regla 23 de esa persona (las nóminas que cumplen el filtro de §«Reparto de la masa regla 23 → unidades de coste»), salvo por redondeo a céntimos.
++ Para cada #campo("per_id") en #ruta("regla23", "uc_reparto_regla_23.parquet"), la suma de #campo("importe") iguala la masa regla 23 de esa persona (las nóminas que cumplen el filtro de §«Reparto de la masa regla 23 → unidades de coste»). Al no haber redondeos intermedios, la igualdad es exacta salvo el error de coma flotante (despreciable).
 
 === Integridad referencial
 
@@ -294,7 +294,7 @@ Quien quiera reconstruir el sistema desde cero puede seguir esta secuencia para 
 + *Instalar* la pila (Python 3.14, uv, dependencias del pyproject, npm, Vite). Compilar el frontend.
 + *Copiar* la carpeta #ruta("data", "entrada") tal cual del repositorio canónico.
 + *Ejecutar* la fase 1: #raw("uv run python -c \"from pathlib import Path; from coana.fase1 import ejecutar; ejecutar(Path('data'), año=2025)\"")
-+ *Comparar* la salida combinada (`Total UC` y el desglose por fuente que imprime el log) con la tabla del apartado anterior. Las cifras deben coincidir hasta el céntimo (las pequeñas variaciones en SS por redondeos compuestos quedan acotadas a < #val("100 €")).
++ *Comparar* la salida combinada (`Total UC` y el desglose por fuente que imprime el log) con la tabla del apartado anterior. Las cifras deben coincidir hasta el céntimo (al trabajar internamente con precisión completa y redondear solo al presentar, ya no hay variaciones por redondeos compuestos).
 + *Inspeccionar* la pantalla «Resultados Fase 1 · Anomalías UC» y verificar que el número de anomalías por integridad referencial coincide con el esperado.
 + *Repetir* la ejecución cambiando #campo("año_analizado") en #ruta("data", "configuración.xlsx") (con los datos correspondientes en #ruta("data", "entrada")) para confirmar que la parametrización por año funciona.
 
@@ -1342,7 +1342,7 @@ Desde el punto de vista de su implementación, una unidad de coste es un registr
     campo("elemento_de_coste"), [Un identificador de `elementos de coste.tree`],
     campo("centro_de_coste"), [Un identificador de `centros de coste.tree`],
     campo("actividad"), [Un identificador de `actividades.tree`],
-    campo("importe"), [Un importe en euros],
+    campo("importe"), [Un importe en euros. *Precisión:* los importes se manejan internamente como números de coma flotante de doble precisión (#val("float64")) a lo largo de todo el pipeline, sin redondeos intermedios; el redondeo al céntimo más próximo se aplica *únicamente al presentar* la información al usuario (vistas web, cuadros de fase 2, informes a la carta, exportaciones). Los ficheros `.xlsx` de la fase 1 guardan el valor con precisión completa y aplican un formato de celda de dos decimales para su visualización.],
     campo("origen"),
     [Presupuesto, energía, agua, gas, nómina, inventario, o unidad de coste (valores de un `Enum`), dependiendo de si el elemento procede de un apunte presupuestario, de un coste de energía, agua o gas, de un pago por nómina, de un registro de inventario o de otra unidad de coste.],
 
@@ -5055,6 +5055,173 @@ Por compatibilidad con el visor y la fase 2, los outputs históricos se mantiene
 - #ruta("auxiliares", "nóminas", "persona_ss.parquet"): reparto de SS por (per_id, actividad, centro_de_coste). Se calcula agregando por per_id el reparto por expediente.
 
 El visor *Personal · PDI/PVI* agrega los expedientes por per_id como overview. La columna Δ del master debería ser 0 para cada expediente; cuando una persona descuadra, el desglose por concepto en la pestaña *Resumen / Cuadre* señala el expediente concreto y la causa (típicamente un servicio sin mapeo en #ruta("servicios.xlsx") que impide repartir la SS del expediente).
+
+
+= Fase de reparto de actividades
+
+El modelo de contabilidad analítica exige que los costes de *gestión agregada* —las UC cuya actividad es de tipo #emph[dag] (identificador #val("dags") o que empieza por #val("dag-"): departamentos #etqact("dag-dfc"), vicerrectorados #etqact("dag-vi"), servicios generales #etqact("dag-sgc-…"), institutos, amortizaciones imputadas a #etqact("dags")…)— se repartan entre las *actividades finalistas* (no-dag) del mismo centro. Es una fase posterior e independiente de la fase 1, con su propio botón *Reparto actividades* en la barra lateral; toma como entrada el combinado #ruta("data", "fase1", "unidades de coste.xlsx") y produce sus propios artefactos y visores. Los informes de la fase 2 la consumirán más adelante. El módulo vive en #ruta("coana", "reparto").
+
+== Modelo de reparto
+
+El conjunto de UC de la fase 1 se conserva como entrada. El destino de cada actividad dag lo fija la *Tabla 1* (más abajo): cada actividad dag se reparte a las *actividades hoja* (finalistas) de su destino, que es *o bien* un centro *o bien* una actividad. Sobre ese conjunto de actividades hoja se precalcula el peso de cada una según su coste:
+
+#campo("peso(hoja) = coste_no_dag(hoja) / Σ coste_no_dag(hojas del destino)")
+
+Cada UC dag genera un *fragmento* por cada actividad hoja del destino, con #campo("importe = importe_dag × peso"). El fragmento recuerda su procedencia: #campo("origen") = #val("reparto-dag"), #campo("origen_id") = id de la UC dag original, #campo("origen_porción") = #campo("peso"). La UC dag original desaparece (no se duplica el coste).
+
+Toda UC lleva además un campo nuevo, #campo("marca_dag"): #val("None") en las UC normales y la etiqueta dag de procedencia (p.ej. #etqact("dag-dfc")) en los fragmentos. Permitirá más adelante subtotalizar el coste de un centro separando lo no-dag de lo dag.
+
+Es una sola pasada (la base no-dag se calcula del conjunto pre-reparto; no hay cascada dag→dag) y la conservación del importe total es exacta: #campo("Σ post-reparto = Σ entrada").
+
+== Tabla 1: destino de cada actividad dag
+
+La Tabla 1 es un *artefacto de diseño*: no proviene de la base de datos corporativa, sino que lo definimos al especificar el sistema. Por eso vive *en esta especificación* (y, reflejada, como literal en #ruta("coana", "reparto", "tabla_dag_centro.py")), no como hoja de cálculo. Tiene tres columnas: la actividad dag a repartir y su destino, que es *exactamente uno* de los otros dos: un *centro* (se reparte a sus actividades finalistas) o una *actividad* (se reparte a las hojas de su subárbol).
+
+*Departamentos, facultades, institutos y grupos de investigación* siguen la *convención*: #etqact("dag-X") reparte a las hojas del centro #etqcen("X") (la parte tras #val("dag-")). Son muchos (los grupos, en particular) y comparten un patrón claro, así que no se enumeran aquí; podrán afinarse caso a caso en el futuro. Aparte, el nodo paraguas #etqact("dags") (amortizaciones genéricas) reparte a #etqact("principales").
+
+*Servicios de la UJI.* Estos sí se enumeran por completo, porque su destino es una decisión de diseño que querremos afinar. La primera versión lleva como destino por defecto la actividad global #etqact("principales") (toda la actividad finalista de la UJI); cada fila puede cambiarse a un centro (col. 2) o a otra actividad (col. 3). El orden sigue la estructura organizativa del árbol de actividades.
+
+#table(
+    columns: (1.7fr, auto, auto),
+    stroke: 0.5pt + luma(80%),
+    inset: 5pt,
+    table.header(table.hline(), [*actividad dag*], [*centro*], [*actividad*], table.hline()),
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Rectorado*]],
+    [#etqact("dag-rectorado")], [—], [#etqact("principales")],
+    [#etqact("dag-delegado")], [—], [#etqact("principales")],
+    [#etqact("dag-síndico-agravios")], [—], [#etqact("principales")],
+    [#etqact("dag-inspección-servicios")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Vicerrectorados*]],
+    [#etqact("dag-vi")], [—], [#etqact("principales")],
+    [#etqact("dag-vefp")], [—], [#etqact("principales")],
+    [#etqact("dag-voap")], [—], [#etqact("principales")],
+    [#etqact("dag-vevs")], [—], [#etqact("principales")],
+    [#etqact("dag-vri")], [—], [#etqact("principales")],
+    [#etqact("dag-vitdc")], [—], [#etqact("principales")],
+    [#etqact("dag-vrspii")], [—], [#etqact("principales")],
+    [#etqact("dag-vcls")], [—], [#etqact("principales")],
+    [#etqact("dag-vis")], [—], [#etqact("principales")],
+    [#etqact("dag-vpee")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-tributos")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-arrendamiento-bienes")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-reparación-conservación")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-suministros")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-transportes-comunicaciones")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-trabajos-realizados-otras-empresas")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-primas-seguros")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-material-oficina")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-gastos-diversos")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-gastos-financieros")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-adquisiciones-bibliográficas")], [—], [#etqact("principales")],
+    [#etqact("dag-org-vicerrectorados-indemnizaciones-razón-servicio")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Secretaría General*]],
+    [#etqact("dag-secretaría-general")], [—], [#etqact("principales")],
+    [#etqact("dag-junta-electoral")], [—], [#etqact("principales")],
+    [#etqact("dag-asesoría-jurídica")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Gerencia*]],
+    [#etqact("dag-gerencia")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-tributos")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-arrendamiento-bienes")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-reparación-conservación")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-suministros")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-transportes-comunicaciones")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-trabajos-realizados-otras-empresas")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-primas-seguros")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-material-oficina")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-gastos-diversos")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-gastos-financieros")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-adquisiciones-bibliográficas")], [—], [#etqact("principales")],
+    [#etqact("dag-org-gerencia-indemnizaciones-razón-servicio")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Consejo Social y Consejo de estudiantes*]],
+    [#etqact("dag-consejo-social")], [—], [#etqact("principales")],
+    [#etqact("dag-consejo-estudiantes")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Servicios Generales y Centrales*]],
+    [#etqact("dag-scag")], [—], [#etqact("principales")],
+    [#etqact("dag-sci")], [—], [#etqact("principales")],
+    [#etqact("dag-sge")], [—], [#etqact("principales")],
+    [#etqact("dag-sic")], [—], [#etqact("principales")],
+    [#etqact("dag-srh")], [—], [#etqact("principales")],
+    [#etqact("dag-sgit")], [—], [#etqact("principales")],
+    [#etqact("dag-gencisub")], [—], [#etqact("principales")],
+    [#etqact("dag-conserjería-estce")], [—], [#etqact("principales")],
+    [#etqact("dag-conserjería-fcje")], [—], [#etqact("principales")],
+    [#etqact("dag-conserjería-fchs")], [—], [#etqact("principales")],
+    [#etqact("dag-conserjería-fcs")], [—], [#etqact("principales")],
+    [#etqact("dag-conserjería-consejo-social")], [—], [#etqact("principales")],
+    [#etqact("dag-conserjería-rectorado")], [—], [#etqact("principales")],
+    [#etqact("dag-conserjería-parque-tecnológico")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-tributos")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-arrendamiento-bienes")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-reparación-conservación")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-suministros")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-transportes-comunicaciones")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-trabajos-realizados-otras-empresas")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-primas-seguros")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-material-oficina")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-gastos-diversos")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-gastos-financieros")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-adquisiciones-bibliográficas")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-indemnizaciones-razón-servicio")], [—], [#etqact("principales")],
+    [#etqact("dag-sgc-indemnizaciones-asistencias")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Otros servicios de soporte general*]],
+    [#etqact("dag-otros-servicios-comunicación-publicaciones")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-promoción-lengua-asesoramiento-lingüístico")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-prevención-gestión-medioambiental")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-ti")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-obras-proyectos")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-información-registro")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-promoción-evaluación-calidad")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-relaciones-internacionales")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-atención-diversidad-apoyo-educativo")], [—], [#etqact("principales")],
+    [#etqact("dag-otros-servicios-promoción-fomento-igualdad")], [—], [#etqact("principales")],
+    [#etqact("dag-convivencia")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Soporte a extensión universitaria*]],
+    [#etqact("dag-deportes")], [—], [#etqact("principales")],
+    [#etqact("dag-cultura")], [—], [#etqact("principales")],
+    [#etqact("dag-cooperación")], [—], [#etqact("principales")],
+    [#etqact("dag-apoyo-estudiantes")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Biblioteca*]],
+    [#etqact("dag-biblioteca")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Apoyo a la docencia oficial*]],
+    [#etqact("dag-cent")], [—], [#etqact("principales")],
+    [#etqact("dag-ufie")], [—], [#etqact("principales")],
+    [#etqact("dag-sgde")], [—], [#etqact("principales")],
+    [#etqact("dag-oe")], [—], [#etqact("principales")],
+    [#etqact("dag-oipep")], [—], [#etqact("principales")],
+    [#etqact("dag-opp")], [—], [#etqact("principales")],
+    [#etqact("dag-uo")], [—], [#etqact("principales")],
+    [#etqact("dag-encargos-gestión")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Apoyo a la investigación*]],
+    [#etqact("dag-scic")], [—], [#etqact("principales")],
+    [#etqact("dag-sea")], [—], [#etqact("principales")],
+    [#etqact("dag-encargos-proyectos-investigación-europeos")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Laboratorios de Docencia e Investigación*]],
+    [#etqact("dag-labcom")], [—], [#etqact("principales")],
+    [#etqact("dag-sala-disección")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Escuela de Doctorado*]],
+    [#etqact("dag-escuela-doctorado")], [#etqcen("ed")], [—],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Apoyo a estudios propios*]],
+    [#etqact("dag-encargos-gestión-estudios-propios")], [—], [#etqact("principales")],
+    [#etqact("dag-encargos-gestión-microcredenciales")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Apoyo a la transferencia del conocimiento*]],
+    [#etqact("dag-encargos-gestión-transferencia")], [—], [#etqact("principales")],
+    [#etqact("dag-encargos-gestión-espaitec")], [—], [#etqact("principales")],
+    [#etqact("dag-innovación-emprendeduría")], [—], [#etqact("principales")],
+    [#etqact("dag-divulgación-científica")], [—], [#etqact("principales")],
+    table.cell(colspan: 3)[#text(fill: luma(45%))[*Apoyo a proyectos internacionales*]],
+    [#etqact("dag-encargos-gestión-proyectos-internacionales")], [—], [#etqact("principales")],
+    table.hline(),
+)
+
+Esta tabla es el reflejo de #campo("SERVICIOS") en #ruta("coana", "reparto", "_servicios.py"); ambos se mantienen sincronizados.
+
+== Anomalías del reparto
+
+Con la regla de servicios centrales, prácticamente toda actividad dag tiene un destino con base. Una UC dag cuyo destino no tenga *ninguna* actividad hoja con coste *no se reparte*: se conserva intacta (para no perder coste) y se lista en el visor de anomalías para revisión. El visor permite además localizar las actividades dag que se han repartido a #etqact("principales") por la regla por defecto, para decidir si merecen una excepción más fina en la Tabla 1.
+
+== Artefactos y visores
+
+La fase escribe en #ruta("data", "fase1", "reparto"): #ruta("uc_post_reparto.parquet") (UC tras el reparto, con #campo("marca_dag")), #ruta("porcentajes_centro.parquet") (la tabla de % por centro) y #ruta("anomalias.parquet"). El bloque *Reparto de actividades* de la #app expone cuatro vistas —Resumen, UC tras reparto, Porcentajes por centro y Anomalías— y reutiliza el gestor de jobs y el panel terminal de la fase 1.
 
 
 = Fase 2: Informes consolidados

@@ -15,7 +15,7 @@
 import { useSyncExternalStore } from "react";
 
 export type Status = "idle" | "running" | "done" | "error";
-export type Kind = "fase1" | "informes" | null;
+export type Kind = "fase1" | "reparto" | "informes" | null;
 
 export type TerminalState = {
     lines: string[];
@@ -72,6 +72,7 @@ export const terminalStore = {
         // separadora al inicio de cada ejecución.
         const titulos: Record<Exclude<Kind, null>, string> = {
             fase1: "Cálculo de unidades de coste",
+            reparto: "Reparto de actividades",
             informes: "Generar informes",
         };
         const ahora = new Date();

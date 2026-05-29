@@ -250,7 +250,7 @@ def generar_uc_reparto_regla_23(
         uc_sindical_pre = (
             masa_pp.filter(pl.col("_x") < 1.0)
             .with_columns(
-                (pl.col("importe_ec") * (1.0 - pl.col("_x"))).round(2).alias("importe"),
+                (pl.col("importe_ec") * (1.0 - pl.col("_x"))).alias("importe"),
                 pl.lit(CC_SINDICAL).alias("centro_de_coste"),
                 pl.lit(ACTIVIDAD_SINDICAL).alias("actividad"),
                 (1.0 - pl.col("_x")).alias("peso"),
@@ -419,7 +419,7 @@ def generar_uc_reparto_regla_23(
     # Producto cartesiano (per_id × expediente × ec) × (per_id ×
     # actividad × centro). El expediente se conserva en la UC final.
     uc = masa_pp.join(pesos, on="per_id", how="inner").with_columns(
-        (pl.col("importe_ec") * pl.col("peso")).round(2).alias("importe"),
+        (pl.col("importe_ec") * pl.col("peso")).alias("importe"),
     )
     cols_comunes = [
         "per_id", "expediente", "_ec", "importe_ec",
@@ -427,7 +427,7 @@ def generar_uc_reparto_regla_23(
     ]
     if sin_ded_uc is not None:
         sin_ded_uc = sin_ded_uc.with_columns(
-            (pl.col("importe_ec") * pl.col("peso")).round(2).alias("importe"),
+            (pl.col("importe_ec") * pl.col("peso")).alias("importe"),
         )
         uc = pl.concat([
             uc.select(cols_comunes), sin_ded_uc.select(cols_comunes),
@@ -438,7 +438,7 @@ def generar_uc_reparto_regla_23(
         ], how="vertical_relaxed")
     if override_uc is not None:
         override_uc = override_uc.with_columns(
-            (pl.col("importe_ec") * pl.col("peso")).round(2).alias("importe"),
+            (pl.col("importe_ec") * pl.col("peso")).alias("importe"),
         )
         uc = pl.concat([
             uc.select(cols_comunes), override_uc.select(cols_comunes),

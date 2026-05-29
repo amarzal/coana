@@ -66,12 +66,12 @@ def aplicar_reducción(
         sind["id"] = next_id()
         sind["centro_de_coste"] = CC_SINDICAL
         sind["actividad"] = ACTIVIDAD_SINDICAL
-        sind["importe"] = round(importe * (1.0 - x), 2)
+        sind["importe"] = importe * (1.0 - x)
         sind["origen_porción"] = round(porción * (1.0 - x), 6)
         sind["origen_id"] = f"{fila.get('origen_id', '') or ''}-sind"
         sindicales.append(sind)
         # Reducir la UC original.
-        fila["importe"] = round(importe * x, 2)
+        fila["importe"] = importe * x
         fila["origen_porción"] = round(porción * x, 6)
     filas.extend(sindicales)
 

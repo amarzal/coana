@@ -115,6 +115,20 @@ def start_informes() -> Job | None:
     return job
 
 
+def start_reparto() -> Job | None:
+    """Arranca un job de reparto de actividades (costes dag). Devuelve
+    None si ya hay uno en curso."""
+    global _CURRENT_ID
+    with _LOCK:
+        if is_running():
+            return None
+        job = Job(id=uuid.uuid4().hex[:8], kind="reparto")
+        _JOBS[job.id] = job
+        _CURRENT_ID = job.id
+    threading.Thread(target=_run_reparto, args=(job,), daemon=True).start()
+    return job
+
+
 def _run_job(job: Job) -> None:
     try:
         # Importar tarde para no encarecer el arranque del visor.
@@ -139,6 +153,34 @@ def _run_job(job: Job) -> None:
     except Exception as exc:  # noqa: BLE001 - queremos cualquier error
         import traceback
         job.lines.append("ERROR durante el cálculo de unidades de coste:")
+        job.lines.extend(traceback.format_exc().splitlines())
+        job.error = str(exc)
+        job.status = "error"
+    finally:
+        job.finished_at = time.time()
+
+
+def _run_reparto(job: Job) -> None:
+    try:
+        from coana.reparto import ejecutar
+        from coana.web.deps import clear_cache as clear_data_cache
+        from coana.web.services.lookups import clear_cache as clear_lookups_cache
+
+        job.lines.append(f"Lanzando reparto de actividades (job {job.id})…")
+        writer = _LineWriter(job)
+        with contextlib.redirect_stdout(writer):
+            ejecutar()
+        writer.flush()
+
+        clear_data_cache()
+        clear_lookups_cache()
+        _clear_module_caches()
+
+        job.lines.append("Reparto de actividades completado con éxito.")
+        job.status = "done"
+    except Exception as exc:  # noqa: BLE001
+        import traceback
+        job.lines.append("ERROR durante el reparto de actividades:")
         job.lines.extend(traceback.format_exc().splitlines())
         job.error = str(exc)
         job.status = "error"
@@ -209,11 +251,12 @@ def _clear_module_caches() -> None:
         personal,
         presupuesto,
         regla23,
+        reparto,
         resultados,
         superficies,
     )
     for mod in (amortizaciones, cargos, entradas, personal, presupuesto,
-                regla23, resultados, superficies):
+                regla23, reparto, resultados, superficies):
         for name in dir(mod):
             obj = getattr(mod, name)
             cache_clear = getattr(obj, "cache_clear", None)

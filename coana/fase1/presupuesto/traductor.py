@@ -222,13 +222,19 @@ class TraductorPresupuesto:
         ruta_uc = dir_salida / "uc presupuesto.xlsx"
         ruta_sin = dir_salida / "presupuesto sin uc.xlsx"
 
+        # Importe con precisión completa en la celda; formato al céntimo
+        # solo para la visualización en Excel.
+        _fmt_euro = {"importe": '#,##0.00\\ "€"'}
         if not unidades.is_empty():
-            unidades.write_excel(ruta_uc)
+            unidades.write_excel(ruta_uc, column_formats=_fmt_euro)
         else:
             ruta_uc.unlink(missing_ok=True)
 
         if not sin_clasificar.is_empty():
-            sin_clasificar.write_excel(ruta_sin)
+            sin_clasificar.write_excel(
+                ruta_sin,
+                column_formats=_fmt_euro if "importe" in sin_clasificar.columns else None,
+            )
         else:
             ruta_sin.unlink(missing_ok=True)
         print(f"  Ficheros guardados en {dir_salida}")

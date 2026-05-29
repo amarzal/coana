@@ -317,7 +317,12 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
     if todas_uc:
         combinado = pl.concat(todas_uc, how="diagonal")
         print("Guardando fichero combinado de UC…")
-        combinado.write_excel(dir_salida / "unidades de coste.xlsx")
+        # El importe se guarda con precisión completa (la fase 2 lo relee
+        # como fuente de verdad); el formato de celda lo MUESTRA al céntimo.
+        combinado.write_excel(
+            dir_salida / "unidades de coste.xlsx",
+            column_formats={"importe": '#,##0.00\\ "€"'},
+        )
         print(f"  Total UC (todas las fuentes): {len(combinado):,}")
         print(f"  Escrito: {dir_salida / 'unidades de coste.xlsx'}")
     else:

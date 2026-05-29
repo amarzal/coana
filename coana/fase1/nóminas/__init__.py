@@ -1147,7 +1147,6 @@ def _generar_reparto_ss_persona(
             pl.when(pl.col("bruto_total") > 0)
             .then(pl.col("bruto") / pl.col("bruto_total") * pl.col("ss_total_persona"))
             .otherwise(0.0)
-            .round(2)
             .alias("ss_expediente")
         )
         .select("expediente", "per_id", "bruto", "ss_total_persona", "ss_expediente")
@@ -1172,7 +1171,6 @@ def _generar_reparto_ss_persona(
         .filter(pl.col("total_uc_exp").abs() > 1e-9)
         .with_columns(
             (pl.col("importe_uc") / pl.col("total_uc_exp") * pl.col("ss_expediente"))
-            .round(2)
             .alias("ss_proporcional"),
         )
     )
@@ -1196,7 +1194,7 @@ def _generar_reparto_ss_persona(
         reparto.group_by("per_id", "actividad", "centro_de_coste")
         .agg(
             pl.col("importe_uc").sum().alias("importe_uc"),
-            pl.col("ss_proporcional").sum().round(2).alias("ss_proporcional"),
+            pl.col("ss_proporcional").sum().alias("ss_proporcional"),
         )
         .join(
             ss_persona.select("per_id", pl.col("ss_total_persona").alias("ss_total")),
@@ -1509,7 +1507,6 @@ def _aplicar_extras_cargos_al_cr68(
         cr68_gen.join(ratios, on="per_id", how="inner")
         .with_columns(
             (pl.col("importe") * (1.0 - pl.col("ratio_resta")))
-            .round(2)
             .alias("importe_nuevo")
         )
         .select("_idx", "importe_nuevo")
@@ -1636,7 +1633,10 @@ def preprocesar_nóminas(
         nóminas.filter(es_retributiva)
         .group_by("expediente")
         .agg(pl.col("importe").sum().alias("_imp"))
-        .filter(pl.col("_imp").abs() > 0)
+        # Medio céntimo de tolerancia: «tiene actividad» = la suma
+        # retributiva redondea a ≥ 1 céntimo (evita que el ruido de coma
+        # flotante, ahora sin redondeo intermedio, cuele sumas ≈ 0).
+        .filter(pl.col("_imp").abs() >= 0.005)
         .get_column("expediente")
     )
     n_antes = expedientes.height

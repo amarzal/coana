@@ -20,6 +20,7 @@ import {
     Sheet,
     ListTree,
     Microscope,
+    Share2,
     ChevronDown,
     ChevronRight,
     type LucideIcon,
@@ -176,6 +177,16 @@ const GROUPS: Group[] = [
                 ],
             },
             { label: "Anomalías UC", to: "/resultados/anomalias" },
+        ],
+    },
+    {
+        label: "Reparto de actividades",
+        icon: Share2,
+        items: [
+            { label: "Resumen", to: "/reparto/resumen" },
+            { label: "UC tras reparto", to: "/reparto/uc" },
+            { label: "Porcentajes por centro", to: "/reparto/porcentajes" },
+            { label: "Anomalías", to: "/reparto/anomalias" },
         ],
     },
     {

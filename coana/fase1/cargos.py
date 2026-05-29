@@ -439,13 +439,8 @@ def generar_cargos_uc(
         )
         .with_columns(
             (pl.col("importe_uc_ord") + pl.col("importe_uc_extra"))
-            .round(2)
             .alias("importe_uc"),
-            pl.col("extra_estimada").round(2),
-            pl.col("importe_uc_ord").round(2),
-            pl.col("importe_uc_extra").round(2),
             (pl.col("suma_extra_estimada") - pl.col("extra_aplicada_total"))
-            .round(2)
             .alias("extra_no_aplicada"),
         )
         .join(cats_últimas, on="per_id", how="left")
