@@ -265,6 +265,46 @@ def generar_uc_reparto_regla_23(
             (pl.col("importe_ec") * pl.col("_x")).alias("importe_ec")
         ).drop("_x")
 
+    # Absentismo (reducciones de jornada NO sindicales): sobre la masa que
+    # queda tras el sindical (ya × X), se aparta `(1−Y) × importe_ec` como
+    # UC de absentismo (CC `UJI`, actividad `absentismo`). La masa que
+    # entra al reparto regla 23 queda en `Y × importe_ec`. Cascada
+    # multiplicativa con el sindical.
+    from coana.fase1.nóminas.reducciones_jornada import (
+        ACT_ABSENTISMO, CC_ABSENTISMO,
+        factor_absentismo_por_expediente as _factor_absent,
+    )
+    factores_y = _factor_absent(ruta_base, año=año)
+    uc_absentismo_pre = pl.DataFrame()
+    if factores_y:
+        fy_df = pl.DataFrame(
+            {
+                "expediente": list(factores_y.keys()),
+                "_y": list(factores_y.values()),
+            },
+            schema={"expediente": pl.Int64, "_y": pl.Float64},
+        )
+        masa_pp = masa_pp.join(fy_df, on="expediente", how="left").with_columns(
+            pl.col("_y").fill_null(1.0)
+        )
+        uc_absentismo_pre = (
+            masa_pp.filter(pl.col("_y") < 1.0)
+            .with_columns(
+                (pl.col("importe_ec") * (1.0 - pl.col("_y"))).alias("importe"),
+                pl.lit(CC_ABSENTISMO).alias("centro_de_coste"),
+                pl.lit(ACT_ABSENTISMO).alias("actividad"),
+                (1.0 - pl.col("_y")).alias("peso"),
+            )
+            .filter(pl.col("importe").abs() >= 0.01)
+            .select(
+                "per_id", "expediente", "_ec", "importe_ec",
+                "actividad", "centro_de_coste", "peso", "importe",
+            )
+        )
+        masa_pp = masa_pp.with_columns(
+            (pl.col("importe_ec") * pl.col("_y")).alias("importe_ec")
+        ).drop("_y")
+
     # Pesos por (per_id, actividad, centro_de_coste).
     pesos = (
         norm.filter(pl.col("horas_finales") > 0)
@@ -435,6 +475,10 @@ def generar_uc_reparto_regla_23(
     if not uc_sindical_pre.is_empty():
         uc = pl.concat([
             uc.select(cols_comunes), uc_sindical_pre.select(cols_comunes),
+        ], how="vertical_relaxed")
+    if not uc_absentismo_pre.is_empty():
+        uc = pl.concat([
+            uc.select(cols_comunes), uc_absentismo_pre.select(cols_comunes),
         ], how="vertical_relaxed")
     if override_uc is not None:
         override_uc = override_uc.with_columns(

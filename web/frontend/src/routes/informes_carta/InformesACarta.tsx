@@ -17,7 +17,11 @@ type Filtro = {
     actividades: string[];
     elementos_de_coste: string[];
     orden: Eje[];
+    // Por eje: true = agregado (un solo importe), false = detalle (valor a valor).
+    agregado: Record<Eje, boolean>;
 };
+
+const AGREGADO_DEFECTO: Record<Eje, boolean> = { cc: true, act: true, ec: true };
 
 type Nodo = {
     nivel: number;
@@ -43,16 +47,59 @@ const EJE_LABEL: Record<Eje, string> = {
     ec: "Elemento de coste",
 };
 
+function ToggleAgregado({
+    agregado,
+    onChange,
+}: {
+    agregado: boolean;
+    onChange: (v: boolean) => void;
+}) {
+    return (
+        <div
+            className="inline-flex overflow-hidden rounded border border-slate-300 text-[10px]"
+            role="group"
+            aria-label="Nivel de agregación"
+        >
+            <button
+                type="button"
+                onClick={() => onChange(true)}
+                className={cn(
+                    "px-2 py-0.5",
+                    agregado ? "bg-slate-800 text-white" : "bg-white text-slate-600 hover:bg-slate-100",
+                )}
+                title="Un único importe agregado para este campo"
+            >
+                Agregado
+            </button>
+            <button
+                type="button"
+                onClick={() => onChange(false)}
+                className={cn(
+                    "px-2 py-0.5",
+                    !agregado ? "bg-slate-800 text-white" : "bg-white text-slate-600 hover:bg-slate-100",
+                )}
+                title="Desglose fino, valor a valor"
+            >
+                Detalle
+            </button>
+        </div>
+    );
+}
+
 function MultiSelect({
     label,
     opciones,
     seleccionados,
     onChange,
+    agregado,
+    onAgregadoChange,
 }: {
     label: string;
     opciones: Opcion[];
     seleccionados: string[];
     onChange: (next: string[]) => void;
+    agregado: boolean;
+    onAgregadoChange: (v: boolean) => void;
 }) {
     const [busqueda, setBusqueda] = useState("");
     const [abierto, setAbierto] = useState(false);
@@ -76,7 +123,10 @@ function MultiSelect({
     }, [opciones]);
     return (
         <div className="rounded border border-slate-200 bg-white p-2">
-            <div className="mb-1 text-xs font-semibold text-slate-600">{label}</div>
+            <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold text-slate-600">{label}</span>
+                <ToggleAgregado agregado={agregado} onChange={onAgregadoChange} />
+            </div>
             {seleccionados.length > 0 && (
                 <div className="mb-1 flex flex-wrap gap-1">
                     {seleccionados.map((s) => {
@@ -382,6 +432,7 @@ export function InformesACarta() {
         actividades: [],
         elementos_de_coste: [],
         orden: ["cc", "act", "ec"],
+        agregado: { ...AGREGADO_DEFECTO },
     });
     const [consultaActiva, setConsultaActiva] = useState<Filtro | null>(null);
     const [nombreConfig, setNombreConfig] = useState("");
@@ -431,7 +482,8 @@ export function InformesACarta() {
         const r = await fetch(`/api/informes-carta/configs/${encodeURIComponent(nombre)}`);
         if (!r.ok) return;
         const f = (await r.json()) as Filtro;
-        setFiltro(f);
+        // Configs guardadas antes del toggle no traen `agregado`.
+        setFiltro({ ...f, agregado: { ...AGREGADO_DEFECTO, ...(f.agregado ?? {}) } });
         setNombreConfig(nombre);
     }
     async function borrar(nombre: string) {
@@ -525,18 +577,30 @@ export function InformesACarta() {
                         opciones={opc.centros_de_coste}
                         seleccionados={filtro.centros_de_coste}
                         onChange={(v) => setFiltro({ ...filtro, centros_de_coste: v })}
+                        agregado={filtro.agregado.cc}
+                        onAgregadoChange={(v) =>
+                            setFiltro({ ...filtro, agregado: { ...filtro.agregado, cc: v } })
+                        }
                     />
                     <MultiSelect
                         label="Actividades (vacío = todas)"
                         opciones={opc.actividades}
                         seleccionados={filtro.actividades}
                         onChange={(v) => setFiltro({ ...filtro, actividades: v })}
+                        agregado={filtro.agregado.act}
+                        onAgregadoChange={(v) =>
+                            setFiltro({ ...filtro, agregado: { ...filtro.agregado, act: v } })
+                        }
                     />
                     <MultiSelect
                         label="Elementos de coste (vacío = todos)"
                         opciones={opc.elementos_de_coste}
                         seleccionados={filtro.elementos_de_coste}
                         onChange={(v) => setFiltro({ ...filtro, elementos_de_coste: v })}
+                        agregado={filtro.agregado.ec}
+                        onAgregadoChange={(v) =>
+                            setFiltro({ ...filtro, agregado: { ...filtro.agregado, ec: v } })
+                        }
                     />
                 </div>
             )}

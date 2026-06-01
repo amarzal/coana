@@ -22,7 +22,7 @@ from coana.web.schemas.common import (
     ListResponse,
     RecordResponse,
 )
-from coana.web.services.query import QueryParams, apply_query
+from coana.web.services.query import QueryParams, apply_query, compute_column_stats
 
 DIR_NOMINAS = DIR_AUX / "nóminas"
 DIR_REGLA23 = DIR_FASE1 / "regla23"
@@ -510,9 +510,14 @@ def _resumen_personas_dedicación(
 ) -> pl.DataFrame:
     """Agrega dedicación por persona para la vista master.
 
-    Los porcentajes se calculan sobre la jornada anual a partir de las
-    horas finales (después del reparto fases 5-7). Si la normalizada
-    no está disponible, se cae a las horas iniciales efectivas.
+    A partir de las horas finales (tras el reparto fases 5-7): los % de
+    docencia/gestión/investigación se calculan sobre la jornada efectiva
+    de la persona (Σ horas finales = jornada anual proporcional al
+    período trabajado), de modo que suman 100 %. El #campo("pct_jornada")
+    («% jornada cubierta») es, en cambio, la fracción de la jornada anual
+    completa (1642 h) realmente cubierta: 100 % para quien trabaja todo
+    el año, menos si la relación es parcial (incorporación o jubilación a
+    mitad de año). Si la normalizada no está disponible, todo es 0.
     """
     base = (
         df.with_columns(
@@ -542,9 +547,17 @@ def _resumen_personas_dedicación(
             pl.col("sexenio_vivo").any().alias("_sex"),
         )
         .with_columns(
-            (100.0 * pl.col("h_doc") / JORNADA_ANUAL_PDI).round(2).alias("pct_docencia"),
-            (100.0 * pl.col("h_ges") / JORNADA_ANUAL_PDI).round(2).alias("pct_gestión"),
-            (100.0 * pl.col("h_inv") / JORNADA_ANUAL_PDI).round(2).alias("pct_investigación"),
+            # doc/ges/inv sobre la jornada efectiva (Σ horas finales) →
+            # suman 100 %; jornada cubierta sobre la anual completa.
+            (pl.when(pl.col("h_total") > 0)
+             .then(100.0 * pl.col("h_doc") / pl.col("h_total"))
+             .otherwise(0.0)).round(2).alias("pct_docencia"),
+            (pl.when(pl.col("h_total") > 0)
+             .then(100.0 * pl.col("h_ges") / pl.col("h_total"))
+             .otherwise(0.0)).round(2).alias("pct_gestión"),
+            (pl.when(pl.col("h_total") > 0)
+             .then(100.0 * pl.col("h_inv") / pl.col("h_total"))
+             .otherwise(0.0)).round(2).alias("pct_investigación"),
             (100.0 * pl.col("h_total") / JORNADA_ANUAL_PDI).round(2).alias("pct_jornada"),
             pl.when(pl.col("_sex")).then(pl.lit("Sí")).otherwise(pl.lit("")).alias("sexenio_vivo"),
         )
@@ -582,6 +595,12 @@ def listar_personas_dedicación(p: QueryParams) -> ListResponse:
     )
 
 
+def _fmt_horas_es(x: float) -> str:
+    """1551.94 → '1.551,94' (notación europea, 2 decimales)."""
+    s = f"{x:,.2f}"  # '1,551.94'
+    return s.replace(",", " ").replace(".", ",").replace(" ", ".")
+
+
 _COLS_DED_RESUMEN: list[ColumnSpec] = [
     ColumnSpec(name="grupo", label="Grupo", format="text"),
     ColumnSpec(name="origen", label="Origen", format="text"),
@@ -598,6 +617,8 @@ _GRUPOS_CANÓNICOS: list[tuple[str, str]] = [
     ("gestión", "Gestión"),
     ("investigación", "Investigación"),
     ("extensión", "Extensión universitaria"),
+    ("acción-sindical", "Acción sindical"),
+    ("absentismo", "Absentismo"),
 ]
 
 JORNADA_ANUAL_PDI = 1642.0
@@ -652,14 +673,23 @@ def listar_resumen_grupo_persona(
     etiqueta_por_clave = {clave: etiq for clave, etiq in _GRUPOS_CANÓNICOS}
     orden_grupo = {clave: i for i, (clave, _) in enumerate(_GRUPOS_CANÓNICOS)}
 
+    # La jornada efectiva de la persona es la suma de sus horas finales:
+    # el reparto en cascada (fases 5-7) reparte exactamente la jornada
+    # proporcional al período trabajado (1642 h × fracción de año, e
+    # incluyendo la dedicación sindical), de modo que Σ horas_finales =
+    # jornada efectiva. Los porcentajes se calculan sobre ella, no sobre
+    # la jornada anual fija: para quien no estuvo todo el año contratado
+    # (p. ej. una jubilación en agosto), el 100 % corresponde a su jornada
+    # real y no aparece una falsa fila "sin asignación" con el tiempo no
+    # trabajado.
+    jornada_persona = float(agg["horas_finales"].sum()) if not agg.is_empty() else 0.0
+
     filas_por_grupo: dict[str, list[dict]] = {}
-    total_finales = 0.0
     for r in agg.to_dicts():
         grupo = r["grupo"]
         h_brutas = float(r["horas_brutas"] or 0.0)
         h_efectivas = float(r["horas_efectivas"] or 0.0)
         h_finales = float(r["horas_finales"] or 0.0)
-        total_finales += h_finales
         factor_medio = (h_efectivas / h_brutas) if h_brutas else 0.0
         filas_por_grupo.setdefault(grupo, []).append({
             "grupo": etiqueta_por_clave.get(grupo, grupo),
@@ -668,7 +698,7 @@ def listar_resumen_grupo_persona(
             "factor_medio": round(factor_medio, 2),
             "horas_efectivas": round(h_efectivas, 2),
             "horas_finales": round(h_finales, 2),
-            "porcentaje": round(100.0 * h_finales / jornada_anual, 2) if jornada_anual else 0.0,
+            "porcentaje": round(100.0 * h_finales / jornada_persona, 2) if jornada_persona else 0.0,
         })
 
     filas: list[dict] = []
@@ -676,19 +706,20 @@ def listar_resumen_grupo_persona(
         lista = sorted(filas_por_grupo[clave], key=lambda r: -r["horas_finales"])
         filas.extend(lista)
 
-    h_pendientes = max(jornada_anual - total_finales, 0.0)
-    if h_pendientes > 0.01:
-        filas.append({
-            "grupo": "Sin asignación (HND)",
-            "origen": "",
-            "horas_brutas": round(h_pendientes, 2),
-            "factor_medio": 1.0,
-            "horas_efectivas": round(h_pendientes, 2),
-            "horas_finales": round(h_pendientes, 2),
-            "porcentaje": round(100.0 * h_pendientes / jornada_anual, 2) if jornada_anual else 0.0,
-        })
+    # Suma de cada columna de horas en su propia cabecera (no en una fila
+    # aparte): el usuario quiere ver el total de horas de un vistazo.
+    sumas = {
+        "horas_brutas": sum(f["horas_brutas"] for f in filas),
+        "horas_efectivas": sum(f["horas_efectivas"] for f in filas),
+        "horas_finales": sum(f["horas_finales"] for f in filas),
+    }
+    cols = [
+        c.model_copy(update={"label": f"{c.label} · Σ {_fmt_horas_es(sumas[c.name])} h"})
+        if c.name in sumas else c
+        for c in _COLS_DED_RESUMEN
+    ]
 
-    return ListResponse(columns=_COLS_DED_RESUMEN, rows=filas, total=len(filas))
+    return ListResponse(columns=cols, rows=filas, total=len(filas))
 
 
 # ----------------------------------------------------------------------
@@ -759,12 +790,19 @@ def listar_totales_actividad_centro(
     if sub.is_empty():
         return ListResponse(columns=_COLS_DED_TOTALES, rows=[], total=0)
 
+    # Jornada efectiva de la persona = Σ horas finales (jornada anual
+    # proporcional al período trabajado). El % se calcula sobre ella, no
+    # sobre los 1642 h fijos, para que sume 100 % también cuando no se ha
+    # estado todo el año contratado.
+    jornada_persona = float(sub["horas_finales"].sum())
+
     agg = (
         sub.group_by("grupo", "actividad", "centro_de_coste")
         .agg(pl.col("horas_finales").sum().alias("horas_finales"))
         .filter(pl.col("horas_finales") > 0)
         .with_columns(
-            (100.0 * pl.col("horas_finales") / jornada_anual)
+            (100.0 * pl.col("horas_finales") / jornada_persona
+             if jornada_persona else pl.lit(0.0))
             .round(2).alias("pct_jornada")
         )
         .sort("horas_finales", descending=True)
@@ -774,6 +812,7 @@ def listar_totales_actividad_centro(
         columns=_COLS_DED_TOTALES,
         rows=_serialize(agg.to_dicts()),
         total=agg.height,
+        column_stats=compute_column_stats(agg),
     )
 
 

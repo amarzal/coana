@@ -177,6 +177,23 @@ def aplicar_reparto_regla_23(
     else:
         pivot = pivot.with_columns(pl.lit(1.0).alias("_x_persona"))
 
+    # Factor de absentismo Y_persona (reducciones de jornada NO
+    # sindicales): reduce la jornada de reparto en cascada multiplicativa
+    # con el sindical. La fracción (1 − Y) de lo que queda tras el
+    # sindical se imputa a la actividad `absentismo` / centro `UJI`. Sin
+    # dato → 1.0.
+    y_persona = _y_persona_por_absentismo(ruta_base, año)
+    if y_persona:
+        fy_df = pl.DataFrame(
+            {"per_id": list(y_persona.keys()), "_y_persona": list(y_persona.values())},
+            schema={"per_id": pl.Int64, "_y_persona": pl.Float64},
+        )
+        pivot = pivot.join(fy_df, on="per_id", how="left").with_columns(
+            pl.col("_y_persona").fill_null(1.0)
+        )
+    else:
+        pivot = pivot.with_columns(pl.lit(1.0).alias("_y_persona"))
+
     # Fracción del año trabajada (granularidad mensual). La jornada base
     # de cada persona pasa de la jornada anual fija a esa parte
     # proporcional. Sin dato → 1.0 (año completo).
@@ -199,7 +216,10 @@ def aplicar_reparto_regla_23(
     HDNO = pl.col("docencia_no_oficial")
     HG = pl.col("gestión")
     HI = pl.col("investigación")
-    T = pl.lit(jornada) * pl.col("_fracción_año") * pl.col("_x_persona")
+    T = (
+        pl.lit(jornada) * pl.col("_fracción_año")
+        * pl.col("_x_persona") * pl.col("_y_persona")
+    )
     DOC = HDO + HDNO  # docencia total efectiva
     # Cascada de valores absolutos: docencia y, sobre lo que quede,
     # gestión. Ambas son rígidas — se respetan tal cual si caben y solo
@@ -319,6 +339,15 @@ def aplicar_reparto_regla_23(
     sindicales = _filas_sindicales(x_persona, docencia_pura, sexenios_vivos, jornada, fracción)
     if sindicales.height > 0:
         salida = pl.concat([salida, sindicales], how="vertical_relaxed")
+
+    # Filas de absentismo: la fracción (1 − Y_persona) de la jornada que
+    # queda tras el sindical (X_persona × jornada × fracción_año) se imputa
+    # a `absentismo` / `UJI`. Cascada multiplicativa con el sindical.
+    absentismo_filas = _filas_absentismo(
+        y_persona, x_persona, docencia_pura, sexenios_vivos, jornada, fracción,
+    )
+    if absentismo_filas.height > 0:
+        salida = pl.concat([salida, absentismo_filas], how="vertical_relaxed")
 
     dir_out = ruta_base / "fase1" / "regla23"
     dir_out.mkdir(parents=True, exist_ok=True)
@@ -480,6 +509,57 @@ def _filas_sindicales(
     )
 
 
+def _filas_absentismo(
+    y_persona: dict[int, float],
+    x_persona: dict[int, float],
+    docencia_pura: set[int],
+    sexenios: set[int],
+    jornada: float,
+    fracción: dict[int, float] | None = None,
+) -> pl.DataFrame:
+    """Una fila de dedicación `absentismo` / `UJI` por persona con
+    reducción de jornada no sindical.
+
+    Horas finales = `(1 − Y_persona) × X_persona × jornada × fracción_año`
+    (cascada multiplicativa: el absentismo se toma de la jornada que queda
+    tras apartar el sindical). De este modo la suma de horas finales de la
+    persona —docencia + gestión + investigación + sindical + absentismo—
+    sigue siendo `jornada × fracción_año`.
+    """
+    from coana.fase1.nóminas.reducciones_jornada import (
+        ACT_ABSENTISMO,
+        CC_ABSENTISMO,
+    )
+
+    fracción = fracción or {}
+    items = [(int(p), 1.0 - y) for p, y in y_persona.items() if y < 1.0]
+    if not items:
+        return pl.DataFrame(schema=_columnas_salida())
+    per_ids = [p for p, _ in items]
+    horas = [
+        round(red * x_persona.get(p, 1.0) * jornada * fracción.get(p, 1.0), 4)
+        for p, red in items
+    ]
+    n = len(per_ids)
+    return pl.DataFrame(
+        {
+            "per_id": per_ids,
+            "actividad": [ACT_ABSENTISMO] * n,
+            "centro_de_coste": [CC_ABSENTISMO] * n,
+            "grupo": ["absentismo"] * n,
+            "origen": ["reducción-jornada"] * n,
+            "origen_id": [None] * n,
+            "horas_iniciales": horas,
+            "horas_finales": horas,
+            "detalle": ["reducción de jornada (absentismo)"] * n,
+            "anomalía": [None] * n,
+            "es_asociado": [p in docencia_pura for p in per_ids],
+            "sexenio_vivo": [p in sexenios for p in per_ids],
+        },
+        schema=_columnas_salida(),
+    )
+
+
 def _sexenios_vivos(ruta_base: Path, año: int) -> set[int]:
     """Per_ids con sexenio vivo: max(fecha_fin_sexenio) ≥ fin_año − 6 años."""
     path = ruta_base / "entrada" / "investigación" / "sexenios.xlsx"
@@ -525,17 +605,12 @@ def _per_ids_docencia_pura(ruta_base: Path, año: int) -> set[int]:
     return set(join["per_id"].to_list())
 
 
-def _x_persona_por_reducción_sindical(
-    ruta_base: Path, año: int,
+def _factor_persona_ponderado(
+    ruta_base: Path, factores_exp: dict[int, float],
 ) -> dict[int, float]:
-    """X_persona = Σ(bruto_exp × X_exp) / Σ(bruto_exp) sobre los
-    expedientes PDI/PVI de la persona. Solo devuelve personas con
-    X_persona < 1 (al menos un expediente PDI/PVI con reducción)."""
-    from coana.fase1.nóminas.reducciones_sindicales import (
-        factor_x_por_expediente as _factor_x_sind,
-    )
-
-    factores_exp = _factor_x_sind(ruta_base, año=año)
+    """Factor_persona = Σ(bruto_exp × factor_exp) / Σ(bruto_exp) sobre los
+    expedientes PDI/PVI de la persona, a partir de un dict
+    `{expediente: factor}`. Solo devuelve personas con factor < 1."""
     if not factores_exp:
         return {}
     exp_path = ruta_base / "entrada" / "nóminas" / "expedientes recursos humanos.xlsx"
@@ -566,7 +641,7 @@ def _x_persona_por_reducción_sindical(
         ):
             brutos[int(r["expediente"])] = float(r["imp"])
 
-    # Calcular X_persona.
+    # Calcular factor_persona.
     out: dict[int, float] = {}
     for per_id, grupo in exp_pdi_pvi.group_by("per_id"):
         per_id_int = int(per_id[0])
@@ -574,15 +649,37 @@ def _x_persona_por_reducción_sindical(
         den = 0.0
         for r in grupo.iter_rows(named=True):
             exp = int(r["expediente"])
-            x_exp = factores_exp.get(exp, 1.0)
+            f_exp = factores_exp.get(exp, 1.0)
             b = brutos.get(exp, 1.0)  # peso uniforme si falta
-            num += b * x_exp
+            num += b * f_exp
             den += b
         if den > 0:
-            x_per = num / den
-            if x_per < 1.0:
-                out[per_id_int] = x_per
+            f_per = num / den
+            if f_per < 1.0:
+                out[per_id_int] = f_per
     return out
+
+
+def _x_persona_por_reducción_sindical(
+    ruta_base: Path, año: int,
+) -> dict[int, float]:
+    """X_persona ponderado por bruto sobre los expedientes PDI/PVI con
+    reducción sindical (tipo 8)."""
+    from coana.fase1.nóminas.reducciones_sindicales import (
+        factor_x_por_expediente as _factor_x_sind,
+    )
+    return _factor_persona_ponderado(ruta_base, _factor_x_sind(ruta_base, año=año))
+
+
+def _y_persona_por_absentismo(
+    ruta_base: Path, año: int,
+) -> dict[int, float]:
+    """Y_persona ponderado por bruto sobre los expedientes PDI/PVI con
+    reducción de jornada NO sindical (absentismo)."""
+    from coana.fase1.nóminas.reducciones_jornada import (
+        factor_absentismo_por_expediente as _factor_absent,
+    )
+    return _factor_persona_ponderado(ruta_base, _factor_absent(ruta_base, año=año))
 
 
 def _esquema_vacío() -> pl.DataFrame:

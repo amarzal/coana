@@ -30,6 +30,23 @@ class ContextoPresupuesto:
         self.centros = self._cargar_excel(presupuesto / "centros.xlsx")
         self.subcentros = self._cargar_excel(presupuesto / "subcentros.xlsx")
         self.proyectos = self._cargar_excel(presupuesto / "proyectos.xlsx")
+        # Grupo de investigación del IP por proyecto (para imputar el gasto
+        # de proyectos de investigación al grupo en vez del departamento).
+        if self.proyectos is not None and not self.proyectos.is_empty():
+            from coana.fase1.grupo_por_proyecto import grupo_por_proyecto
+            _mapa_grupo = grupo_por_proyecto(Path(ruta_base))
+            _g_df = pl.DataFrame(
+                {
+                    "proyecto": list(_mapa_grupo.keys()),
+                    "id_grupo": list(_mapa_grupo.values()),
+                },
+                schema={"proyecto": pl.Utf8, "id_grupo": pl.Utf8},
+            )
+            self.proyectos = (
+                self.proyectos
+                .with_columns(pl.col("proyecto").cast(pl.Utf8))
+                .join(_g_df, on="proyecto", how="left")
+            )
         self.subproyectos = self._cargar_excel(presupuesto / "subproyectos.xlsx")
         self.tipos_de_proyecto = self._cargar_excel(
             presupuesto / "tipos de proyecto.xlsx"

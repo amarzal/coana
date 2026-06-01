@@ -66,11 +66,13 @@ export function Regla23DedicacionPdi() {
                         <p className="mb-3 text-xs text-slate-500">
                             Las horas de impartición docente se multiplican por
                             ×2,5 (factor de la regla 23). El porcentaje se
-                            calcula sobre la jornada anual de 1 642 h. La fila
-                            <em> Sin asignación (HND)</em> recoge las horas
-                            todavía sin fuente de dedicación; bajará conforme
-                            se incorporen cargos, proyectos, docencia no
-                            oficial, etc.
+                            calcula sobre la <em>jornada efectiva</em> de la
+                            persona: la jornada anual de 1 642 h ajustada al
+                            período realmente contratado en el año (quien se
+                            jubila o se incorpora a mitad de año tiene una
+                            jornada proporcional). La suma de horas finales de
+                            la cabecera es esa jornada efectiva y los
+                            porcentajes suman el 100 %.
                         </p>
                         <DataTable
                             key={`resumen-${perId}`}
@@ -88,7 +90,8 @@ export function Regla23DedicacionPdi() {
                             Una fila por cada par (actividad, centro de
                             coste) con las horas finales agregadas (suma
                             de todos los orígenes) y el porcentaje sobre
-                            la jornada anual (1 642 h). Estos
+                            la jornada efectiva de la persona (1 642 h
+                            ajustadas al período contratado). Estos
                             porcentajes son los que se usarán para
                             repartir la masa retributiva regla 23 entre
                             actividades y centros.

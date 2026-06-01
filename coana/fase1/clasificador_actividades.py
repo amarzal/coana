@@ -394,6 +394,10 @@ def enriquecer_para_actividades(
             cols_proj.append(
                 pl.col("centro_origen").cast(pl.Utf8).alias("_centro_origen")
             )
+        if "id_grupo" in ctx.proyectos.columns:
+            cols_proj.append(
+                pl.col("id_grupo").cast(pl.Utf8).alias("_id_grupo")
+            )
         df = df.join(
             ctx.proyectos.select(cols_proj),
             on="proyecto",
@@ -403,11 +407,16 @@ def enriquecer_para_actividades(
             df = df.with_columns(
                 pl.lit(None).cast(pl.Utf8).alias("_centro_origen")
             )
+        if "_id_grupo" not in df.columns:
+            df = df.with_columns(
+                pl.lit(None).cast(pl.Utf8).alias("_id_grupo")
+            )
     else:
         df = df.with_columns(
             pl.lit(None).cast(pl.Utf8).alias("_tipo_proyecto"),
             pl.lit(None).cast(pl.Utf8).alias("_nombre_proyecto"),
             pl.lit(None).cast(pl.Utf8).alias("_centro_origen"),
+            pl.lit(None).cast(pl.Utf8).alias("_id_grupo"),
         )
 
     # tipo_línea ← líneas de financiación

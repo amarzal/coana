@@ -277,6 +277,34 @@ def _detener_si_etiquetas_ec_faltantes() -> None:
     )
 
 
+def _partir_reducciones_jornada(
+    filas: list[dict],
+    factores_sindical: dict[int, float] | None,
+    factores_absentismo: dict[int, float] | None,
+    next_id,
+) -> None:
+    """Aplica en cascada las reducciones de jornada sobre `filas`
+    (in-place): primero el sindical (tipo 8) y luego el absentismo sobre
+    lo que queda (se saltan las filas ya derivadas a `acción-sindical`,
+    de modo que el absentismo solo recorta la parte trabajada)."""
+    from coana.fase1.nóminas.reducciones_sindicales import (
+        ACTIVIDAD_SINDICAL,
+        aplicar_reducción as _ap_red_sind,
+    )
+    from coana.fase1.nóminas.reducciones_jornada import (
+        ACT_ABSENTISMO,
+        CC_ABSENTISMO,
+        partir_uc,
+    )
+    _ap_red_sind(filas, factores_sindical or {}, next_id)
+    partir_uc(
+        filas, factores_absentismo or {},
+        centro=CC_ABSENTISMO, actividad=ACT_ABSENTISMO,
+        next_id=next_id, sufijo="-absent",
+        saltar_actividades={ACTIVIDAD_SINDICAL},
+    )
+
+
 def _generar_uc_ptgas(
     nóminas_filtradas: pl.DataFrame,
     expedientes: pl.DataFrame,
@@ -287,6 +315,7 @@ def _generar_uc_ptgas(
     distribución_costes=None,
     obtener_descripciones=None,
     factores_x_sindical: dict[int, float] | None = None,
+    factores_absentismo: dict[int, float] | None = None,
 ) -> pl.DataFrame:
     """Genera UC a partir de retribuciones del PTGAS.
 
@@ -301,6 +330,7 @@ def _generar_uc_ptgas(
     if exp_ptgas.is_empty():
         return pl.DataFrame()
     factores_x_sindical = factores_x_sindical or {}
+    factores_absentismo = factores_absentismo or {}
 
     registros = nóminas_filtradas.join(
         exp_ptgas.select("expediente", "per_id"),
@@ -404,10 +434,7 @@ def _generar_uc_ptgas(
                     "origen_porción": 1.0,
                 })
             if filas:
-                from coana.fase1.nóminas.reducciones_sindicales import (
-                    aplicar_reducción as _ap_red_sind,
-                )
-                _ap_red_sind(filas, factores_x_sindical, _next_id)
+                _partir_reducciones_jornada(filas, factores_x_sindical, factores_absentismo, _next_id)
                 uc_partes.append(pl.DataFrame(filas))
 
         if not srv_368.is_empty() and "centro_plaza" in srv_368.columns:
@@ -434,10 +461,7 @@ def _generar_uc_ptgas(
                     "origen_porción": 1.0,
                 })
             if filas_368:
-                from coana.fase1.nóminas.reducciones_sindicales import (
-                    aplicar_reducción as _ap_red_sind,
-                )
-                _ap_red_sind(filas_368, factores_x_sindical, _next_id)
+                _partir_reducciones_jornada(filas_368, factores_x_sindical, factores_absentismo, _next_id)
                 uc_partes.append(pl.DataFrame(filas_368))
 
     # Retribuciones extra: CC y actividad del clasificador
@@ -1718,6 +1742,17 @@ def preprocesar_nóminas(
             f"{len(factores_x_sindical):,} expedientes afectados"
         )
 
+    # -- Factor de absentismo por expediente (reducciones no sindicales). --
+    from coana.fase1.nóminas.reducciones_jornada import (
+        factor_absentismo_por_expediente as _factor_absent,
+    )
+    factores_absentismo = _factor_absent(ruta_base, año=2025)
+    if factores_absentismo:
+        print(
+            f"  Reducciones de jornada (absentismo): "
+            f"{len(factores_absentismo):,} expedientes afectados"
+        )
+
     # -- UC de retribuciones ordinarias PTGAS --
     uc_ptgas = _generar_uc_ptgas(
         nóminas, expedientes,
@@ -1728,6 +1763,7 @@ def preprocesar_nóminas(
         distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
         factores_x_sindical=factores_x_sindical,
+        factores_absentismo=factores_absentismo,
     )
     if not uc_ptgas.is_empty():
         importe_ptgas = float(uc_ptgas["importe"].sum())

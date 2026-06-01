@@ -40,6 +40,19 @@ router = APIRouter()
 
 _RUTA_BASE = Path("data")
 _DIR_CONFIGS = _RUTA_BASE / "informes" / "carta_configs"
+_PATH_POST_REPARTO = _RUTA_BASE / "fase1" / "reparto" / "uc_post_reparto.parquet"
+
+
+def _cargar_ucs() -> pl.DataFrame:
+    """Conjunto de UC del informe: el de **después del reparto de
+    actividades dag** (`uc_post_reparto.parquet`), donde los costes
+    indirectos (dag) ya están repercutidos a las actividades finalistas,
+    de modo que una actividad finalista (p. ej. `grado-cafe`) incluye su
+    parte dag. Si el reparto aún no se ha ejecutado, se cae al conjunto
+    directo de la Fase 1 (`unidades de coste.xlsx`)."""
+    if _PATH_POST_REPARTO.exists():
+        return pl.read_parquet(_PATH_POST_REPARTO)
+    return cargar_ucs(_RUTA_BASE)
 
 
 class Filtro(BaseModel):
@@ -48,6 +61,12 @@ class Filtro(BaseModel):
     elementos_de_coste: list[str] = Field(default_factory=list)
     # Permutación de las tres dimensiones; valores: "cc", "act", "ec".
     orden: list[str] = Field(default_factory=lambda: ["cc", "act", "ec"])
+    # Por eje: True = agregado (un único importe, sin desglosar por debajo
+    # de la selección); False = detalle (un nodo por cada valor distinto
+    # de ese eje presente en los datos). Por defecto, agregado.
+    agregado: dict[str, bool] = Field(
+        default_factory=lambda: {"cc": True, "act": True, "ec": True}
+    )
 
 
 class Opciones(BaseModel):
@@ -136,7 +155,7 @@ def consulta(filtro: Filtro) -> Resultado:
             status_code=400,
             detail=f"`orden` debe ser permutación de ['cc','act','ec']: {filtro.orden!r}",
         )
-    ucs = cargar_ucs(_RUTA_BASE)
+    ucs = _cargar_ucs()
 
     # Pre-cargar los árboles que necesitemos.
     árboles: dict[str, Árbol] = {
@@ -211,24 +230,45 @@ def consulta(filtro: Filtro) -> Resultado:
         descs = set(descendientes_inclusivo(árboles[eje], raíz_id))
         return [(raíz_id, descs)]
 
+    def _grupos_eje(eje: str, df: pl.DataFrame) -> list[tuple[str, pl.DataFrame]]:
+        """Sub-DataFrames de este nivel, según el toggle del eje:
+
+        - *agregado* (True): se agrupa por los slugs raíz seleccionados
+          (cada uno con su subárbol) o, si no hay selección, por la raíz
+          del árbol → un único nodo «Todos».
+        - *detalle* (False): un nodo por cada valor distinto de la columna
+          presente en `df` (desglose fino, valor a valor).
+        """
+        col = _EJES_COLS[eje]
+        if filtro.agregado.get(eje, True):
+            out: list[tuple[str, pl.DataFrame]] = []
+            for slug_raíz, descs in _slugs_grupo(eje, df):
+                grupo = df.filter(pl.col(col).is_in(list(descs)))
+                if not grupo.is_empty():
+                    out.append((slug_raíz, grupo))
+            return out
+        # Detalle: por cada valor distinto presente.
+        distintos = [
+            v for v in df.get_column(col).unique().to_list() if v is not None
+        ]
+        return [(v, df.filter(pl.col(col) == v)) for v in distintos]
+
     def _construir(
         df: pl.DataFrame, nivel: int, ejes_restantes: list[str],
     ) -> list[NodoJerarquía]:
         if not ejes_restantes:
             return []
         eje = ejes_restantes[0]
-        col = _EJES_COLS[eje]
         nodos_out: list[NodoJerarquía] = []
-        for slug_raíz, descs in _slugs_grupo(eje, df):
-            grupo = df.filter(pl.col(col).is_in(list(descs)))
+        for slug, grupo in _grupos_eje(eje, df):
             if grupo.is_empty():
                 continue
-            cod, desc = _meta(eje, slug_raíz)
+            cod, desc = _meta(eje, slug)
             hijos = _construir(grupo, nivel + 1, ejes_restantes[1:])
             nodos_out.append(NodoJerarquía(
                 nivel=nivel,
                 eje=eje,
-                slug=slug_raíz,
+                slug=slug,
                 código=cod,
                 descripción=desc,
                 n_ucs=int(grupo.height),
@@ -259,7 +299,7 @@ class PeticiónUcs(BaseModel):
 def uc_de_combinación(p: PeticiónUcs) -> dict[str, Any]:
     """Lista de UC que cuelgan de los slugs indicados (expansión por
     subárbol). Devuelve hasta `limit` filas."""
-    ucs = cargar_ucs(_RUTA_BASE)
+    ucs = _cargar_ucs()
     sels = {
         "cc": _expandir(p.centros_de_coste, cargar_árbol_centros_de_coste(_RUTA_BASE)),
         "act": _expandir(p.actividades, cargar_árbol_actividades(_RUTA_BASE)),
