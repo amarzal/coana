@@ -66,6 +66,12 @@ _REGLAS: list[tuple[str, str, int]] = [
     ("1**", "transf", 8),
 ]
 
+# Estimación de horas (cuando el contrato NO está en Kalendas): las horas
+# anuales de cada tipo de anexo —equivalentes a h/semana × 365/7— se
+# prorratean por el % de solape del contrato con el año (días / 365).
+_HORAS_SEM_A_ANUAL = 365.0 / 7.0
+_DÍAS_AÑO = 365.0
+
 
 def _aplicar_reglas(t: str | None, s: str | None, m: str | None) -> tuple[str, int] | None:
     cadena = "".join([(t or " "), (s or " "), (m or " ")])
@@ -215,10 +221,47 @@ def cargar_proyectos(
         ).alias("proy_clave")
     )
 
-    # Agrupar por (per_id, proy_clave):
-    # - Elegir contrato con mayor h_sem (desempate: importe, luego contrato)
-    # - Unión de periodos efectivos
-    df_agg = _agrupar_por_proyecto_presupuestario(df)
+    # Horas declaradas en Kalendas por (per_id, contrato). Si un contrato
+    # está en Kalendas, sus horas reales sustituyen a la estimación; el
+    # resto de contratos del proyecto se siguen estimando.
+    from coana.fase1.kalendas import cargar_horas_kalendas
+    _kal = cargar_horas_kalendas(ruta_base)
+    _kal_filas = [
+        {"per_id": p, "contrato": c, "_horas_kalendas": h}
+        for p, cs in _kal.items() for c, h in cs.items()
+    ]
+    _kal_df = pl.DataFrame(
+        _kal_filas,
+        schema={"per_id": pl.Int64, "contrato": pl.Int64, "_horas_kalendas": pl.Float64},
+    )
+    df = df.join(_kal_df, on=["per_id", "contrato"], how="left").with_columns(
+        pl.col("_horas_kalendas").is_not_null().alias("_en_kalendas"),
+    )
+
+    # Una fila por (per_id, contrato) (sin agrupar por proyecto
+    # presupuestario). días_solape = unión de los periodos efectivos del
+    # contrato para esa persona (puede tener varias filas de solicitud).
+    días_contrato = _días_unión_contrato(df)
+    df_agg = (
+        df.sort(
+            ["per_id", "contrato", "h_sem", "importe_contrato"],
+            descending=[False, False, True, True], nulls_last=True,
+        )
+        .group_by(["per_id", "contrato"], maintain_order=True)
+        .agg(
+            pl.col("actividad_base").first(),
+            pl.col("h_sem").first(),
+            pl.col("tipo_anexo").first(),
+            pl.col("subtipo_anexo").first(),
+            pl.col("microtipo_anexo").first(),
+            pl.col("codex").first(),
+            pl.col("proyecto_l1").first(),
+            pl.col("proy_clave").first(),
+            pl.col("_en_kalendas").any().alias("_en_kalendas"),
+            pl.col("_horas_kalendas").first().alias("_horas_kalendas"),
+        )
+        .join(días_contrato, on=["per_id", "contrato"], how="left")
+    )
     if df_agg.is_empty():
         return _esquema_vacío()
 
@@ -276,9 +319,17 @@ def cargar_proyectos(
             except (KeyError, ValueError):
                 pass
 
-    # Horas por persona en el proyecto: h_sem (del tipo elegido) × días_unión / 7.
+    # Horas por (per_id, contrato): si el contrato está en Kalendas, sus
+    # horas reales declaradas; si no, las horas anuales del tipo de anexo
+    # prorrateadas por el % de solape del contrato con el año
+    # (días_solape / 365). horas_anuales = h_sem × 365/7.
     df = df_agg.with_columns(
-        (pl.col("h_sem") * pl.col("días_unión").cast(pl.Float64) / 7.0)
+        pl.when(pl.col("_en_kalendas"))
+        .then(pl.col("_horas_kalendas"))
+        .otherwise(
+            pl.col("h_sem") * _HORAS_SEM_A_ANUAL
+            * (pl.col("días_solape").cast(pl.Float64) / _DÍAS_AÑO)
+        )
         .alias("horas_persona")
     )
 
@@ -295,13 +346,13 @@ def cargar_proyectos(
         )
     else:
         df = df.join(grupos_por_persona, on="per_id", how="left")
-        # Suma días activos por (per_id, proy_clave) entre grupos válidos
+        # Suma días activos por (per_id, contrato) entre grupos válidos
         tot = (
             df.filter(pl.col("id_grupo").is_not_null())
-            .group_by("per_id", "proy_clave")
+            .group_by("per_id", "contrato")
             .agg(pl.col("_días_grupo").sum().alias("_tot_días"))
         )
-        df = df.join(tot, on=["per_id", "proy_clave"], how="left")
+        df = df.join(tot, on=["per_id", "contrato"], how="left")
         df = df.with_columns(
             pl.when(pl.col("id_grupo").is_not_null() & (pl.col("_tot_días") > 0))
             .then(pl.col("horas_persona") * pl.col("_días_grupo") / pl.col("_tot_días"))
@@ -334,13 +385,19 @@ def cargar_proyectos(
     )
 
     detalle = pl.concat_str([
-        pl.lit("Proyecto "), pl.col("proy_clave"),
-        pl.lit(" · contratos "), pl.col("n_contratos").cast(pl.Utf8),
+        pl.lit("Contrato "), pl.col("contrato").cast(pl.Utf8),
+        pl.lit(" · proyecto "), pl.col("proy_clave"),
         pl.lit(" · tipo "), pl.col("tipo_anexo").fill_null("?"),
         pl.col("subtipo_anexo").fill_null(""),
         pl.col("microtipo_anexo").fill_null(""),
-        pl.lit(" · "), pl.col("h_sem").fill_null(0.0).cast(pl.Utf8), pl.lit(" h/sem"),
-        pl.lit(" · "), pl.col("días_unión").cast(pl.Utf8), pl.lit(" días unión"),
+        pl.when(pl.col("_en_kalendas"))
+        .then(pl.concat_str([
+            pl.lit(" · kalendas "), pl.col("_horas_kalendas").fill_null(0.0).round(1).cast(pl.Utf8), pl.lit(" h"),
+        ]))
+        .otherwise(pl.concat_str([
+            pl.lit(" · est. "), pl.col("h_sem").fill_null(0.0).cast(pl.Utf8), pl.lit(" h/sem × "),
+            pl.col("días_solape").cast(pl.Utf8), pl.lit(" días"),
+        ])),
         pl.when(pl.col("id_grupo").is_not_null())
         .then(pl.concat_str([pl.lit(" · grupo "), pl.col("id_grupo")]))
         .otherwise(pl.lit("")),
@@ -361,64 +418,38 @@ def cargar_proyectos(
     ).filter(pl.col("horas") > 0)
 
 
-def _agrupar_por_proyecto_presupuestario(df: pl.DataFrame) -> pl.DataFrame:
-    """Agrupa (per_id, proy_clave) eligiendo tipo de mayor h/sem y
-    calculando la unión de periodos efectivos."""
+def _días_unión_contrato(df: pl.DataFrame) -> pl.DataFrame:
+    """Días de solape del año por (per_id, contrato): unión de los periodos
+    efectivos de las filas de ese contrato (sin doble conteo si hay varias
+    filas de solicitud que solapan)."""
+    schema = {"per_id": pl.Int64, "contrato": pl.Int64, "días_solape": pl.Int64}
     if df.is_empty():
-        return df
-
-    # Selección de tipo: max h_sem (con null al final), desempate por
-    # importe_contrato y luego por contrato. La fila ganadora aporta
-    # actividad_base, tipo/sub/micro, codex, proyecto_l1, h_sem.
-    sel = (
-        df.sort(
-            ["per_id", "proy_clave", "h_sem", "importe_contrato", "contrato"],
-            descending=[False, False, True, True, True],
-            nulls_last=True,
-        )
-        .group_by(["per_id", "proy_clave"], maintain_order=True)
-        .agg(
-            pl.col("actividad_base").first(),
-            pl.col("h_sem").first(),
-            pl.col("tipo_anexo").first(),
-            pl.col("subtipo_anexo").first(),
-            pl.col("microtipo_anexo").first(),
-            pl.col("codex").first(),
-            pl.col("proyecto_l1").first(),
-            pl.len().alias("n_contratos"),
-        )
-    )
-
-    # Unión de periodos efectivos por (per_id, proy_clave)
-    días_unión: list[int] = []
+        return pl.DataFrame(schema=schema)
+    días: list[int] = []
     claves: list[tuple] = []
-    for (pid, pc), grp in (
-        df.select(["per_id", "proy_clave", "_ini", "_fin"])
-          .sort(["per_id", "proy_clave", "_ini"])
-          .group_by(["per_id", "proy_clave"], maintain_order=True)
+    for (pid, con), grp in (
+        df.select(["per_id", "contrato", "_ini", "_fin"])
+          .sort(["per_id", "contrato", "_ini"])
+          .group_by(["per_id", "contrato"], maintain_order=True)
     ):
         intervalos = sorted(zip(grp["_ini"].to_list(), grp["_fin"].to_list()))
-        # Merge de intervalos
         total = 0
         cur_ini, cur_fin = intervalos[0]
         for ini, fin in intervalos[1:]:
-            if ini <= cur_fin:  # solape o contiguo (días, no microsegundos)
+            if ini <= cur_fin:  # solape o contiguo
                 if fin > cur_fin:
                     cur_fin = fin
             else:
                 total += (cur_fin - cur_ini).days + 1
                 cur_ini, cur_fin = ini, fin
         total += (cur_fin - cur_ini).days + 1
-        claves.append((pid, pc))
-        días_unión.append(total)
-
-    unión_df = pl.DataFrame({
+        claves.append((pid, con))
+        días.append(total)
+    return pl.DataFrame({
         "per_id": [c[0] for c in claves],
-        "proy_clave": [c[1] for c in claves],
-        "días_unión": días_unión,
+        "contrato": [c[1] for c in claves],
+        "días_solape": días,
     })
-
-    return sel.join(unión_df, on=["per_id", "proy_clave"], how="left")
 
 
 def _cargar_grupos_por_persona(path: Path, año: int) -> pl.DataFrame:

@@ -63,7 +63,7 @@ import {
     Regla23AsignaturasSinTitulacion,
     Regla23Anomalias,
 } from "@/routes/regla23";
-import { InvestigacionGrupos } from "@/routes/investigacion";
+import { InvestigacionGrupos, InvestigacionHorasKalendas } from "@/routes/investigacion";
 import {
     ResultadosResumen,
     ResultadosTodasUc,
@@ -179,6 +179,7 @@ export function App() {
                         <Route path="regla23/sin-titulacion" element={<Regla23AsignaturasSinTitulacion />} />
                         <Route path="regla23/anomalias" element={<Regla23Anomalias />} />
                         <Route path="investigacion/grupos" element={<InvestigacionGrupos />} />
+                        <Route path="investigacion/horas-kalendas" element={<InvestigacionHorasKalendas />} />
                         <Route path="resultados/resumen" element={<ResultadosResumen />} />
                         <Route path="resultados/uc" element={<ResultadosTodasUc />} />
                         <Route path="resultados/actividades" element={<ResultadosArbolActividades />} />

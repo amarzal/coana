@@ -142,6 +142,7 @@ const GROUPS: Group[] = [
         icon: Microscope,
         items: [
             { label: "Grupos", to: "/investigacion/grupos" },
+            { label: "Horas Kalendas", to: "/investigacion/horas-kalendas" },
         ],
     },
     {

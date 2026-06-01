@@ -60,7 +60,7 @@ A lo largo del documento usamos un vocabulario específico que es importante fij
   - *Professors associats* (PAA, PAL y variantes): contratos a tiempo parcial con dedicación docente acotada.
   - *Professors substituts* (PS): contratos temporales para cubrir bajas docentes.
 
-  Se identifican porque la categoría de plaza vigente en el año está en #campo("categorías_docencia_pura_plaza") (#val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("32"), #val("36"), #val("44"), #val("46")). Reciben tratamiento especial en la regla 23: toda su jornada anual (#val("1 642 h")) se imputa a docencia, sin gestión ni investigación. La columna #campo("es_asociado") de #ruta("regla23", "dedicación_pdi_normalizada.parquet") marca a estas personas (el nombre se conserva por compatibilidad; semánticamente significa «figura puramente docente»).
+  Se identifican porque la categoría de plaza vigente en el año está en #campo("categorías_docencia_pura_plaza") (#val("07"), #val("08"), #val("18"), #val("21"), #val("22"), #val("23"), #val("24"), #val("31"), #val("32"), #val("36"), #val("44"), #val("46")). Reciben tratamiento especial en la regla 23: toda su jornada disponible (la jornada anual #val("1 642 h") prorrateada por la fracción del año trabajada) se imputa a docencia, sin gestión ni investigación. La columna #campo("es_asociado") de #ruta("regla23", "dedicación_pdi_normalizada.parquet") marca a estas personas (el nombre se conserva por compatibilidad; semánticamente significa «figura puramente docente»).
 
 / Retribuciones «extra» o «extras»: : Líneas de nómina en proyecto NO general (es decir, fuera de TABLA-PROYECTOS-GENERALES-NÓMINA), o líneas con conceptos retributivos especiales (CR 19/64 que no quepan en el reparto de cargos, CR 47 de despidos en proyecto específico, etc.). Generan UC línea a línea (clasificadas por los módulos de actividad y centro), en contraposición a la masa regla 23 que se reparte por horas.
 
@@ -234,7 +234,7 @@ La pantalla *Personal · PDI/PVI* expone este cuadre en su columna #campo("delta
 
 === Reparto de la regla 23
 
-+ Para todo #campo("per_id") presente en #ruta("regla23", "dedicación_pdi_normalizada.parquet"), la suma de #campo("horas_finales") es #campo("jornada_anual_pdi") (#val("1 642")): la cascada reparte $T$ exactamente entre docencia, gestión e investigación, y la fracción de reducción sindical completa la jornada hasta #val("1 642"). Única excepción: personas cuyas filas iniciales tienen todas #val("0") horas efectivas, que no admiten repercusión y quedan a #val("0").
++ Para todo #campo("per_id") presente en #ruta("regla23", "dedicación_pdi_normalizada.parquet"), la suma de #campo("horas_finales") es su *jornada disponible* #campo("jornada_anual_pdi") $times$ #campo("fracción_año") (la jornada anual #val("1 642") prorrateada por los meses trabajados): la cascada reparte $T$ exactamente entre docencia, gestión e investigación, y la fracción de reducción sindical completa esa jornada. Para quien trabaja el año completo es #val("1 642"). Única excepción: personas cuyas filas iniciales tienen todas #val("0") horas efectivas, que no admiten repercusión y quedan a #val("0").
 
 + El sobrante de la cascada va siempre al grupo #val("investigación"); ninguna fila de #val("docencia_oficial"), #val("docencia_no_oficial") o #val("gestión") tiene #campo("horas_finales") superior a su #campo("horas_iniciales") (docencia y gestión son rígidas).
 
@@ -976,8 +976,27 @@ Se usan los siguientes ficheros, que son tablas que se pueden obtener con explot
                 liberación al 100 %. Si está vacío se interpreta como #val("0").
             ],
             "tipo reduccion": [
-                Código del tipo de reducción. Solo el #val("8") (representación sindical)
-                interviene en el modelo.
+                Código del tipo de reducción. Cruza con #ruta("tipos_reducciones.xlsx").
+                Solo el #val("8") (representación sindical) interviene en el modelo.
+            ],
+        ),
+    ),
+    "tipos_reducciones.xlsx": (
+        descripción: [
+            Catálogo de los tipos de reducción de jornada (la tabla de
+            referencia de la columna #campo("tipo reduccion") de
+            #ruta("reducciones laborales.xlsx")). Incluye el tipo #val("8")
+            (liberación sindical parcial), los de conciliación (lactancia,
+            cuidado de hijos o familiares, monoparentalidad…) y los de salud
+            o discapacidad. Algunas filas son alias en desuso (su nombre
+            indica «no usar, es el N»).
+        ],
+        campos: (
+            id: [Código del tipo de reducción (entero como texto: #val("1"), #val("8")…).],
+            nombre: [Descripción del tipo (en valenciano).],
+            reduccion: [
+                Indicador (#val("1") / #val("0")) de si el tipo supone una
+                reducción efectiva de jornada a efectos del modelo.
             ],
         ),
     ),
@@ -1313,6 +1332,16 @@ Las tablas se almacenan en el directorio #ruta("datos", "entrada", "investigaci�
             fecha_efecto: [Fecha desde la que el sexenio tiene efectos retributivos.],
             cantidad: [Importe ligado al sexenio (puede ser 0 si es transferencia o si está pendiente de cobro).],
             es_transferencia: [#val("S") si el sexenio es de transferencia, #val("N") si es de investigación clásica.],
+        ),
+    ),
+    "horas kalendas.xlsx": (
+        descripción: [Horas de dedicación declaradas y validadas por el personal investigador (sistema Kalendas de imputación horaria). Cada fila es una validación de horas de una persona en un contrato, para un tipo de actividad. Al cargarlo se *filtra* para quedarse solo con las filas de #campo("tipo_actividad") = #val("Proyecto de investigacion") y se agregan en el diccionario #campo("per_id") → (#campo("contrato") → Σ #campo("horas_declaradas")): por cada investigador, la suma de horas declaradas a proyectos de investigación en cada contrato del SGIT.],
+        campos: (
+            per_id: [Identificador (entero) de la persona que declara las horas.],
+            fecha_validación: [Fecha en la que las horas declaradas quedaron validadas.],
+            horas_declaradas: [Número de horas de dedicación declaradas y validadas.],
+            contrato: [Identificador interno del contrato en el SGIT al que se imputan las horas. Cruza con #ruta("investigadores en contratos.xlsx") y #ruta("proyectos en contratos investigación.xlsx").],
+            tipo_actividad: [Tipo de actividad al que corresponden las horas declaradas (#val("Proyecto de investigacion"), #val("Altres activitats I+D"), #val("Resta de docència"), #val("Vacances"), #val("Baixa laboral")…). Solo se conservan las de #val("Proyecto de investigacion").],
         ),
     ),
 )
@@ -4226,7 +4255,7 @@ donde $c_"sind"$ son los créditos sindicales (suma de los tipos 37-40 en #ruta(
 *Integración en la regla 23.* La fracción sindical es un destino más de la dedicación de la persona:
 
 - La jornada de reparto de las fases 5-7 pasa de $T = "JORNADA_ANUAL_PDI"$ a $X_"persona" times T$, con $X_"persona" = 1 - f_"sind"$: el reparto entre docencia, gestión e investigación opera sobre la jornada *no* sindical.
-- Se emite una fila en #ruta("regla23", "dedicación_pdi_normalizada.parquet") con actividad #etqact("acción-sindical"), centro #etqcen("locales-sindicales") y $#campo("horas_finales") = f_"sind" times "JORNADA_ANUAL_PDI"$, de modo que la suma de #campo("horas_finales") de la persona sigue siendo la jornada anual completa.
+- Se emite una fila en #ruta("regla23", "dedicación_pdi_normalizada.parquet") con actividad #etqact("acción-sindical"), centro #etqcen("locales-sindicales") y $#campo("horas_finales") = f_"sind" times "JORNADA_ANUAL_PDI" times "fracción_año"$, de modo que la suma de #campo("horas_finales") de la persona sigue siendo su jornada disponible.
 - La masa regla 23 se reparte en proporción a #campo("horas_finales"); al ser la fila sindical un peso más, la fracción correspondiente de la masa se imputa automáticamente a #etqact("acción-sindical") / #etqcen("locales-sindicales").
 
 *Figuras puramente docentes (associats y substituts).* Para un professor associat (PAA/PAL) o substitut (PS) la regla 23 no reparte entre grupos: toda su jornada va a docencia. Si además es representante sindical, la fracción sindical se separa igual y el resto, $(1 - f_"sind") times "JORNADA_ANUAL_PDI"$, va íntegro a docencia (sin gestión ni investigación).
@@ -4854,15 +4883,15 @@ La información del proyecto se enriquece con #ruta("entrada", "investigación",
 
 Con esta información hemos de asignar un cupo de horas semanales a las personas que participan en proyectos de investigación y contratos de transferencia, prorrateado por los días de vigencia en el año natural.
 
-*Agrupación por proyecto presupuestario.* Una persona puede figurar en muchos contratos del mismo proyecto (cada acto administrativo de una cátedra o un contrato art. 60 abre un contrato nuevo en el SGIT). Para no inflar la dedicación, *no generamos una fila por contrato, sino una sola fila por par (per_id, proyecto presupuestario)*. El proyecto presupuestario se toma de la línea de menor número del contrato en #ruta("entrada", "investigación", "proyectos en contratos investigación.xlsx") (la línea 1 si está, o la primera disponible). Si el contrato no tiene proyecto presupuestario asociado, se usa como clave artificial `contrato-{id}` para no perder la dedicación.
+*Cálculo por contrato.* Las horas se calculan *por contrato* (no se agrupan por proyecto presupuestario). Para cada (per_id, contrato) vivo en el año:
++ *Periodo efectivo.* Intersección de [fechas del contrato] ∩ [fechas de solicitud principal o alternativa del per_id] ∩ [año natural]. Los #emph[días de solape] son la *unión* de los periodos efectivos del contrato para esa persona (sin doble conteo si hay varias filas de solicitud).
++ *Horas.* Dos casos:
+  - *Si el contrato está en Kalendas* (#ruta("entrada", "investigación", "horas kalendas.xlsx")) para esa persona: se toman sus *horas reales declaradas* —la suma del contrato en Kalendas, que ya solo cuenta #campo("tipo_actividad") = #val("Proyecto de investigacion")—. No se estima.
+  - *Si no está en Kalendas*: se estima a partir de las *horas anuales* del tipo de anexo (la columna «horas/semana estimadas» de la tabla anterior equivale a horas anuales $times 7 slash 365$) prorrateadas por el solape: `horas = horas_anuales × (días_solape / 365)` (equivalente a `h_sem × días_solape / 7`).
 
-Para cada (per_id, proyecto presupuestario):
-+ *Periodo efectivo por contrato.* Calculamos la intersección de [fechas del contrato] ∩ [fechas de solicitud principal o alternativa del per_id] ∩ [año natural].
-+ *Días efectivos.* La *unión* de los periodos efectivos de todos los contratos del par (días distintos cubiertos por al menos un contrato). Así, si varios anexos solapan, esos días se cuentan una sola vez; si hay huecos reales, se respetan.
-+ *Selección del tipo.* Cuando los contratos del par no comparten tipo de anexo, se elige el de *mayor h/sem*. En caso de empate, el de mayor `importe_concedido`, y en último recurso el de mayor id de contrato. La actividad final se calcula a partir del tipo ganador.
-+ *Horas.* `horas = h_sem × días_efectivos / 7`.
+Cuando un investigador PDI ha declarado y validado en Kalendas sus horas a un contrato, mandan esas horas reales; en otro caso se estima por tipo de anexo y solape. (Los associats y substituts no se ven afectados: en la cascada de la regla 23 toda su jornada va a docencia, así que sus horas de investigación se anulan después. Si una persona acumula muchos contratos y sus horas superan la jornada, la cascada acota su investigación al sobrante —jornada − docencia − gestión—, de modo que las horas solo determinan el reparto entre sus contratos/grupos, no el total.)
 
-El #campo("origen") es #val("proyecto") y el #campo("origen_id") es el proyecto presupuestario (o la clave artificial `contrato-{id}` cuando no haya). La actividad debe ser tan detallada como sea posible:
+El #campo("origen") es #val("proyecto") y el #campo("origen_id") es el proyecto presupuestario del contrato (línea de menor número en #ruta("entrada", "investigación", "proyectos en contratos investigación.xlsx"), o la clave artificial `contrato-{id}` cuando no haya). La actividad debe ser tan detallada como sea posible:
 - `1AA` (art 60) → `transf-60-{proyecto presupuestario}`.
 - Resto con proyecto presupuestario conocido → `{actividad_base}-{proyecto presupuestario}` (p. ej. `ai-nacional-XXX`, `transf-XXX`, `cátedras-aulas-empresa-XXX`).
 - Sin proyecto presupuestario → actividad base genérica.
@@ -4923,7 +4952,9 @@ El usuario puede así ver de un vistazo no solo cuántas horas dedica cada PDI a
 
 ===== Fase de reparto (fases 5-7 de la regla 23)
 
-Una vez completada la tabla #campo("dedicación_pdi"), un módulo final (#campo("reparto.py")) normaliza las horas registradas a la *jornada anual* de cada PDI (#val("1 642 h")) y obtiene la dedicación que se llevará a coste. La salida es #ruta("fase1", "regla23", "dedicación_pdi_normalizada.parquet") con el mismo grano que la tabla origen y una columna añadida #campo("horas_finales") (las que se usarán para repartir el coste retributivo).
+Una vez completada la tabla #campo("dedicación_pdi"), un módulo final (#campo("reparto.py")) normaliza las horas registradas a la *jornada disponible* de cada PDI y obtiene la dedicación que se llevará a coste. La salida es #ruta("fase1", "regla23", "dedicación_pdi_normalizada.parquet") con el mismo grano que la tabla origen y una columna añadida #campo("horas_finales") (las que se usarán para repartir el coste retributivo).
+
+*Jornada proporcional al año trabajado.* La jornada base no es fija: si una persona no ha trabajado el año completo, su jornada es la parte proporcional. Como no hay fechas de alta/baja en los datos, el periodo trabajado se estima por los *meses con sueldo base* (concepto retributivo #val("01") en PDI funcionario y associats/substituts, #val("82") en PVI): la fracción del año es el número de meses distintos con sueldo base dividido por 12 (granularidad mensual; quien empieza a mitad de mes cuenta el mes entero). Así, $T = "jornada_anual_pdi" times "fracción_año" times X_"persona"$, donde #campo("fracción_año") $in [0, 1]$ (1 si no hay dato de sueldo base, para no anular dedicaciones por un hueco) y $X_"persona"$ es la fracción no sindical (§«Reducciones sindicales»). Esta reducción temporal es independiente del porcentaje de reducción de jornada por conciliación o parcialidad, que se trata aparte.
 
 *Horas efectivas iniciales por grupo.* Para cada persona se calculan, a partir de #campo("dedicación_pdi"), las horas efectivas (#campo("horas") $times$ #campo("factor")) agregadas en cuatro grupos: $H_"DO"$ (docencia oficial), $H_"DNO"$ (docencia no oficial), $H_G$ (gestión, ya prorrateada por el cargador de cargos) y $H_I$ (investigación + transferencia). No hay $H_E$ (extensión) en la UJI: si en el futuro se incorporan registros de extensión, se sumarán a docencia para el reparto.
 

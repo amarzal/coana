@@ -67,6 +67,38 @@ JORNADA_ANUAL_PDI: float = float(cfg_int("jornada_anual_pdi"))
 # Origen: `data/configuración.xlsx`, clave `categorías_docencia_pura_plaza`.
 _CATEGORIAS_DOCENCIA_PURA: set[str] = cfg_set("categorías_docencia_pura_plaza")
 
+# Conceptos retributivos de «sueldo base» (Sou base): su presencia en un
+# mes indica que la persona trabajó ese mes. CR 01 = PDI funcionario y
+# associats/substituts; CR 82 = PVI.
+_CR_SUELDO_BASE: set[str] = {"01", "82"}
+_MESES_AÑO = 12.0
+
+
+def _fracción_año_trabajado(ruta_base: Path, año: int) -> dict[int, float]:
+    """per_id → fracción del año efectivamente trabajada, con granularidad
+    mensual: nº de meses distintos con sueldo base (CR 01/82) / 12.
+
+    No hay fechas de alta/baja en los datos; el indicio del periodo
+    trabajado son los meses en que la persona cobra sueldo base. Las
+    personas sin sueldo base no aparecen en el diccionario (el llamador
+    les asigna 1.0 por defecto, para no anular dedicaciones por un hueco
+    de datos).
+    """
+    nom_path = ruta_base / "entrada" / "nóminas" / "nóminas y seguridad social.xlsx"
+    exp_path = ruta_base / "entrada" / "nóminas" / "expedientes recursos humanos.xlsx"
+    if not (nom_path.exists() and exp_path.exists()):
+        return {}
+    nom = read_excel(nom_path)
+    exp = read_excel(exp_path).select("expediente", "per_id").unique("expediente")
+    cr = pl.col("concepto_retributivo").cast(pl.Utf8)
+    sub = (
+        nom.filter((pl.col("fecha").dt.year() == año) & cr.is_in(list(_CR_SUELDO_BASE)))
+        .join(exp, on="expediente", how="inner")
+        .group_by("per_id")
+        .agg((pl.col("fecha").dt.month().n_unique().cast(pl.Float64) / _MESES_AÑO).alias("frac"))
+    )
+    return {int(r["per_id"]): float(r["frac"]) for r in sub.iter_rows(named=True)}
+
 
 def aplicar_reparto_regla_23(
     ruta_base: Path,
@@ -145,6 +177,21 @@ def aplicar_reparto_regla_23(
     else:
         pivot = pivot.with_columns(pl.lit(1.0).alias("_x_persona"))
 
+    # Fracción del año trabajada (granularidad mensual). La jornada base
+    # de cada persona pasa de la jornada anual fija a esa parte
+    # proporcional. Sin dato → 1.0 (año completo).
+    fracción = _fracción_año_trabajado(ruta_base, año)
+    if fracción:
+        fr_df = pl.DataFrame(
+            {"per_id": list(fracción.keys()), "_fracción_año": list(fracción.values())},
+            schema={"per_id": pl.Int64, "_fracción_año": pl.Float64},
+        )
+        pivot = pivot.join(fr_df, on="per_id", how="left").with_columns(
+            pl.col("_fracción_año").fill_null(1.0).clip(upper_bound=1.0)
+        )
+    else:
+        pivot = pivot.with_columns(pl.lit(1.0).alias("_fracción_año"))
+
     # ---- Fases 5-7: reparto en cascada de la jornada ----
     # T (jornada anual menos la dedicación sindical) se reparte por
     # prioridad estricta: docencia, luego gestión, luego investigación.
@@ -152,7 +199,7 @@ def aplicar_reparto_regla_23(
     HDNO = pl.col("docencia_no_oficial")
     HG = pl.col("gestión")
     HI = pl.col("investigación")
-    T = pl.lit(jornada) * pl.col("_x_persona")
+    T = pl.lit(jornada) * pl.col("_fracción_año") * pl.col("_x_persona")
     DOC = HDO + HDNO  # docencia total efectiva
     # Cascada de valores absolutos: docencia y, sobre lo que quede,
     # gestión. Ambas son rígidas — se respetan tal cual si caben y solo
@@ -269,7 +316,7 @@ def aplicar_reparto_regla_23(
     # (1 − X_persona) de la jornada anual de cada representante. Se
     # emiten desde `x_persona` (no desde `pivot`) para no perder a quien
     # tenga reducción sindical pero ninguna otra dedicación registrada.
-    sindicales = _filas_sindicales(x_persona, docencia_pura, sexenios_vivos, jornada)
+    sindicales = _filas_sindicales(x_persona, docencia_pura, sexenios_vivos, jornada, fracción)
     if sindicales.height > 0:
         salida = pl.concat([salida, sindicales], how="vertical_relaxed")
 
@@ -393,24 +440,26 @@ def _filas_sindicales(
     docencia_pura: set[int],
     sexenios: set[int],
     jornada: float,
+    fracción: dict[int, float] | None = None,
 ) -> pl.DataFrame:
     """Una fila de dedicación `acción-sindical` por representante sindical.
 
-    Las horas finales son `(1 − X_persona) × jornada`. El centro de
-    coste y la actividad son los mismos que usa la reducción sindical
-    del PTGAS (tipo 8), de modo que PDI y PTGAS confluyen en el mismo
-    par (`acción-sindical`, `locales-sindicales`).
+    Las horas finales son `(1 − X_persona) × jornada × fracción_año`. El
+    centro de coste y la actividad son los mismos que usa la reducción
+    sindical del PTGAS (tipo 8), de modo que PDI y PTGAS confluyen en el
+    mismo par (`acción-sindical`, `locales-sindicales`).
     """
     from coana.fase1.nóminas.reducciones_sindicales import (
         ACTIVIDAD_SINDICAL,
         CC_SINDICAL,
     )
 
+    fracción = fracción or {}
     items = [(int(p), 1.0 - x) for p, x in x_persona.items() if x < 1.0]
     if not items:
         return pl.DataFrame(schema=_columnas_salida())
     per_ids = [p for p, _ in items]
-    horas = [round(f * jornada, 4) for _, f in items]
+    horas = [round(f * jornada * fracción.get(p, 1.0), 4) for p, f in items]
     n = len(per_ids)
     return pl.DataFrame(
         {
