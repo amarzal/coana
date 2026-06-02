@@ -312,6 +312,7 @@ function UcsModal({
                                             <th className="px-2 py-1 text-left font-semibold">CC</th>
                                             <th className="px-2 py-1 text-left font-semibold">Actividad</th>
                                             <th className="px-2 py-1 text-left font-semibold">Origen</th>
+                                            <th className="px-2 py-1 text-left font-semibold">Actividad dag</th>
                                             <th className="px-2 py-1 text-right font-semibold">Importe</th>
                                         </tr>
                                     </thead>
@@ -323,6 +324,11 @@ function UcsModal({
                                                 <td className="px-2 py-0.5">{String(f.centro_de_coste ?? "")}</td>
                                                 <td className="px-2 py-0.5">{String(f.actividad ?? "")}</td>
                                                 <td className="px-2 py-0.5">{String(f.origen ?? "")}</td>
+                                                <td className="px-2 py-0.5">
+                                                    {f.marca_dag
+                                                        ? String(f.marca_dag)
+                                                        : <span className="text-slate-300">—</span>}
+                                                </td>
                                                 <td className="px-2 py-0.5 text-right tabular-nums">
                                                     {formatEuro(Number(f.importe ?? 0))}
                                                 </td>

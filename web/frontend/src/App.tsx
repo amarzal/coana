@@ -2,7 +2,6 @@ import { BrowserRouter, Navigate, Outlet, Route, Routes } from "react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MainNav, EntradasMenu } from "@/components/MainNav";
 import { EjecutarFase1 } from "@/components/EjecutarFase1";
-import { EjecutarReparto } from "@/components/EjecutarReparto";
 import { StatusFooter } from "@/components/StatusFooter";
 import { TerminalPanel } from "@/components/TerminalPanel";
 import {
@@ -74,6 +73,7 @@ import {
     RepartoUc,
     RepartoPorcentajes,
     RepartoAnomalias,
+    RepartoDag,
 } from "@/routes/reparto";
 import {
     ResultadosArbolActividades,
@@ -107,7 +107,6 @@ function Layout() {
                 </div>
                 <EntradasMenu />
                 <EjecutarFase1 />
-                <EjecutarReparto />
                 <MainNav />
                 <StatusFooter />
             </aside>
@@ -189,6 +188,7 @@ export function App() {
                         <Route path="reparto/resumen" element={<RepartoResumen />} />
                         <Route path="reparto/uc" element={<RepartoUc />} />
                         <Route path="reparto/porcentajes" element={<RepartoPorcentajes />} />
+                        <Route path="reparto/dag" element={<RepartoDag />} />
                         <Route path="reparto/anomalias" element={<RepartoAnomalias />} />
                         <Route path="informes/:cuadroId" element={<InformeView />} />
                         <Route path="informes-carta" element={<InformesACarta />} />

@@ -209,6 +209,7 @@ Actividades finalistas o principales y asimiladas | principales
             Otras ayudas | otras-ayudas-estudiantes
         Otras actividades | otras-extensión-universitaria
             Escola d'Estiu dels Xiquets i Xiquetes | escola-estiu
+            Divulgación Científica | divulgación-científica
             Otras actividades de extensión universitaria | otras-extensión-universitaria-refinamiento
 Actividades directivas, administrativas y generales | dags
     Dirección, administración y soporte general de la universidad | dag-general-universidad
@@ -308,6 +309,7 @@ Actividades directivas, administrativas y generales | dags
         Soporte a extensión universitaria actividades culturales | dag-cultura
         Soporte a extensión universitaria actividades de cooperación | dag-cooperación
         Soporte a extensión universitaria actividades de apoyo a estudiantes | dag-apoyo-estudiantes
+        Soporte a extensión universitaria actividades de divulgación científica y ciencia ciudadana | dag-divulgación-científica
     Dirección, administración y soporte de facultades y escuelas | dag-facultades
         Dirección, administración y soporte de la ESTCE | dag-estce
         Dirección, administración y soporte de la FCJE | dag-fcje
@@ -388,7 +390,6 @@ Actividades directivas, administrativas y generales | dags
                 Encargos de gestión actividades de transferencia | dag-encargos-gestión-transferencia
                 Encargos de gestión Espaitec 1 y 2 | dag-encargos-gestión-espaitec
                 Innovación y emprendeduría | dag-innovación-emprendeduría
-                Divulgación Científica y Ciencia Ciudadana | dag-divulgación-científica
             Otras unidades de apoyo a la participación en proyectos internacionales | dag-apoyo-proyectos-internacionales
                 Encargos de gestión proyectos internacionales | dag-encargos-gestión-proyectos-internacionales
 Actividades anexas | anexas

@@ -29,3 +29,15 @@ def porcentajes(p: QueryParams = Depends(query_dependency)) -> ListResponse:
 @router.get("/anomalias", response_model=ListResponse)
 def anomalias(p: QueryParams = Depends(query_dependency)) -> ListResponse:
     return svc.listar_anomalias(p)
+
+
+@router.get("/dag", response_model=ListResponse)
+def dag(p: QueryParams = Depends(query_dependency)) -> ListResponse:
+    return svc.listar_dag(p)
+
+
+@router.get("/dag/{marca_dag}", response_model=ListResponse)
+def dag_detalle(
+    marca_dag: str, p: QueryParams = Depends(query_dependency),
+) -> ListResponse:
+    return svc.detalle_dag(marca_dag, p)

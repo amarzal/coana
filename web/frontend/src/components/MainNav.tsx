@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { GenerarInformes } from "@/components/GenerarInformes";
+import { EjecutarReparto } from "@/components/EjecutarReparto";
 
 type IconCmp = LucideIcon;
 
@@ -186,6 +187,7 @@ const GROUPS: Group[] = [
         items: [
             { label: "Resumen", to: "/reparto/resumen" },
             { label: "UC tras reparto", to: "/reparto/uc" },
+            { label: "Por actividad dag", to: "/reparto/dag" },
             { label: "Porcentajes por centro", to: "/reparto/porcentajes" },
             { label: "Anomalías", to: "/reparto/anomalias" },
         ],
@@ -462,6 +464,11 @@ export function MainNav() {
         <nav className="flex flex-col gap-1 text-sm">
             {GROUPS.map((g) => (
                 <div key={g.label}>
+                    {g.label === "Reparto de actividades" && (
+                        <div className="my-2">
+                            <EjecutarReparto />
+                        </div>
+                    )}
                     {g.label === "Informes" && (
                         <div className="my-2">
                             <GenerarInformes />

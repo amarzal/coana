@@ -7,11 +7,12 @@ porcentajes no-dag por centro y las anomalías del reparto.
 
 from __future__ import annotations
 
+from functools import lru_cache
 from pathlib import Path
 
 import polars as pl
 
-from coana.web.deps import DIR_FASE1, read_parquet
+from coana.web.deps import DIR_BASE, DIR_FASE1, read_parquet
 from coana.web.schemas.common import ColumnSpec, Kpi, KpiPanel, ListResponse
 from coana.web.services.query import QueryParams, apply_query
 
@@ -137,3 +138,104 @@ def listar_anomalias(params: QueryParams) -> ListResponse:
         df = df.sort("importe", descending=True, nulls_last=True)
     df, total, stats = apply_query(df, params, search_columns=_SEARCH_ANOM)
     return ListResponse(columns=_COLS_ANOM, rows=df.to_dicts(), total=total, column_stats=stats)
+
+
+# ----------------------------------------------------------------------
+# Detalle del reparto por actividad dag (master-detalle)
+# ----------------------------------------------------------------------
+
+@lru_cache(maxsize=1)
+def _meta_actividades() -> dict[str, tuple[str, str]]:
+    """slug → (código, descripción) del árbol de actividades."""
+    from coana.fase2.calculo import cargar_árbol_actividades
+    arb = cargar_árbol_actividades(DIR_BASE)
+    return {
+        ident: (n.código, n.descripción)
+        for ident, n in arb._por_id.items() if ident
+    }
+
+
+_COLS_DAG: list[ColumnSpec] = [
+    ColumnSpec(name="código", label="Código", format="text"),
+    ColumnSpec(name="marca_dag", label="Actividad dag", format="text"),
+    ColumnSpec(name="descripción", label="Descripción", format="text"),
+    ColumnSpec(name="n_destinos", label="Destinos", format="int"),
+    ColumnSpec(name="n_fragmentos", label="Fragmentos", format="int"),
+    ColumnSpec(name="importe", label="Importe repartido", format="euro"),
+]
+_SEARCH_DAG = ["marca_dag", "código", "descripción"]
+
+
+def listar_dag(params: QueryParams) -> ListResponse:
+    """Una fila por cada actividad dag que se repartió: total repartido y
+    número de actividades finalistas destino."""
+    df = _safe_read(PATH_UC)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_DAG, rows=[], total=0)
+    frags = df.filter(pl.col("origen") == _ORIGEN_FRAG)
+    if frags.is_empty():
+        return ListResponse(columns=_COLS_DAG, rows=[], total=0)
+    agg = frags.group_by("marca_dag").agg(
+        pl.col("actividad").n_unique().alias("n_destinos"),
+        pl.len().alias("n_fragmentos"),
+        pl.col("importe").sum().round(2).alias("importe"),
+    )
+    meta = _meta_actividades()
+    agg = agg.with_columns(
+        pl.col("marca_dag").replace_strict(
+            {k: v[0] for k, v in meta.items()}, default="",
+        ).alias("código"),
+        pl.col("marca_dag").replace_strict(
+            {k: v[1] for k, v in meta.items()}, default=pl.col("marca_dag"),
+        ).alias("descripción"),
+    )
+    df = agg.select([c.name for c in _COLS_DAG])
+    if not params.sort_by:
+        df = df.sort("importe", descending=True, nulls_last=True)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_DAG)
+    return ListResponse(columns=_COLS_DAG, rows=df.to_dicts(), total=total, column_stats=stats)
+
+
+_COLS_DAG_DETALLE: list[ColumnSpec] = [
+    ColumnSpec(name="código", label="Código destino", format="text"),
+    ColumnSpec(name="actividad", label="Actividad destino", format="text"),
+    ColumnSpec(name="descripción", label="Descripción", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro de coste", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="porcentaje", label="% del dag", format="float"),
+]
+_SEARCH_DAG_DETALLE = ["actividad", "código", "descripción", "centro_de_coste"]
+
+
+def detalle_dag(marca_dag: str, params: QueryParams) -> ListResponse:
+    """Reparto de una actividad dag concreta: a qué actividades finalistas
+    (y centros) fue a parar su coste, con importe y % del total del dag."""
+    df = _safe_read(PATH_UC)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_DAG_DETALLE, rows=[], total=0)
+    frags = df.filter(
+        (pl.col("origen") == _ORIGEN_FRAG) & (pl.col("marca_dag") == marca_dag)
+    )
+    if frags.is_empty():
+        return ListResponse(columns=_COLS_DAG_DETALLE, rows=[], total=0)
+    total_dag = float(frags["importe"].sum() or 0.0)
+    agg = frags.group_by("centro_de_coste", "actividad").agg(
+        pl.col("importe").sum().round(2).alias("importe"),
+    ).with_columns(
+        (100.0 * pl.col("importe") / total_dag if total_dag else pl.lit(0.0))
+        .round(2).alias("porcentaje")
+    )
+    meta = _meta_actividades()
+    agg = agg.with_columns(
+        pl.col("actividad").replace_strict(
+            {k: v[0] for k, v in meta.items()}, default="",
+        ).alias("código"),
+        pl.col("actividad").replace_strict(
+            {k: v[1] for k, v in meta.items()}, default=pl.col("actividad"),
+        ).alias("descripción"),
+    )
+    df = agg.select([c.name for c in _COLS_DAG_DETALLE])
+    if not params.sort_by:
+        df = df.sort("importe", descending=True, nulls_last=True)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_DAG_DETALLE)
+    return ListResponse(columns=_COLS_DAG_DETALLE, rows=df.to_dicts(), total=total, column_stats=stats)

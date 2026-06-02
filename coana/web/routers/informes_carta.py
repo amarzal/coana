@@ -230,28 +230,90 @@ def consulta(filtro: Filtro) -> Resultado:
         descs = set(descendientes_inclusivo(árboles[eje], raíz_id))
         return [(raíz_id, descs)]
 
-    def _grupos_eje(eje: str, df: pl.DataFrame) -> list[tuple[str, pl.DataFrame]]:
-        """Sub-DataFrames de este nivel, según el toggle del eje:
-
-        - *agregado* (True): se agrupa por los slugs raíz seleccionados
-          (cada uno con su subárbol) o, si no hay selección, por la raíz
-          del árbol → un único nodo «Todos».
-        - *detalle* (False): un nodo por cada valor distinto de la columna
-          presente en `df` (desglose fino, valor a valor).
-        """
+    def _grupos_eje_agregado(eje: str, df: pl.DataFrame) -> list[tuple[str, pl.DataFrame]]:
+        """Agrupa por los slugs raíz seleccionados (cada uno con su subárbol)
+        o, si no hay selección, por la raíz del árbol → un único nodo «Todos»."""
         col = _EJES_COLS[eje]
-        if filtro.agregado.get(eje, True):
-            out: list[tuple[str, pl.DataFrame]] = []
-            for slug_raíz, descs in _slugs_grupo(eje, df):
-                grupo = df.filter(pl.col(col).is_in(list(descs)))
-                if not grupo.is_empty():
-                    out.append((slug_raíz, grupo))
-            return out
-        # Detalle: por cada valor distinto presente.
-        distintos = [
-            v for v in df.get_column(col).unique().to_list() if v is not None
+        out: list[tuple[str, pl.DataFrame]] = []
+        for slug_raíz, descs in _slugs_grupo(eje, df):
+            grupo = df.filter(pl.col(col).is_in(list(descs)))
+            if not grupo.is_empty():
+                out.append((slug_raíz, grupo))
+        return out
+
+    def _camino(eje: str, slug: str, raíces: set[str]) -> list[str]:
+        """Cadena de identificadores desde la raíz de ámbito (incluida) hasta
+        `slug` (incluido), recorriendo el árbol hacia arriba. Si `slug` no está
+        en el árbol, se devuelve como nodo suelto."""
+        arb = árboles[eje]
+        try:
+            nodo = arb._nodo(slug)
+        except KeyError:
+            return [slug]
+        cadena: list[str] = []
+        while nodo is not None:
+            cadena.append(nodo.identificador)
+            if nodo.identificador in raíces:
+                break
+            nodo = nodo.padre
+        cadena.reverse()
+        return cadena
+
+    def _arbol_detalle(
+        df: pl.DataFrame, eje: str, nivel: int, ejes_restantes: list[str],
+    ) -> list[NodoJerarquía]:
+        """Desglose de un eje en *detalle*: el subárbol colapsable de la
+        dimensión. Los nodos intermedios agregan el coste de su subárbol; las
+        hojas son los valores realmente presentes (y cuelgan de ellas, si
+        queda eje, el desglose del siguiente)."""
+        col = _EJES_COLS[eje]
+        raíces_ámbito = (
+            set(raíces_eje[eje]) if raíces_eje[eje]
+            else {árboles[eje].raíz.identificador}
+        )
+        agg = df.group_by(col).agg(
+            pl.len().alias("_n"), pl.col("importe").sum().alias("_imp"),
+        )
+        directo_n: dict[str, int] = {}
+        directo_imp: dict[str, float] = {}
+        for r in agg.iter_rows(named=True):
+            s = r[col]
+            if s is None:
+                continue
+            directo_n[s] = int(r["_n"])
+            directo_imp[s] = float(r["_imp"] or 0.0)
+
+        hijos_de: dict[str, set[str]] = {}
+        raíz_nodos: set[str] = set()
+        for s in directo_n:
+            cam = _camino(eje, s, raíces_ámbito)
+            raíz_nodos.add(cam[0])
+            for padre, hijo in zip(cam, cam[1:]):
+                hijos_de.setdefault(padre, set()).add(hijo)
+
+        sig = ejes_restantes[1:]
+
+        def _build(slug: str) -> NodoJerarquía:
+            cod, desc = _meta(eje, slug)
+            hijos_tree = [
+                _build(c)
+                for c in sorted(hijos_de.get(slug, set()), key=lambda x: _meta(eje, x)[0])
+            ]
+            dn = directo_n.get(slug, 0)
+            di = directo_imp.get(slug, 0.0)
+            hijos_sig: list[NodoJerarquía] = []
+            if sig and dn > 0:
+                hijos_sig = _construir(df.filter(pl.col(col) == slug), nivel + 1, sig)
+            n = dn + sum(h.n_ucs for h in hijos_tree)
+            imp = round(di + sum(h.importe for h in hijos_tree), 2)
+            return NodoJerarquía(
+                nivel=nivel, eje=eje, slug=slug, código=cod, descripción=desc,
+                n_ucs=n, importe=imp, hijos=hijos_tree + hijos_sig,
+            )
+
+        return [
+            _build(r) for r in sorted(raíz_nodos, key=lambda x: _meta(eje, x)[0])
         ]
-        return [(v, df.filter(pl.col(col) == v)) for v in distintos]
 
     def _construir(
         df: pl.DataFrame, nivel: int, ejes_restantes: list[str],
@@ -259,8 +321,12 @@ def consulta(filtro: Filtro) -> Resultado:
         if not ejes_restantes:
             return []
         eje = ejes_restantes[0]
+        # Detalle: subárbol jerárquico colapsable de la dimensión.
+        if not filtro.agregado.get(eje, True):
+            return _arbol_detalle(df, eje, nivel, ejes_restantes)
+        # Agregado: un nodo por raíz seleccionada (o «Todos»).
         nodos_out: list[NodoJerarquía] = []
-        for slug, grupo in _grupos_eje(eje, df):
+        for slug, grupo in _grupos_eje_agregado(eje, df):
             if grupo.is_empty():
                 continue
             cod, desc = _meta(eje, slug)
@@ -275,7 +341,6 @@ def consulta(filtro: Filtro) -> Resultado:
                 importe=round(float(grupo["importe"].sum() or 0.0), 2),
                 hijos=hijos,
             ))
-        # Ordenar por código.
         nodos_out.sort(key=lambda n: n.código)
         return nodos_out
 

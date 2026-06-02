@@ -222,6 +222,143 @@ def _nominas_raw() -> pl.DataFrame:
     return _nominas_raw_cached(str(p), _mtime_ns(p))
 
 
+# ----------------------------------------------------------------------
+# Tablas de referencia para cruzar información (nombre de proyecto,
+# descripciones de árbol, persona…).
+# ----------------------------------------------------------------------
+
+@lru_cache(maxsize=2)
+def _proyectos_ref_cached(path_str: str, mtime_ns: int) -> dict[str, dict]:
+    del mtime_ns
+    p = Path(path_str)
+    if not p.exists():
+        return {}
+    df = read_excel(p)
+    out: dict[str, dict] = {}
+    for r in df.iter_rows(named=True):
+        clave = r.get("proyecto")
+        if clave is None:
+            continue
+        tipo = r.get("tipo")
+        out[str(clave)] = {
+            "nombre": r.get("nombre"),
+            "tipo": str(tipo) if tipo is not None else None,
+            "centro_origen": r.get("centro_origen"),
+        }
+    return out
+
+
+def _proyectos_ref() -> dict[str, dict]:
+    p = DIR_ENTRADA / "presupuesto" / "proyectos.xlsx"
+    return _proyectos_ref_cached(str(p), _mtime_ns(p))
+
+
+@lru_cache(maxsize=2)
+def _tipos_proyecto_ref_cached(path_str: str, mtime_ns: int) -> dict[str, str]:
+    del mtime_ns
+    p = Path(path_str)
+    if not p.exists():
+        return {}
+    df = read_excel(p)
+    return {
+        str(r["tipo"]): r.get("nombre")
+        for r in df.iter_rows(named=True) if r.get("tipo") is not None
+    }
+
+
+def _tipos_proyecto_ref() -> dict[str, str]:
+    p = DIR_ENTRADA / "presupuesto" / "tipos de proyecto.xlsx"
+    return _tipos_proyecto_ref_cached(str(p), _mtime_ns(p))
+
+
+@lru_cache(maxsize=2)
+def _personas_ref_cached(path_str: str, mtime_ns: int) -> dict[str, str]:
+    del mtime_ns
+    p = Path(path_str)
+    if not p.exists():
+        return {}
+    df = read_excel(p)
+    out: dict[str, str] = {}
+    for r in df.iter_rows(named=True):
+        pid = r.get("per_id")
+        if pid is None:
+            continue
+        nombre = " ".join(
+            str(r.get(c)) for c in ("nombre", "apellido1", "apellido2")
+            if r.get(c) not in (None, "")
+        ).strip()
+        out[str(pid)] = nombre
+    return out
+
+
+def _personas_ref() -> dict[str, str]:
+    p = DIR_ENTRADA / "nóminas" / "personas.xlsx"
+    return _personas_ref_cached(str(p), _mtime_ns(p))
+
+
+def _fields_proyecto(proyecto) -> list[FieldValue]:
+    """Campos con el nombre del proyecto, su tipo y centro origen."""
+    if proyecto in (None, ""):
+        return []
+    info = _proyectos_ref().get(str(proyecto))
+    if not info:
+        return []
+    out = [FieldValue(
+        name="proyecto__nombre", label="Proyecto",
+        value=f"{proyecto} · {info.get('nombre') or ''}".strip(" ·"),
+        format="text",
+    )]
+    tipo = info.get("tipo")
+    if tipo:
+        tnom = _tipos_proyecto_ref().get(tipo)
+        out.append(FieldValue(
+            name="proyecto__tipo", label="Tipo de proyecto",
+            value=f"{tipo} · {tnom}" if tnom else tipo, format="text",
+        ))
+    if info.get("centro_origen"):
+        out.append(FieldValue(
+            name="proyecto__centro_origen", label="Centro origen del proyecto",
+            value=info["centro_origen"], format="text",
+        ))
+    return out
+
+
+def _seccion_relacionada(row: dict) -> list[RecordSection]:
+    """Información cruzada de la UC: descripciones de árbol de sus tres ejes,
+    nombre del proyecto (si lo lleva) y persona (si lleva per_id)."""
+    fields: list[FieldValue] = []
+    for col, label, árbol_name in (
+        ("actividad", "Actividad", "actividades"),
+        ("centro_de_coste", "Centro de coste", "centros de coste"),
+        ("elemento_de_coste", "Elemento de coste", "elementos de coste"),
+    ):
+        v = row.get(col)
+        if v in (None, ""):
+            continue
+        arb = _arbol_cached(árbol_name)
+        nodo = arb._por_id.get(str(v)) if arb is not None else None
+        if nodo is not None:
+            fields.append(FieldValue(
+                name=f"{col}__desc", label=label,
+                value=f"{nodo.código} · {nodo.descripción}", format="text",
+            ))
+
+    fields += _fields_proyecto(row.get("proyecto"))
+
+    pid = row.get("per_id")
+    if pid not in (None, ""):
+        nombre = _personas_ref().get(str(pid))
+        if nombre:
+            fields.append(FieldValue(
+                name="persona__nombre", label="Persona",
+                value=nombre, format="text",
+            ))
+
+    if not fields:
+        return []
+    return [RecordSection(label="Información relacionada", fields=fields)]
+
+
 def _seccion_origen_presupuesto(origen_id: str) -> list[RecordSection]:
     df = _apuntes_presupuesto()
     if df.is_empty() or "asiento" not in df.columns:
@@ -243,7 +380,8 @@ def _seccion_origen_presupuesto(origen_id: str) -> list[RecordSection]:
     label = "Apunte presupuestario" if len(rows) == 1 else f"Apuntes presupuestarios ({len(rows)})"
     for i, r in enumerate(rows, 1):
         sub_label = label if len(rows) == 1 else f"{label} #{i}"
-        secciones.append(RecordSection(label=sub_label, fields=_row_a_fields(r)))
+        fields = _row_a_fields(r) + _fields_proyecto(r.get("proyecto"))
+        secciones.append(RecordSection(label=sub_label, fields=fields))
     return secciones
 
 
@@ -303,8 +441,10 @@ def obtener_uc(origen: str, uc_id: str) -> RecordResponse | None:
     main = [FieldValue(name="_origen", label="Origen", value=origen, format="text")]
     main += _row_a_fields(row)
 
+    # Información cruzada (descripciones de árbol, proyecto, persona…).
+    sections: list[RecordSection] = _seccion_relacionada(row)
+
     # Resolver el registro de origen.
-    sections: list[RecordSection] = []
     origen_id = row.get("origen_id")
     if origen_id not in (None, ""):
         oid = str(origen_id)

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/DataTable";
 import { formatEuro, formatInt } from "@/lib/format";
@@ -95,6 +96,44 @@ export function RepartoPorcentajes() {
             queryKey="reparto:porcentajes"
             rowKey="clave"
         />
+    );
+}
+
+export function RepartoDag() {
+    const [dag, setDag] = useState<string | null>(null);
+    const [dagLabel, setDagLabel] = useState<string>("");
+    return (
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title="Reparto de actividades · Por actividad dag"
+                subtitle="Cada fila es una actividad dag que se repartió. Pincha una para ver a qué actividades finalistas (y centros) fue a parar su coste, con el importe y el % del total del dag."
+            />
+            <DataTable
+                endpoint="/api/reparto/dag"
+                queryKey="reparto:dag"
+                rowKey="marca_dag"
+                reorderImportes={false}
+                onRowSelect={(row) => {
+                    setDag(String(row.marca_dag ?? ""));
+                    setDagLabel(
+                        `${row.código ?? ""} · ${row.descripción ?? row.marca_dag ?? ""}`,
+                    );
+                }}
+            />
+            {dag && (
+                <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                        Reparto de {dagLabel}
+                    </h2>
+                    <DataTable
+                        key={dag}
+                        endpoint={`/api/reparto/dag/${encodeURIComponent(dag)}`}
+                        queryKey={`reparto:dag:detalle:${dag}`}
+                        reorderImportes={false}
+                    />
+                </div>
+            )}
+        </div>
     );
 }
 

@@ -1007,7 +1007,7 @@ def _reglas_actividad_dinámicas(
         return df
 
     # Definición de reglas dinámicas: (marcador, col_sufijo)
-    reglas: list[tuple[str, str]] = [
+    reglas: list[tuple[str, ...]] = [
         ("+=otras-ayudas-estudiantes", "proyecto"),
         ("+=cooperación", "proyecto"),
         ("+=dag-cooperación", "proyecto"),
@@ -1020,8 +1020,8 @@ def _reglas_actividad_dinámicas(
         ("+=ai-otras-competitivas", "proyecto"),
         ("+=ppsi", "proyecto"),
         ("+=otras-ait-financiación-propia", "proyecto"),
-        ("+=ai-financiación-propia", "proyecto"),
-        ("+=ait-financiación-externa", "proyecto"),
+        ("+=ai-financiación-propia", "proyecto", "otras-ait-financiación-propia"),
+        ("+=ait-financiación-externa", "proyecto", "transf-otras"),
         ("+=transf-60", "proyecto"),
         ("+=doctorado", "proyecto"),
         ("+=dag-otros-servicios-relaciones-internacionales", "proyecto"),
@@ -1035,8 +1035,14 @@ def _reglas_actividad_dinámicas(
         ("+=acceso-enseñanzas-oficiales", "proyecto"),
     ]
 
-    for marcador, col_sufijo in reglas:
+    for regla in reglas:
+        marcador, col_sufijo = regla[0], regla[1]
         padre_id = marcador.removeprefix("+=")
+        # Padre donde colgar el nodo (3.er elemento opcional). Por defecto, el
+        # propio `padre_id`; el slug del nodo sigue siendo `padre_id-valor`
+        # aunque cuelgue de otro padre (p. ej. ait-financiación-externa-XXX
+        # cuelga de `transf-otras` pero conserva su etiqueta).
+        padre_destino = regla[2] if len(regla) > 2 else padre_id
         es_marcador = pl.col("_actividad") == marcador
         candidatos = df.filter(es_marcador)
 
@@ -1053,7 +1059,10 @@ def _reglas_actividad_dinámicas(
         for valor in valores:
             desc = descripciones.get(str(valor), str(valor))
             try:
-                árbol.añadir_hijo(padre_id, desc, str(valor))
+                árbol.añadir_hijo(
+                    padre_destino, desc, str(valor),
+                    id_completo=f"{padre_id}-{valor}",
+                )
             except ValueError as e:
                 log.warning("No se pudo crear nodo: %s", e)
 

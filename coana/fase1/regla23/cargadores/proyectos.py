@@ -55,6 +55,10 @@ from coana.util import read_excel, Árbol
 # Reglas en orden de evaluación. La primera que casa gana.
 # `*` en cualquier posición es comodín.
 _REGLAS: list[tuple[str, str, int]] = [
+    ("2K2", "otras-ayudas-estudiantes", 10),
+    ("2PC", "ai-internacional", 10),
+    ("2A0", "otras-ait-financiación-propia", 3),
+    ("2M*", "otras-ait-financiación-propia", 3),
     ("2PE", "ai-internacional", 10),
     ("2PN", "ai-nacional", 10),
     ("2PV", "ai-regional", 10),
@@ -296,7 +300,7 @@ def cargar_proyectos(
         for proyecto in nuevos_1aa:
             try:
                 árbol_actividades.añadir_hijo(
-                    "transf",
+                    "transf-60",
                     f"Asistencia técnica (art 60) en proyecto {proyecto}",
                     proyecto,
                     id_completo=f"transf-60-{proyecto}",
@@ -309,9 +313,13 @@ def cargar_proyectos(
         )
         for r in nuevos.iter_rows(named=True):
             base, proyecto = r["actividad_base"], r["proyecto_l1"]
+            # Los proyectos de transferencia (base `transf`, anexos 1**) cuelgan
+            # de `transf-60` (Contratos artículo 60 y similares), igual que los
+            # 1AA; el resto de bases (ai-*, cátedras…) cuelgan de su propio nodo.
+            padre = "transf-60" if base == "transf" else base
             try:
                 árbol_actividades.añadir_hijo(
-                    base,
+                    padre,
                     f"{base} · proyecto {proyecto}",
                     proyecto,
                     id_completo=f"{base}-{proyecto}",
