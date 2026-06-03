@@ -1,27 +1,19 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { formatEuro, formatInt } from "@/lib/format";
+import { formatFloat, formatInt } from "@/lib/format";
 import { cn } from "@/lib/cn";
-
-type Opcion = { slug: string; código: string; descripción: string };
-type Opciones = {
-    centros_de_coste: Opcion[];
-    actividades: Opcion[];
-    elementos_de_coste: Opcion[];
-};
+import { TreeSelect } from "@/components/TreeSelect";
 
 type Eje = "cc" | "act" | "ec";
 
 type Filtro = {
+    // Eje que vertebra el informe (árbol monográfico). Los otros dos ejes son
+    // solo filtros; la selección del eje de estructura es solo foco.
+    estructura: Eje;
     centros_de_coste: string[];
     actividades: string[];
     elementos_de_coste: string[];
-    orden: Eje[];
-    // Por eje: true = agregado (un solo importe), false = detalle (valor a valor).
-    agregado: Record<Eje, boolean>;
 };
-
-const AGREGADO_DEFECTO: Record<Eje, boolean> = { cc: true, act: true, ec: true };
 
 type Nodo = {
     nivel: number;
@@ -30,9 +22,15 @@ type Nodo = {
     código: string;
     descripción: string;
     n_ucs: number;
-    importe: number;
+    importe: number;            // subárbol: directo (a) + descendientes (b)
+    n_ucs_directo: number;
+    importe_directo: number;    // a
+    importe_ancestros: number;  // c: roll-down de ancestros
+    n_ucs_ancestros: number;
     hijos: Nodo[];
 };
+
+type Modo = "directo" | "descendientes" | "ancestros" | "total";
 
 type Resultado = {
     orden: Eje[];
@@ -47,165 +45,35 @@ const EJE_LABEL: Record<Eje, string> = {
     ec: "Elemento de coste",
 };
 
-function ToggleAgregado({
-    agregado,
-    onChange,
-}: {
-    agregado: boolean;
-    onChange: (v: boolean) => void;
-}) {
-    return (
-        <div
-            className="inline-flex overflow-hidden rounded border border-slate-300 text-[10px]"
-            role="group"
-            aria-label="Nivel de agregación"
-        >
-            <button
-                type="button"
-                onClick={() => onChange(true)}
-                className={cn(
-                    "px-2 py-0.5",
-                    agregado ? "bg-slate-800 text-white" : "bg-white text-slate-600 hover:bg-slate-100",
-                )}
-                title="Un único importe agregado para este campo"
-            >
-                Agregado
-            </button>
-            <button
-                type="button"
-                onClick={() => onChange(false)}
-                className={cn(
-                    "px-2 py-0.5",
-                    !agregado ? "bg-slate-800 text-white" : "bg-white text-slate-600 hover:bg-slate-100",
-                )}
-                title="Desglose fino, valor a valor"
-            >
-                Detalle
-            </button>
-        </div>
-    );
-}
-
-function MultiSelect({
-    label,
-    opciones,
-    seleccionados,
-    onChange,
-    agregado,
-    onAgregadoChange,
-}: {
-    label: string;
-    opciones: Opcion[];
-    seleccionados: string[];
-    onChange: (next: string[]) => void;
-    agregado: boolean;
-    onAgregadoChange: (v: boolean) => void;
-}) {
-    const [busqueda, setBusqueda] = useState("");
-    const [abierto, setAbierto] = useState(false);
-    const filtradas = useMemo(() => {
-        if (!busqueda.trim()) return opciones.slice(0, 200);
-        const b = busqueda.toLowerCase();
-        return opciones
-            .filter(
-                (o) =>
-                    o.slug.toLowerCase().includes(b) ||
-                    o.código.toLowerCase().includes(b) ||
-                    o.descripción.toLowerCase().includes(b),
-            )
-            .slice(0, 200);
-    }, [opciones, busqueda]);
-    const setSel = new Set(seleccionados);
-    const opcDict = useMemo(() => {
-        const m = new Map<string, Opcion>();
-        opciones.forEach((o) => m.set(o.slug, o));
-        return m;
-    }, [opciones]);
-    return (
-        <div className="rounded border border-slate-200 bg-white p-2">
-            <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-xs font-semibold text-slate-600">{label}</span>
-                <ToggleAgregado agregado={agregado} onChange={onAgregadoChange} />
-            </div>
-            {seleccionados.length > 0 && (
-                <div className="mb-1 flex flex-wrap gap-1">
-                    {seleccionados.map((s) => {
-                        const o = opcDict.get(s);
-                        return (
-                            <span
-                                key={s}
-                                className="inline-flex items-center gap-1 rounded bg-slate-800 px-2 py-0.5 text-xs text-white"
-                            >
-                                <span className="text-slate-300">{o?.código || ""}</span>
-                                <span>{o?.descripción || s}</span>
-                                <button
-                                    type="button"
-                                    onClick={() => onChange(seleccionados.filter((x) => x !== s))}
-                                    className="ml-1 hover:text-rose-300"
-                                    aria-label="Quitar"
-                                >
-                                    ×
-                                </button>
-                            </span>
-                        );
-                    })}
-                </div>
-            )}
-            <input
-                type="text"
-                value={busqueda}
-                onChange={(e) => {
-                    setBusqueda(e.target.value);
-                    setAbierto(true);
-                }}
-                onFocus={() => setAbierto(true)}
-                onBlur={() => setTimeout(() => setAbierto(false), 200)}
-                placeholder="Buscar (código o descripción)…"
-                className="w-full rounded border border-slate-300 px-2 py-1 text-sm"
-            />
-            {abierto && filtradas.length > 0 && (
-                <div className="mt-1 max-h-64 overflow-y-auto rounded border border-slate-200 bg-white">
-                    {filtradas.map((o) => {
-                        const marc = setSel.has(o.slug);
-                        return (
-                            <button
-                                key={o.slug}
-                                type="button"
-                                onMouseDown={(e) => e.preventDefault()}
-                                onClick={() => {
-                                    if (marc) onChange(seleccionados.filter((x) => x !== o.slug));
-                                    else onChange([...seleccionados, o.slug]);
-                                }}
-                                className={cn(
-                                    "flex w-full items-center gap-2 border-b border-slate-100 px-2 py-1 text-left text-xs hover:bg-slate-100",
-                                    marc && "bg-blue-50",
-                                )}
-                            >
-                                <input type="checkbox" checked={marc} readOnly className="pointer-events-none" />
-                                <span className="text-slate-500 tabular-nums">{o.código}</span>
-                                <span className="flex-1">{o.descripción}</span>
-                                <span className="text-[10px] text-slate-400">{o.slug}</span>
-                            </button>
-                        );
-                    })}
-                </div>
-            )}
-        </div>
-    );
+/** True si el subárbol de `nodo` (incluido él) contiene algún slug de foco. */
+function subtreeTieneFoco(nodo: Nodo, foco: Set<string>): boolean {
+    if (foco.has(nodo.slug)) return true;
+    return nodo.hijos.some((h) => subtreeTieneFoco(h, foco));
 }
 
 function NodoRow({
     nodo,
     depth = 0,
-    contexto = {},
+    filtroBase,
 }: {
     nodo: Nodo;
     depth?: number;
-    contexto?: Partial<Record<Eje, string>>;
+    filtroBase: Filtro;
 }) {
-    const [abierto, setAbierto] = useState(depth < 1);
-    const [verUcs, setVerUcs] = useState(false);
-    const ctxAqui = { ...contexto, [nodo.eje]: nodo.slug };
+    // Foco = selección del eje de estructura. Si lo hay, abrimos de entrada cada
+    // rama que conduce a un nodo de foco (y el propio foco); si no, solo el nivel 0.
+    const focoSlugs =
+        filtroBase.estructura === "cc" ? filtroBase.centros_de_coste
+            : filtroBase.estructura === "act" ? filtroBase.actividades
+                : filtroBase.elementos_de_coste;
+    const [abierto, setAbierto] = useState(
+        focoSlugs.length > 0
+            ? subtreeTieneFoco(nodo, new Set(focoSlugs))
+            : depth < 1,
+    );
+    const [modal, setModal] = useState<null | Modo>(null);
+    const descendientes = Math.round((nodo.importe - nodo.importe_directo) * 100) / 100;
+    const total = Math.round((nodo.importe + nodo.importe_ancestros) * 100) / 100;
     return (
         <>
             <tr className={cn(depth === 0 && "border-t-2 border-slate-700 font-semibold")}>
@@ -222,49 +90,140 @@ function NodoRow({
                     <span className="mr-2 text-[10px] uppercase text-slate-400">{nodo.eje}</span>
                     <span className="mr-2 text-slate-500 tabular-nums">{nodo.código}</span>
                     <span>{nodo.descripción}</span>
+                </td>
+                {/* a) Directo (clicable si hay UC directas) */}
+                <td className="px-2 py-1 text-right tabular-nums">
+                    {nodo.n_ucs_directo > 0 ? (
+                        <button
+                            type="button"
+                            onClick={() => setModal("directo")}
+                            className="text-slate-700 underline decoration-dotted underline-offset-2 hover:text-blue-700"
+                            title={`${formatInt(nodo.n_ucs_directo)} UC directas`}
+                        >
+                            {formatFloat(nodo.importe_directo)}
+                        </button>
+                    ) : (
+                        <span className="text-slate-300">—</span>
+                    )}
+                </td>
+                {/* b) Descendientes, clicable */}
+                <td className="px-2 py-1 text-right tabular-nums">
+                    {descendientes !== 0 ? (
+                        <button
+                            type="button"
+                            onClick={() => setModal("descendientes")}
+                            className="text-slate-500 underline decoration-dotted underline-offset-2 hover:text-blue-700"
+                            title={`${formatInt(nodo.n_ucs - nodo.n_ucs_directo)} UC aportadas por descendientes`}
+                        >
+                            {formatFloat(descendientes)}
+                        </button>
+                    ) : (
+                        <span className="text-slate-300">—</span>
+                    )}
+                </td>
+                {/* c) Ancestros (roll-down), clicable */}
+                <td className="px-2 py-1 text-right tabular-nums">
+                    {nodo.importe_ancestros !== 0 ? (
+                        <button
+                            type="button"
+                            onClick={() => setModal("ancestros")}
+                            className="text-slate-500 underline decoration-dotted underline-offset-2 hover:text-blue-700"
+                            title={`Fracción de ${formatInt(nodo.n_ucs_ancestros)} UC de ancestros`}
+                        >
+                            {formatFloat(nodo.importe_ancestros)}
+                        </button>
+                    ) : (
+                        <span className="text-slate-300">—</span>
+                    )}
+                </td>
+                {/* Total = a + b + c (clicable: muestra el subárbol; los ancestros se ven en su columna) */}
+                <td className="px-2 py-1 text-right tabular-nums">
                     <button
                         type="button"
-                        onClick={() => setVerUcs(true)}
-                        className="ml-2 rounded border border-slate-300 px-1.5 py-0.5 text-[10px] text-slate-600 hover:bg-slate-50"
+                        onClick={() => setModal("total")}
+                        className="font-medium underline decoration-dotted underline-offset-2 hover:text-blue-700"
+                        title={`${formatInt(nodo.n_ucs)} UC en el subárbol + fracción de ancestros`}
                     >
-                        UCs
+                        {formatFloat(total)}
                     </button>
                 </td>
-                <td className="px-2 py-1 text-right tabular-nums">{formatInt(nodo.n_ucs)}</td>
-                <td className="px-2 py-1 text-right tabular-nums">{formatEuro(nodo.importe)}</td>
             </tr>
             {abierto && nodo.hijos.map((h, i) => (
-                <NodoRow key={`${h.eje}-${h.slug}-${i}`} nodo={h} depth={depth + 1} contexto={ctxAqui} />
+                <NodoRow key={`${h.eje}-${h.slug}-${i}`} nodo={h} depth={depth + 1} filtroBase={filtroBase} />
             ))}
-            {verUcs && <UcsModal nodo={nodo} contexto={ctxAqui} onClose={() => setVerUcs(false)} />}
+            {modal && (
+                <UcsModal
+                    nodo={nodo}
+                    modo={modal}
+                    filtroBase={filtroBase}
+                    onClose={() => setModal(null)}
+                />
+            )}
         </>
     );
 }
 
 function UcsModal({
     nodo,
-    contexto,
+    modo,
+    filtroBase,
     onClose,
 }: {
     nodo: Nodo;
-    contexto: Partial<Record<Eje, string>>;
+    modo: Modo;
+    filtroBase: Filtro;
     onClose: () => void;
 }) {
-    // Construir filtro de UC: ancestros acumulados (CC, ACT y EC) hasta
-    // este nodo inclusive. Si un eje no aparece en el contexto, no se
-    // filtra por él.
+    const esAncestros = modo === "ancestros";
+    const ejeArray: Record<Eje, "centros_de_coste" | "actividades" | "elementos_de_coste"> = {
+        cc: "centros_de_coste",
+        act: "actividades",
+        ec: "elementos_de_coste",
+    };
+    // Informe monográfico: los OTROS ejes se filtran por la selección del informe
+    // (filtroBase); el eje de la estructura se filtra por el nodo pinchado, con
+    // modo exacto (directo) / subárbol sin slug (descendientes) / subárbol (total).
+    // En ancestros, el eje de estructura aporta el nodo y se ignora su ámbito.
     const cuerpo = useMemo(() => {
+        const base = {
+            centros_de_coste: [...filtroBase.centros_de_coste],
+            actividades: [...filtroBase.actividades],
+            elementos_de_coste: [...filtroBase.elementos_de_coste],
+        };
+        base[ejeArray[nodo.eje]] = [nodo.slug];
+        if (esAncestros) {
+            return { ...base, eje: nodo.eje, slug: nodo.slug, scope_slugs: [], limit: 2000 };
+        }
         return {
-            centros_de_coste: contexto.cc ? [contexto.cc] : [],
-            actividades: contexto.act ? [contexto.act] : [],
-            elementos_de_coste: contexto.ec ? [contexto.ec] : [],
+            ...base,
+            exacto_eje: modo === "directo" ? nodo.eje : null,
+            indirecto_eje: modo === "descendientes" ? nodo.eje : null,
             limit: 2000,
         };
-    }, [contexto]);
+    }, [filtroBase, modo, nodo.eje, nodo.slug, esAncestros]);
+
+    // Ámbito (para cabecera) y base del porcentaje de aportación al nodo.
+    const ámbito = {
+        directo: { lbl: "directas", n: nodo.n_ucs_directo, imp: nodo.importe_directo },
+        descendientes: {
+            lbl: "de descendientes",
+            n: nodo.n_ucs - nodo.n_ucs_directo,
+            imp: Math.round((nodo.importe - nodo.importe_directo) * 100) / 100,
+        },
+        ancestros: {
+            lbl: "de ancestros (fracción)",
+            n: nodo.n_ucs_ancestros,
+            imp: nodo.importe_ancestros,
+        },
+        total: { lbl: "subárbol", n: nodo.n_ucs, imp: nodo.importe },
+    }[modo];
     const q = useQuery({
-        queryKey: ["informes-carta-uc", cuerpo],
+        queryKey: ["informes-carta-uc", esAncestros, cuerpo],
         queryFn: async () => {
-            const r = await fetch("/api/informes-carta/uc", {
+            const url = esAncestros
+                ? "/api/informes-carta/uc-ancestros"
+                : "/api/informes-carta/uc";
+            const r = await fetch(url, {
                 method: "POST",
                 headers: { "content-type": "application/json" },
                 body: JSON.stringify(cuerpo),
@@ -272,9 +231,80 @@ function UcsModal({
             return (await r.json()) as { n_total: number; n_devueltas: number; filas: Record<string, unknown>[] };
         },
     });
+
+    type Fila = Record<string, unknown>;
+    // Métrica relevante por fila: en ancestros, lo aportado (importe × fracción);
+    // en el resto, el importe.
+    const métrica = (f: Fila) =>
+        Number(f.importe ?? 0) * (esAncestros ? Number(f._fraccion ?? 0) : 1);
+    const sumMétrica = (fs: Fila[]) => fs.reduce((s, f) => s + métrica(f), 0);
+
+    const tabla = (filas: Fila[], offset: number) => (
+        <table className="w-full border-collapse text-xs">
+            <thead>
+                <tr className="border-b-2 border-slate-700 text-slate-700">
+                    <th className="px-2 py-1 text-left font-semibold">id</th>
+                    <th className="px-2 py-1 text-left font-semibold">EC</th>
+                    <th className="px-2 py-1 text-left font-semibold">CC</th>
+                    <th className="px-2 py-1 text-left font-semibold">Actividad</th>
+                    <th className="px-2 py-1 text-left font-semibold">Origen</th>
+                    <th className="px-2 py-1 text-left font-semibold">Actividad dag</th>
+                    <th className="px-2 py-1 text-right font-semibold">Importe</th>
+                    <th
+                        className="px-2 py-1 text-right font-semibold"
+                        title={esAncestros
+                            ? "Fracción de la UC del ancestro asignada a este nodo"
+                            : "Aportación de la UC al total del nodo pinchado"}
+                    >
+                        {esAncestros ? "% asignado" : "% nodo"}
+                    </th>
+                    {esAncestros && (
+                        <th
+                            className="px-2 py-1 text-right font-semibold"
+                            title="Importe × fracción: lo que esta UC aporta al nodo"
+                        >
+                            Aporta
+                        </th>
+                    )}
+                </tr>
+            </thead>
+            <tbody>
+                {filas.map((f, i) => {
+                    const imp = Number(f.importe ?? 0);
+                    const fraccion = esAncestros ? Number(f._fraccion ?? 0) : 0;
+                    const pct = esAncestros
+                        ? 100 * fraccion
+                        : nodo.importe ? (100 * imp) / nodo.importe : 0;
+                    return (
+                        <tr key={`${f.id}-${offset + i}`} className={cn((offset + i) % 2 === 1 && "bg-slate-50/60")}>
+                            <td className="px-2 py-0.5 font-mono">{String(f.id ?? "")}</td>
+                            <td className="px-2 py-0.5">{String(f.elemento_de_coste ?? "")}</td>
+                            <td className="px-2 py-0.5">{String(f.centro_de_coste ?? "")}</td>
+                            <td className="px-2 py-0.5">{String(f.actividad ?? "")}</td>
+                            <td className="px-2 py-0.5">{String(f.origen ?? "")}</td>
+                            <td className="px-2 py-0.5">
+                                {f.marca_dag
+                                    ? String(f.marca_dag)
+                                    : <span className="text-slate-300">—</span>}
+                            </td>
+                            <td className="px-2 py-0.5 text-right tabular-nums">{formatFloat(imp)}</td>
+                            <td className="px-2 py-0.5 text-right tabular-nums text-slate-500">
+                                {pct.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                            </td>
+                            {esAncestros && (
+                                <td className="px-2 py-0.5 text-right tabular-nums">
+                                    {formatFloat(imp * fraccion)}
+                                </td>
+                            )}
+                        </tr>
+                    );
+                })}
+            </tbody>
+        </table>
+    );
     return (
         <tr>
-            <td colSpan={3}>
+            <td colSpan={5}>
                 <div
                     className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6"
                     onClick={onClose}
@@ -287,7 +317,8 @@ function UcsModal({
                             <h2 className="text-base font-semibold">
                                 {nodo.código} — {nodo.descripción}
                                 <span className="ml-2 text-xs text-slate-500">
-                                    ({nodo.eje}, {formatInt(nodo.n_ucs)} UC, {formatEuro(nodo.importe)})
+                                    ({nodo.eje} · {ámbito.lbl}: {formatInt(ámbito.n)} UC,{" "}
+                                    {formatFloat(ámbito.imp)})
                                 </span>
                             </h2>
                             <button
@@ -299,45 +330,58 @@ function UcsModal({
                             </button>
                         </div>
                         {q.isLoading && <div className="text-sm text-slate-500">Cargando…</div>}
-                        {q.data && (
-                            <>
-                                <div className="mb-2 text-xs text-slate-500">
-                                    Mostrando {formatInt(q.data.n_devueltas)} de {formatInt(q.data.n_total)} UC
-                                </div>
-                                <table className="w-full border-collapse text-xs">
-                                    <thead>
-                                        <tr className="border-b-2 border-slate-700 text-slate-700">
-                                            <th className="px-2 py-1 text-left font-semibold">id</th>
-                                            <th className="px-2 py-1 text-left font-semibold">EC</th>
-                                            <th className="px-2 py-1 text-left font-semibold">CC</th>
-                                            <th className="px-2 py-1 text-left font-semibold">Actividad</th>
-                                            <th className="px-2 py-1 text-left font-semibold">Origen</th>
-                                            <th className="px-2 py-1 text-left font-semibold">Actividad dag</th>
-                                            <th className="px-2 py-1 text-right font-semibold">Importe</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {q.data.filas.map((f, i) => (
-                                            <tr key={`${f.id}-${i}`} className={cn(i % 2 === 1 && "bg-slate-50/60")}>
-                                                <td className="px-2 py-0.5 font-mono">{String(f.id ?? "")}</td>
-                                                <td className="px-2 py-0.5">{String(f.elemento_de_coste ?? "")}</td>
-                                                <td className="px-2 py-0.5">{String(f.centro_de_coste ?? "")}</td>
-                                                <td className="px-2 py-0.5">{String(f.actividad ?? "")}</td>
-                                                <td className="px-2 py-0.5">{String(f.origen ?? "")}</td>
-                                                <td className="px-2 py-0.5">
-                                                    {f.marca_dag
-                                                        ? String(f.marca_dag)
-                                                        : <span className="text-slate-300">—</span>}
-                                                </td>
-                                                <td className="px-2 py-0.5 text-right tabular-nums">
-                                                    {formatEuro(Number(f.importe ?? 0))}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </>
-                        )}
+                        {q.data && (() => {
+                            const filas = q.data.filas;
+                            const dag = filas.filter((f) => !!f.marca_dag);
+                            const noDag = filas.filter((f) => !f.marca_dag);
+                            const lblMet = esAncestros ? "aportado" : "importe";
+                            return (
+                                <>
+                                    {/* Estadísticas globales */}
+                                    <div className="mb-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
+                                        <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+                                            <div className="text-slate-500">Total ({lblMet})</div>
+                                            <div className="font-semibold">
+                                                {formatInt(filas.length)} UC · {formatFloat(sumMétrica(filas))}
+                                            </div>
+                                            {q.data.n_total > q.data.n_devueltas && (
+                                                <div className="text-[10px] text-amber-600">
+                                                    mostrando {formatInt(q.data.n_devueltas)} de {formatInt(q.data.n_total)}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="rounded border border-slate-200 bg-white px-2 py-1">
+                                            <div className="text-slate-500">No dag</div>
+                                            <div className="font-semibold">
+                                                {formatInt(noDag.length)} UC · {formatFloat(sumMétrica(noDag))}
+                                            </div>
+                                        </div>
+                                        <div className="rounded border border-slate-200 bg-white px-2 py-1">
+                                            <div className="text-slate-500">Procedentes de dag</div>
+                                            <div className="font-semibold">
+                                                {formatInt(dag.length)} UC · {formatFloat(sumMétrica(dag))}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Bloque 1: UC que NO provienen de dag */}
+                                    <div className="mb-1 text-sm font-semibold text-slate-700">
+                                        UC propias (no proceden de reparto dag)
+                                    </div>
+                                    {noDag.length > 0
+                                        ? tabla(noDag, 0)
+                                        : <div className="mb-3 text-xs text-slate-400">— ninguna —</div>}
+
+                                    {/* Bloque 2: UC procedentes de reparto dag */}
+                                    <div className="mb-1 mt-4 text-sm font-semibold text-slate-700">
+                                        UC procedentes de reparto dag
+                                    </div>
+                                    {dag.length > 0
+                                        ? tabla(dag, noDag.length)
+                                        : <div className="text-xs text-slate-400">— ninguna —</div>}
+                                </>
+                            );
+                        })()}
                     </div>
                 </div>
             </td>
@@ -345,111 +389,16 @@ function UcsModal({
     );
 }
 
-function OrdenDragDrop({
-    orden,
-    onChange,
-}: {
-    orden: Eje[];
-    onChange: (next: Eje[]) => void;
-}) {
-    const [arrastrado, setArrastrado] = useState<number | null>(null);
-    const [destino, setDestino] = useState<number | null>(null);
-
-    function onDragStart(idx: number) {
-        return (e: React.DragEvent) => {
-            setArrastrado(idx);
-            e.dataTransfer.effectAllowed = "move";
-        };
-    }
-    function onDragOver(idx: number) {
-        return (e: React.DragEvent) => {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            setDestino(idx);
-        };
-    }
-    function onDrop(idx: number) {
-        return (e: React.DragEvent) => {
-            e.preventDefault();
-            if (arrastrado === null || arrastrado === idx) {
-                setArrastrado(null);
-                setDestino(null);
-                return;
-            }
-            const nuevo = [...orden];
-            const [m] = nuevo.splice(arrastrado, 1);
-            nuevo.splice(idx, 0, m);
-            onChange(nuevo);
-            setArrastrado(null);
-            setDestino(null);
-        };
-    }
-    function onDragEnd() {
-        setArrastrado(null);
-        setDestino(null);
-    }
-
-    return (
-        <div className="flex items-center gap-2">
-            {orden.map((eje, idx) => {
-                const dragging = arrastrado === idx;
-                const isOver = destino === idx && arrastrado !== null && arrastrado !== idx;
-                return (
-                    <div
-                        key={eje}
-                        draggable
-                        onDragStart={onDragStart(idx)}
-                        onDragOver={onDragOver(idx)}
-                        onDrop={onDrop(idx)}
-                        onDragEnd={onDragEnd}
-                        className={cn(
-                            "flex items-center gap-2 rounded border bg-white px-2 py-1.5 shadow-sm select-none cursor-grab active:cursor-grabbing",
-                            "border-slate-300",
-                            dragging && "opacity-40",
-                            isOver && "ring-2 ring-blue-500",
-                        )}
-                        title="Arrastra para reordenar"
-                    >
-                        {/* Handle "rugoso": dos columnas de tres puntos */}
-                        <span
-                            aria-hidden="true"
-                            className="grid grid-cols-2 gap-x-0.5 gap-y-0.5 text-slate-500"
-                        >
-                            {Array.from({ length: 6 }).map((_, i) => (
-                                <span
-                                    key={i}
-                                    className="inline-block h-1 w-1 rounded-full bg-slate-400"
-                                />
-                            ))}
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-400">{idx + 1}.</span>
-                        <span className="font-medium">{EJE_LABEL[eje]}</span>
-                    </div>
-                );
-            })}
-        </div>
-    );
-}
-
-
 export function InformesACarta() {
     const [filtro, setFiltro] = useState<Filtro>({
+        estructura: "act",
         centros_de_coste: [],
         actividades: [],
         elementos_de_coste: [],
-        orden: ["cc", "act", "ec"],
-        agregado: { ...AGREGADO_DEFECTO },
     });
     const [consultaActiva, setConsultaActiva] = useState<Filtro | null>(null);
     const [nombreConfig, setNombreConfig] = useState("");
 
-    const opcionesQ = useQuery({
-        queryKey: ["informes-carta-opciones"],
-        queryFn: async () => {
-            const r = await fetch("/api/informes-carta/opciones");
-            return (await r.json()) as Opciones;
-        },
-    });
     const configsQ = useQuery({
         queryKey: ["informes-carta-configs"],
         queryFn: async () => {
@@ -471,8 +420,6 @@ export function InformesACarta() {
         enabled: !!consultaActiva,
     });
 
-    const opc = opcionesQ.data;
-
     async function guardar() {
         const nombre = nombreConfig.trim();
         if (!nombre) return;
@@ -487,9 +434,14 @@ export function InformesACarta() {
         if (!nombre) return;
         const r = await fetch(`/api/informes-carta/configs/${encodeURIComponent(nombre)}`);
         if (!r.ok) return;
-        const f = (await r.json()) as Filtro;
-        // Configs guardadas antes del toggle no traen `agregado`.
-        setFiltro({ ...f, agregado: { ...AGREGADO_DEFECTO, ...(f.agregado ?? {}) } });
+        const f = (await r.json()) as Partial<Filtro>;
+        // Configs antiguas (multi-eje) pueden no traer `estructura`.
+        setFiltro({
+            estructura: f.estructura ?? "act",
+            centros_de_coste: f.centros_de_coste ?? [],
+            actividades: f.actividades ?? [],
+            elementos_de_coste: f.elementos_de_coste ?? [],
+        });
         setNombreConfig(nombre);
     }
     async function borrar(nombre: string) {
@@ -500,10 +452,6 @@ export function InformesACarta() {
         });
         if (nombreConfig === nombre) setNombreConfig("");
         configsQ.refetch();
-    }
-
-    function reordenar(orden: Eje[]) {
-        setFiltro({ ...filtro, orden });
     }
 
     async function descargar(formato: "excel" | "pdf") {
@@ -575,46 +523,61 @@ export function InformesACarta() {
                 </div>
             </div>
 
-            {/* Selectores */}
-            {opc && (
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-                    <MultiSelect
-                        label="Centros de coste (vacío = todos)"
-                        opciones={opc.centros_de_coste}
-                        seleccionados={filtro.centros_de_coste}
-                        onChange={(v) => setFiltro({ ...filtro, centros_de_coste: v })}
-                        agregado={filtro.agregado.cc}
-                        onAgregadoChange={(v) =>
-                            setFiltro({ ...filtro, agregado: { ...filtro.agregado, cc: v } })
-                        }
-                    />
-                    <MultiSelect
-                        label="Actividades (vacío = todas)"
-                        opciones={opc.actividades}
-                        seleccionados={filtro.actividades}
-                        onChange={(v) => setFiltro({ ...filtro, actividades: v })}
-                        agregado={filtro.agregado.act}
-                        onAgregadoChange={(v) =>
-                            setFiltro({ ...filtro, agregado: { ...filtro.agregado, act: v } })
-                        }
-                    />
-                    <MultiSelect
-                        label="Elementos de coste (vacío = todos)"
-                        opciones={opc.elementos_de_coste}
-                        seleccionados={filtro.elementos_de_coste}
-                        onChange={(v) => setFiltro({ ...filtro, elementos_de_coste: v })}
-                        agregado={filtro.agregado.ec}
-                        onAgregadoChange={(v) =>
-                            setFiltro({ ...filtro, agregado: { ...filtro.agregado, ec: v } })
-                        }
-                    />
-                </div>
-            )}
-
-            {/* Orden jerárquico (drag & drop) */}
+            {/* Estructura del informe (monográfico: un solo eje vertebra el árbol) */}
             <div className="flex flex-wrap items-center gap-3 text-sm">
-                <span className="text-slate-700">Orden jerárquico:</span>
-                <OrdenDragDrop orden={filtro.orden} onChange={reordenar} />
+                <span className="font-semibold text-slate-700">Estructura del informe:</span>
+                <div className="inline-flex overflow-hidden rounded border border-slate-300" role="group">
+                    {(["cc", "act", "ec"] as Eje[]).map((e) => (
+                        <button
+                            key={e}
+                            type="button"
+                            onClick={() => setFiltro({ ...filtro, estructura: e })}
+                            className={cn(
+                                "px-3 py-1",
+                                filtro.estructura === e
+                                    ? "bg-slate-800 text-white"
+                                    : "bg-white text-slate-600 hover:bg-slate-100",
+                            )}
+                        >
+                            {EJE_LABEL[e]}
+                        </button>
+                    ))}
+                </div>
+                <span className="text-xs text-slate-500">
+                    El árbol es del eje elegido; los otros dos solo filtran.
+                </span>
+            </div>
+
+            {/* Selectores: el del eje de estructura es FOCO; los otros, FILTRO */}
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+                <TreeSelect
+                    label={filtro.estructura === "cc"
+                        ? "Centros de coste · foco (vacío = todo el árbol)"
+                        : "Centros de coste · filtro (vacío = todos)"}
+                    eje="cc"
+                    seleccionados={filtro.centros_de_coste}
+                    onChange={(v) => setFiltro({ ...filtro, centros_de_coste: v })}
+                />
+                <TreeSelect
+                    label={filtro.estructura === "act"
+                        ? "Actividades · foco (vacío = todo el árbol)"
+                        : "Actividades · filtro (vacío = todas)"}
+                    eje="act"
+                    seleccionados={filtro.actividades}
+                    onChange={(v) => setFiltro({ ...filtro, actividades: v })}
+                />
+                <TreeSelect
+                    label={filtro.estructura === "ec"
+                        ? "Elementos de coste · foco (vacío = todo el árbol)"
+                        : "Elementos de coste · filtro (vacío = todos)"}
+                    eje="ec"
+                    seleccionados={filtro.elementos_de_coste}
+                    onChange={(v) => setFiltro({ ...filtro, elementos_de_coste: v })}
+                />
+            </div>
+
+            {/* Acciones */}
+            <div className="flex flex-wrap items-center gap-3 text-sm">
                 <div className="ml-auto flex flex-wrap items-center gap-2">
                     <button
                         type="button"
@@ -649,24 +612,28 @@ export function InformesACarta() {
                 <div className="rounded border border-slate-200 bg-white">
                     <div className="border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-sm">
                         <strong>{formatInt(resQ.data.n_ucs)}</strong> unidades de coste ·{" "}
-                        <strong>{formatEuro(resQ.data.importe)}</strong>
+                        <strong>{formatFloat(resQ.data.importe)}</strong>
                     </div>
                     <table className="w-full border-collapse text-sm">
                         <thead>
                             <tr className="border-b-2 border-slate-700 text-slate-700">
                                 <th className="px-2 py-1 text-left font-semibold">Concepto</th>
-                                <th className="px-2 py-1 text-right font-semibold">UCs</th>
-                                <th className="px-2 py-1 text-right font-semibold">Importe</th>
+                                <th className="px-2 py-1 text-right font-semibold" title="a) Importe asignado directamente al nodo">Directo</th>
+                                <th className="px-2 py-1 text-right font-semibold" title="b) Importe que el nodo recibe de sus descendientes">Descendientes</th>
+                                <th className="px-2 py-1 text-right font-semibold" title="c) Fracción del coste de los ancestros (infraestructura) que le corresponde">Ancestros</th>
+                                <th className="px-2 py-1 text-right font-semibold" title="a + b + c: coste totalmente cargado del nodo">Total</th>
                             </tr>
                         </thead>
                         <tbody>
                             {resQ.data.raíces.map((r, i) => (
-                                <NodoRow key={`${r.eje}-${r.slug}-${i}`} nodo={r} />
+                                <NodoRow key={`${r.eje}-${r.slug}-${i}`} nodo={r} filtroBase={consultaActiva ?? filtro} />
                             ))}
                             <tr className="border-t-2 border-slate-700 font-semibold">
-                                <td className="px-2 py-1">Total</td>
-                                <td className="px-2 py-1 text-right tabular-nums">{formatInt(resQ.data.n_ucs)}</td>
-                                <td className="px-2 py-1 text-right tabular-nums">{formatEuro(resQ.data.importe)}</td>
+                                <td className="px-2 py-1">Total ({formatInt(resQ.data.n_ucs)} UC)</td>
+                                <td className="px-2 py-1" />
+                                <td className="px-2 py-1" />
+                                <td className="px-2 py-1" />
+                                <td className="px-2 py-1 text-right tabular-nums">{formatFloat(resQ.data.importe)}</td>
                             </tr>
                         </tbody>
                     </table>

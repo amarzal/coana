@@ -88,6 +88,94 @@ def _cargar_uc_fase1(ruta_base: Path) -> pl.DataFrame:
 # Reparto
 # ----------------------------------------------------------------------
 
+def _rolldown_centro(
+    directo: dict[str, float], árbol_actividades: Árbol,
+) -> dict[str, float]:
+    """Baja el coste de los nodos intermedios a las HOJAS de un centro.
+
+    `directo` es `{actividad: coste directo}` de un centro (solo finalistas).
+    El coste de cada nodo (el suyo + el que recibe de arriba) se reparte entre
+    sus hijos *relevantes* (los que tienen coste en su subárbol) en proporción
+    al coste directo total del subárbol; si la base es 0, a partes iguales. Un
+    nodo sin hijos relevantes es «hoja para el centro» y acumula el importe.
+    Devuelve `{hoja: importe imputable}` (Σ = Σ directo)."""
+    relevante: set[str] = set()
+    for act in directo:
+        n = árbol_actividades._por_id.get(act)
+        while n is not None:
+            relevante.add(n.identificador)
+            n = n.padre
+
+    cache: dict[str, float] = {}
+
+    def subtree(slug: str) -> float:
+        if slug in cache:
+            return cache[slug]
+        n = árbol_actividades._por_id[slug]
+        s = directo.get(slug, 0.0)
+        for h in n.hijos:
+            if h.identificador in relevante:
+                s += subtree(h.identificador)
+        cache[slug] = s
+        return s
+
+    hojas: dict[str, float] = {}
+
+    def bajar(slug: str, recibido: float) -> None:
+        total = directo.get(slug, 0.0) + recibido
+        n = árbol_actividades._por_id[slug]
+        hijos_rel = [h.identificador for h in n.hijos if h.identificador in relevante]
+        if not hijos_rel:
+            hojas[slug] = hojas.get(slug, 0.0) + total
+            return
+        suma = sum(subtree(c) for c in hijos_rel)
+        for c in hijos_rel:
+            cuota = (total * subtree(c) / suma) if suma > 0 else (total / len(hijos_rel))
+            bajar(c, cuota)
+
+    raíces = [
+        s for s in relevante
+        if (árbol_actividades._por_id[s].padre is None
+            or árbol_actividades._por_id[s].padre.identificador not in relevante)
+    ]
+    for raíz in raíces:
+        bajar(raíz, 0.0)
+    return hojas
+
+
+def _imputable_por_hoja(
+    no_dag: pl.DataFrame, árbol_actividades: Árbol, finalistas: set[str],
+) -> pl.DataFrame:
+    """`(centro_de_coste, actividad, _coste)` con el coste imputable por HOJA
+    finalista (directo + roll-down de ancestros), por centro."""
+    directo_df = (
+        no_dag.filter(pl.col("actividad").cast(pl.Utf8).is_in(list(finalistas)))
+        .group_by("centro_de_coste", "actividad")
+        .agg(pl.col("importe").sum().alias("_coste"))
+        .filter(pl.col("_coste") > 0)
+    )
+    esquema = {"centro_de_coste": pl.Utf8, "actividad": pl.Utf8, "_coste": pl.Float64}
+    if directo_df.is_empty():
+        return pl.DataFrame(schema=esquema)
+
+    por_centro: dict[str, dict[str, float]] = {}
+    for r in directo_df.iter_rows(named=True):
+        por_centro.setdefault(r["centro_de_coste"], {})[r["actividad"]] = float(r["_coste"])
+
+    cs: list[str] = []
+    acts: list[str] = []
+    imps: list[float] = []
+    for centro, directo in por_centro.items():
+        for act, imp in _rolldown_centro(directo, árbol_actividades).items():
+            if imp > 0:
+                cs.append(centro)
+                acts.append(act)
+                imps.append(round(imp, 6))
+    return pl.DataFrame(
+        {"centro_de_coste": cs, "actividad": acts, "_coste": imps}, schema=esquema,
+    )
+
+
 def calcular_reparto(
     uc: pl.DataFrame,
     reglas: list[ReglaDag],
@@ -104,13 +192,10 @@ def calcular_reparto(
     no_dag = uc.filter(~es_dag)
     dag = uc.filter(es_dag)
 
-    # --- Base del reparto: coste no-dag finalista por (centro, actividad) ---
-    base = (
-        no_dag.filter(pl.col("actividad").cast(pl.Utf8).is_in(list(finalistas)))
-        .group_by("centro_de_coste", "actividad")
-        .agg(pl.col("importe").sum().alias("_coste"))
-        .filter(pl.col("_coste") > 0)
-    )
+    # --- Base del reparto: coste IMPUTABLE por (centro, actividad HOJA) ---
+    # El dag se reparte solo entre hojas; el peso de cada hoja es su coste
+    # directo + el que le baja («roll-down») de sus ancestros.
+    base = _imputable_por_hoja(no_dag, árbol_actividades, finalistas)
     centros_con_base = set(base["centro_de_coste"].to_list())
 
     porcentajes = (

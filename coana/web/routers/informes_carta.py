@@ -56,14 +56,14 @@ def _cargar_ucs() -> pl.DataFrame:
 
 
 class Filtro(BaseModel):
+    # Eje que vertebra el informe (árbol monográfico): "cc" | "act" | "ec".
+    estructura: str = "act"
     centros_de_coste: list[str] = Field(default_factory=list)
     actividades: list[str] = Field(default_factory=list)
     elementos_de_coste: list[str] = Field(default_factory=list)
-    # Permutación de las tres dimensiones; valores: "cc", "act", "ec".
+    # Campos heredados (ya no se usan: el informe es monográfico). Se conservan
+    # opcionales para no romper configuraciones YAML guardadas antes del cambio.
     orden: list[str] = Field(default_factory=lambda: ["cc", "act", "ec"])
-    # Por eje: True = agregado (un único importe, sin desglosar por debajo
-    # de la selección); False = detalle (un nodo por cada valor distinto
-    # de ese eje presente en los datos). Por defecto, agregado.
     agregado: dict[str, bool] = Field(
         default_factory=lambda: {"cc": True, "act": True, "ec": True}
     )
@@ -120,8 +120,18 @@ class NodoJerarquía(BaseModel):
     slug: str
     código: str
     descripción: str
+    # `n_ucs`/`importe` son el TOTAL del subárbol (directo + descendientes). El
+    # «directo» (a) es lo asignado exactamente a este slug; los «descendientes»
+    # (b) = total − directo. Los «ancestros» (c) = `importe_ancestros`: la suma
+    # de las fracciones de las UC de los ancestros (camino a la raíz) que le
+    # corresponden a este nodo por roll-down step-down (proporcional al coste
+    # directo del subárbol). El total cargado de la fila = importe + importe_ancestros.
     n_ucs: int
     importe: float
+    n_ucs_directo: int = 0
+    importe_directo: float = 0.0
+    importe_ancestros: float = 0.0
+    n_ucs_ancestros: int = 0
     hijos: list["NodoJerarquía"] = Field(default_factory=list)
 
 
@@ -147,206 +157,177 @@ _EJES_ÁRBOL_FN = {
 }
 
 
+_RAÍZ_LABEL = {
+    "cc": "Todos los centros de coste",
+    "act": "Todas las actividades",
+    "ec": "Todos los elementos de coste",
+}
+
+
+def _meta_nodo(árbol: Árbol, eje: str, slug: str) -> tuple[str, str]:
+    """`(código, descripción)` de un slug. La raíz virtual recibe una etiqueta
+    legible; un slug ausente del árbol (huérfano) recibe código `?`."""
+    try:
+        raíz_id = árbol.raíz.identificador
+    except AttributeError:
+        raíz_id = None
+    if raíz_id is not None and slug == raíz_id:
+        return ("—", _RAÍZ_LABEL.get(eje, "Todos"))
+    try:
+        nodo = árbol._nodo(slug)
+        return (nodo.código, nodo.descripción)
+    except KeyError:
+        return ("?", slug)
+
+
+def _construir_estructura(
+    df: pl.DataFrame, eje: str, árbol: Árbol, foco_slugs: list[str],
+) -> list[NodoJerarquía]:
+    """Árbol *monográfico* de un eje, anclado en la raíz real (UJI).
+
+    `foco_slugs` es solo *foco*: sin foco se muestra el árbol entero; con foco se
+    muestran la *espina* de ancestros desde la raíz hasta cada nodo + su subárbol
+    completo. Los importes son el coste *total real* del nodo: directo (a),
+    descendientes de todo su subárbol (b) y la fracción que le baja de sus
+    ancestros por roll-down step-down proporcional al coste directo del subárbol
+    (c) — calculado sobre el árbol completo. No se mezclan estructuras: el árbol
+    es de un único eje."""
+    col = _EJES_COLS[eje]
+    raíz_id = árbol.raíz.identificador
+    raíces_ámbito = {raíz_id}
+    agg = df.group_by(col).agg(
+        pl.len().alias("_n"), pl.col("importe").sum().alias("_imp"),
+    )
+    directo_n: dict[str, int] = {}
+    directo_imp: dict[str, float] = {}
+    for r in agg.iter_rows(named=True):
+        s = r[col]
+        if s is None:
+            continue
+        directo_n[s] = int(r["_n"])
+        directo_imp[s] = float(r["_imp"] or 0.0)
+
+    hijos_de: dict[str, set[str]] = {}
+    raíz_nodos: set[str] = set()
+    for s in directo_n:
+        cam = _camino_árbol(árbol, s, raíces_ámbito)
+        raíz_nodos.add(cam[0])
+        for padre, hijo in zip(cam, cam[1:]):
+            hijos_de.setdefault(padre, set()).add(hijo)
+
+    # Coste/nº de subárbol (b) y roll-down de ancestros (c).
+    subtree_d: dict[str, float] = {}
+    subtree_n: dict[str, int] = {}
+
+    def _subtree(slug: str) -> None:
+        s = directo_imp.get(slug, 0.0)
+        n = directo_n.get(slug, 0)
+        for c in hijos_de.get(slug, set()):
+            _subtree(c)
+            s += subtree_d[c]
+            n += subtree_n[c]
+        subtree_d[slug] = s
+        subtree_n[slug] = n
+
+    for r in raíz_nodos:
+        _subtree(r)
+
+    recibido: dict[str, float] = {}
+    recibido_n: dict[str, int] = {}
+
+    def _bajar(slug: str, rec: float, anc_n: int) -> None:
+        recibido[slug] = rec
+        recibido_n[slug] = anc_n
+        salida = directo_imp.get(slug, 0.0) + rec
+        hijos = hijos_de.get(slug, set())
+        if hijos:
+            total = sum(subtree_d[c] for c in hijos)
+            anc_n_hijos = anc_n + directo_n.get(slug, 0)
+            for c in hijos:
+                _bajar(c, salida * subtree_d[c] / total, anc_n_hijos)
+
+    for r in raíz_nodos:
+        _bajar(r, 0.0, 0)
+
+    # Nodos a mostrar (foco): sin foco, todo; con foco, espina + subárbol.
+    mostrar: set[str] | None
+    if not foco_slugs:
+        mostrar = None
+    else:
+        mostrar = set()
+        for s in foco_slugs:
+            for x in _camino_árbol(árbol, s, raíces_ámbito):
+                mostrar.add(x)
+            pila = [s]
+            while pila:
+                x = pila.pop()
+                mostrar.add(x)
+                pila.extend(hijos_de.get(x, set()))
+
+    def _hijos_mostrados(slug: str) -> set[str]:
+        h = hijos_de.get(slug, set())
+        return h if mostrar is None else (h & mostrar)
+
+    def _build(slug: str) -> NodoJerarquía:
+        cod, desc = _meta_nodo(árbol, eje, slug)
+        hijos_tree = [
+            _build(c)
+            for c in sorted(_hijos_mostrados(slug), key=lambda x: _meta_nodo(árbol, eje, x)[0])
+        ]
+        dn = directo_n.get(slug, 0)
+        di = directo_imp.get(slug, 0.0)
+        return NodoJerarquía(
+            nivel=1, eje=eje, slug=slug, código=cod, descripción=desc,
+            n_ucs=subtree_n.get(slug, dn),
+            importe=round(subtree_d.get(slug, di), 2),
+            n_ucs_directo=dn, importe_directo=round(di, 2),
+            importe_ancestros=round(recibido.get(slug, 0.0), 2),
+            n_ucs_ancestros=recibido_n.get(slug, 0),
+            hijos=hijos_tree,
+        )
+
+    return [
+        _build(r) for r in sorted(raíz_nodos, key=lambda x: _meta_nodo(árbol, eje, x)[0])
+    ]
+
+
 @router.post("/consulta", response_model=Resultado)
 def consulta(filtro: Filtro) -> Resultado:
-    """Aplica los filtros y devuelve el desglose jerárquico solicitado."""
-    if sorted(filtro.orden) != ["act", "cc", "ec"]:
+    """Informe *monográfico*: una sola estructura (eje `filtro.estructura`) como
+    árbol, anclado en la raíz real. Los otros dos ejes actúan SOLO como filtro
+    (subárbol de su selección); la selección del eje de estructura es solo foco."""
+    estructura = filtro.estructura
+    if estructura not in _EJES_COLS:
         raise HTTPException(
             status_code=400,
-            detail=f"`orden` debe ser permutación de ['cc','act','ec']: {filtro.orden!r}",
+            detail=f"`estructura` debe ser 'cc', 'act' o 'ec': {estructura!r}",
         )
     ucs = _cargar_ucs()
-
-    # Pre-cargar los árboles que necesitemos.
-    árboles: dict[str, Árbol] = {
-        "cc": cargar_árbol_centros_de_coste(_RUTA_BASE),
-        "act": cargar_árbol_actividades(_RUTA_BASE),
-        "ec": cargar_árbol_elementos_de_coste(_RUTA_BASE),
-    }
-    seleccionados: dict[str, set[str]] = {
-        "cc": _expandir(filtro.centros_de_coste, árboles["cc"]),
-        "act": _expandir(filtro.actividades, árboles["act"]),
-        "ec": _expandir(filtro.elementos_de_coste, árboles["ec"]),
-    }
-    raíces_eje: dict[str, list[str]] = {
-        "cc": list(filtro.centros_de_coste),
-        "act": list(filtro.actividades),
-        "ec": list(filtro.elementos_de_coste),
+    árbol = _EJES_ÁRBOL_FN[estructura](_RUTA_BASE)
+    sel_eje = {
+        "cc": filtro.centros_de_coste,
+        "act": filtro.actividades,
+        "ec": filtro.elementos_de_coste,
     }
 
-    # Aplicar filtros «slug ∈ subárbol de algún seleccionado».
+    # Filtrar por los OTROS ejes (subárbol de su selección). El eje de estructura
+    # no filtra: su selección es solo foco de la vista.
     sub = ucs
     for eje in ("cc", "act", "ec"):
-        sel = seleccionados[eje]
+        if eje == estructura:
+            continue
+        sel = _expandir(sel_eje[eje], _EJES_ÁRBOL_FN[eje](_RUTA_BASE))
         if sel:
             sub = sub.filter(pl.col(_EJES_COLS[eje]).is_in(list(sel)))
 
-    # Si no hay UC tras el filtro, devolvemos respuesta vacía.
     if sub.is_empty():
-        return Resultado(orden=filtro.orden, n_ucs=0, importe=0.0, raíces=[])
+        return Resultado(orden=[estructura], n_ucs=0, importe=0.0, raíces=[])
 
     total_n = int(sub.height)
     total_imp = float(sub["importe"].sum() or 0.0)
-
-    # Construcción del árbol jerárquico. Para cada nivel, agrupamos por
-    # los slugs raíz seleccionados (o por la raíz del propio árbol si
-    # no se filtró nada). Cada UC se atribuye al primer slug raíz cuyo
-    # subárbol la contenga.
-    _RAÍZ_LABEL = {
-        "cc": "Todos los centros de coste",
-        "act": "Todas las actividades",
-        "ec": "Todos los elementos de coste",
-    }
-
-    def _meta(eje: str, slug: str) -> tuple[str, str]:
-        # Si es la raíz «virtual» del árbol, devolver una etiqueta
-        # legible en lugar del código/descripción vacíos.
-        try:
-            raíz_id = árboles[eje].raíz.identificador
-        except AttributeError:
-            raíz_id = None
-        if raíz_id is not None and slug == raíz_id:
-            return ("—", _RAÍZ_LABEL.get(eje, "Todos"))
-        try:
-            nodo = árboles[eje]._nodo(slug)
-            return (nodo.código, nodo.descripción)
-        except KeyError:
-            return ("?", slug)
-
-    def _slugs_grupo(eje: str, df: pl.DataFrame) -> list[tuple[str, set[str]]]:
-        """Slugs que sirven de raíz para el agrupamiento de este eje.
-        Si el usuario seleccionó slugs en este eje, se usan tal cual
-        (cada uno con su subárbol). Si no se seleccionó nada, NO se
-        desglosa al detalle máximo: se devuelve la raíz del árbol como
-        única agrupación (el usuario verá un único nodo «Todos» que
-        engloba la masa entera del eje)."""
-        del df  # ya no se usa: el sin-filtro va a la raíz, no al detalle
-        if raíces_eje[eje]:
-            return [
-                (s, set(descendientes_inclusivo(árboles[eje], s)))
-                for s in raíces_eje[eje]
-            ]
-        raíz_id = árboles[eje].raíz.identificador
-        descs = set(descendientes_inclusivo(árboles[eje], raíz_id))
-        return [(raíz_id, descs)]
-
-    def _grupos_eje_agregado(eje: str, df: pl.DataFrame) -> list[tuple[str, pl.DataFrame]]:
-        """Agrupa por los slugs raíz seleccionados (cada uno con su subárbol)
-        o, si no hay selección, por la raíz del árbol → un único nodo «Todos»."""
-        col = _EJES_COLS[eje]
-        out: list[tuple[str, pl.DataFrame]] = []
-        for slug_raíz, descs in _slugs_grupo(eje, df):
-            grupo = df.filter(pl.col(col).is_in(list(descs)))
-            if not grupo.is_empty():
-                out.append((slug_raíz, grupo))
-        return out
-
-    def _camino(eje: str, slug: str, raíces: set[str]) -> list[str]:
-        """Cadena de identificadores desde la raíz de ámbito (incluida) hasta
-        `slug` (incluido), recorriendo el árbol hacia arriba. Si `slug` no está
-        en el árbol, se devuelve como nodo suelto."""
-        arb = árboles[eje]
-        try:
-            nodo = arb._nodo(slug)
-        except KeyError:
-            return [slug]
-        cadena: list[str] = []
-        while nodo is not None:
-            cadena.append(nodo.identificador)
-            if nodo.identificador in raíces:
-                break
-            nodo = nodo.padre
-        cadena.reverse()
-        return cadena
-
-    def _arbol_detalle(
-        df: pl.DataFrame, eje: str, nivel: int, ejes_restantes: list[str],
-    ) -> list[NodoJerarquía]:
-        """Desglose de un eje en *detalle*: el subárbol colapsable de la
-        dimensión. Los nodos intermedios agregan el coste de su subárbol; las
-        hojas son los valores realmente presentes (y cuelgan de ellas, si
-        queda eje, el desglose del siguiente)."""
-        col = _EJES_COLS[eje]
-        raíces_ámbito = (
-            set(raíces_eje[eje]) if raíces_eje[eje]
-            else {árboles[eje].raíz.identificador}
-        )
-        agg = df.group_by(col).agg(
-            pl.len().alias("_n"), pl.col("importe").sum().alias("_imp"),
-        )
-        directo_n: dict[str, int] = {}
-        directo_imp: dict[str, float] = {}
-        for r in agg.iter_rows(named=True):
-            s = r[col]
-            if s is None:
-                continue
-            directo_n[s] = int(r["_n"])
-            directo_imp[s] = float(r["_imp"] or 0.0)
-
-        hijos_de: dict[str, set[str]] = {}
-        raíz_nodos: set[str] = set()
-        for s in directo_n:
-            cam = _camino(eje, s, raíces_ámbito)
-            raíz_nodos.add(cam[0])
-            for padre, hijo in zip(cam, cam[1:]):
-                hijos_de.setdefault(padre, set()).add(hijo)
-
-        sig = ejes_restantes[1:]
-
-        def _build(slug: str) -> NodoJerarquía:
-            cod, desc = _meta(eje, slug)
-            hijos_tree = [
-                _build(c)
-                for c in sorted(hijos_de.get(slug, set()), key=lambda x: _meta(eje, x)[0])
-            ]
-            dn = directo_n.get(slug, 0)
-            di = directo_imp.get(slug, 0.0)
-            hijos_sig: list[NodoJerarquía] = []
-            if sig and dn > 0:
-                hijos_sig = _construir(df.filter(pl.col(col) == slug), nivel + 1, sig)
-            n = dn + sum(h.n_ucs for h in hijos_tree)
-            imp = round(di + sum(h.importe for h in hijos_tree), 2)
-            return NodoJerarquía(
-                nivel=nivel, eje=eje, slug=slug, código=cod, descripción=desc,
-                n_ucs=n, importe=imp, hijos=hijos_tree + hijos_sig,
-            )
-
-        return [
-            _build(r) for r in sorted(raíz_nodos, key=lambda x: _meta(eje, x)[0])
-        ]
-
-    def _construir(
-        df: pl.DataFrame, nivel: int, ejes_restantes: list[str],
-    ) -> list[NodoJerarquía]:
-        if not ejes_restantes:
-            return []
-        eje = ejes_restantes[0]
-        # Detalle: subárbol jerárquico colapsable de la dimensión.
-        if not filtro.agregado.get(eje, True):
-            return _arbol_detalle(df, eje, nivel, ejes_restantes)
-        # Agregado: un nodo por raíz seleccionada (o «Todos»).
-        nodos_out: list[NodoJerarquía] = []
-        for slug, grupo in _grupos_eje_agregado(eje, df):
-            if grupo.is_empty():
-                continue
-            cod, desc = _meta(eje, slug)
-            hijos = _construir(grupo, nivel + 1, ejes_restantes[1:])
-            nodos_out.append(NodoJerarquía(
-                nivel=nivel,
-                eje=eje,
-                slug=slug,
-                código=cod,
-                descripción=desc,
-                n_ucs=int(grupo.height),
-                importe=round(float(grupo["importe"].sum() or 0.0), 2),
-                hijos=hijos,
-            ))
-        nodos_out.sort(key=lambda n: n.código)
-        return nodos_out
-
-    raíces = _construir(sub, nivel=1, ejes_restantes=list(filtro.orden))
+    raíces = _construir_estructura(sub, estructura, árbol, sel_eje[estructura])
     return Resultado(
-        orden=filtro.orden,
+        orden=[estructura],
         n_ucs=total_n,
         importe=round(total_imp, 2),
         raíces=raíces,
@@ -357,22 +338,40 @@ class PeticiónUcs(BaseModel):
     centros_de_coste: list[str] = Field(default_factory=list)
     actividades: list[str] = Field(default_factory=list)
     elementos_de_coste: list[str] = Field(default_factory=list)
+    # Para ese eje ("cc"|"act"|"ec"): `exacto_eje` filtra por slug EXACTO (UC
+    # asignadas directamente al nodo); `indirecto_eje` filtra por el subárbol
+    # EXCLUYENDO el slug exacto (UC que el nodo recibe de sus descendientes).
+    exacto_eje: str | None = None
+    indirecto_eje: str | None = None
     limit: int = 5000
 
 
 @router.post("/uc")
 def uc_de_combinación(p: PeticiónUcs) -> dict[str, Any]:
-    """Lista de UC que cuelgan de los slugs indicados (expansión por
-    subárbol). Devuelve hasta `limit` filas."""
+    """Lista de UC que cuelgan de los slugs indicados (expansión por subárbol;
+    `exacto_eje` = solo el slug exacto; `indirecto_eje` = subárbol sin el slug
+    exacto). Hasta `limit` filas."""
     ucs = _cargar_ucs()
+
+    def _slugs(eje: str, slugs: list[str], árbol: Árbol) -> set[str]:
+        if p.exacto_eje == eje:
+            return set(slugs)
+        if p.indirecto_eje == eje:
+            return _expandir(slugs, árbol) - set(slugs)
+        return _expandir(slugs, árbol)
+
     sels = {
-        "cc": _expandir(p.centros_de_coste, cargar_árbol_centros_de_coste(_RUTA_BASE)),
-        "act": _expandir(p.actividades, cargar_árbol_actividades(_RUTA_BASE)),
-        "ec": _expandir(p.elementos_de_coste, cargar_árbol_elementos_de_coste(_RUTA_BASE)),
+        "cc": _slugs("cc", p.centros_de_coste, cargar_árbol_centros_de_coste(_RUTA_BASE)),
+        "act": _slugs("act", p.actividades, cargar_árbol_actividades(_RUTA_BASE)),
+        "ec": _slugs("ec", p.elementos_de_coste, cargar_árbol_elementos_de_coste(_RUTA_BASE)),
     }
+    # Los ejes con modo exacto/indirecto se filtran SIEMPRE (aunque el conjunto
+    # sea vacío → 0 filas), p. ej. el indirecto de un nodo hoja. El resto, solo
+    # si hay selección (conjunto vacío = no filtrar = todos).
+    forzados = {p.exacto_eje, p.indirecto_eje} - {None}
     sub = ucs
     for eje, col in _EJES_COLS.items():
-        if sels[eje]:
+        if sels[eje] or eje in forzados:
             sub = sub.filter(pl.col(col).is_in(list(sels[eje])))
     n_total = int(sub.height)
     if "importe" in sub.columns:
@@ -382,6 +381,126 @@ def uc_de_combinación(p: PeticiónUcs) -> dict[str, Any]:
         "n_total": n_total,
         "n_devueltas": len(filas),
         "filas": filas,
+    }
+
+
+def _camino_árbol(árbol: Árbol, slug: str, raíces: set[str]) -> list[str]:
+    """Identificadores desde la raíz de ámbito (incluida) hasta `slug` (incluido)."""
+    try:
+        nodo = árbol._nodo(slug)
+    except KeyError:
+        return [slug]
+    cadena: list[str] = []
+    while nodo is not None:
+        cadena.append(nodo.identificador)
+        if nodo.identificador in raíces:
+            break
+        nodo = nodo.padre
+    cadena.reverse()
+    return cadena
+
+
+class PeticiónAncestros(BaseModel):
+    # Contexto de los OTROS ejes (subárbol del slug de contexto). El eje del
+    # nodo se ignora aquí: su ámbito lo fija `scope_slugs`.
+    centros_de_coste: list[str] = Field(default_factory=list)
+    actividades: list[str] = Field(default_factory=list)
+    elementos_de_coste: list[str] = Field(default_factory=list)
+    eje: str            # "cc" | "act" | "ec": eje del nodo N
+    slug: str           # nodo N
+    # Ámbito del eje del nodo (selección del informe en ese eje); vacío = todo el árbol.
+    scope_slugs: list[str] = Field(default_factory=list)
+    limit: int = 5000
+
+
+@router.post("/uc-ancestros")
+def uc_ancestros(p: PeticiónAncestros) -> dict[str, Any]:
+    """UC de los ancestros estrictos de `slug` (en su eje), cada una con la
+    *fracción* (`_fraccion`) que le corresponde a `slug` por roll-down step-down
+    (proporcional al coste directo del subárbol). El importe efectivamente
+    aportado al nodo es `importe × _fraccion`; Σ aportes = `importe_ancestros`."""
+    ucs = _cargar_ucs()
+    árboles = {
+        "cc": cargar_árbol_centros_de_coste(_RUTA_BASE),
+        "act": cargar_árbol_actividades(_RUTA_BASE),
+        "ec": cargar_árbol_elementos_de_coste(_RUTA_BASE),
+    }
+    eje = p.eje
+    if eje not in _EJES_COLS:
+        raise HTTPException(status_code=400, detail=f"eje inválido: {eje!r}")
+    col = _EJES_COLS[eje]
+    ctx = {
+        "cc": p.centros_de_coste, "act": p.actividades, "ec": p.elementos_de_coste,
+    }
+
+    # Filtrar por los OTROS ejes (subárbol de su contexto).
+    sub = ucs
+    for e2 in ("cc", "act", "ec"):
+        if e2 == eje:
+            continue
+        sel = _expandir(ctx[e2], árboles[e2])
+        if sel:
+            sub = sub.filter(pl.col(_EJES_COLS[e2]).is_in(list(sel)))
+
+    # El roll-down de ancestros se calcula sobre el árbol COMPLETO, anclado en
+    # la raíz real (UJI): el coste de cada ancestro se reparte entre TODOS sus
+    # descendientes, así que la fracción que llega al nodo depende del árbol
+    # entero, no del ámbito de foco. `scope_slugs` se ignora a estos efectos.
+    raíces_ámbito = {árboles[eje].raíz.identificador}
+    if sub.is_empty():
+        return {"n_total": 0, "n_devueltas": 0, "filas": []}
+
+    # Árbol del eje (coste directo por slug) + subárbol directo.
+    agg = sub.group_by(col).agg(pl.col("importe").sum().alias("_imp"))
+    directo_imp: dict[str, float] = {
+        r[col]: float(r["_imp"] or 0.0) for r in agg.iter_rows(named=True) if r[col] is not None
+    }
+    hijos_de: dict[str, set[str]] = {}
+    for s in directo_imp:
+        cam = _camino_árbol(árboles[eje], s, raíces_ámbito)
+        for padre, hijo in zip(cam, cam[1:]):
+            hijos_de.setdefault(padre, set()).add(hijo)
+
+    subtree_d: dict[str, float] = {}
+
+    def _subtree(slug: str) -> float:
+        s = directo_imp.get(slug, 0.0)
+        for c in hijos_de.get(slug, set()):
+            s += _subtree(c)
+        subtree_d[slug] = s
+        return s
+
+    cam_n = _camino_árbol(árboles[eje], p.slug, raíces_ámbito)
+    if cam_n:
+        _subtree(cam_n[0])
+
+    # Ratios de cada arista del camino raíz→N: subtree_d[hijo] / Σ subtree_d(hermanos).
+    fracs: dict[str, float] = {}  # ancestro estricto Ai -> ρ(Ai, N)
+    acc = 1.0
+    for j in range(len(cam_n) - 2, -1, -1):  # de N-1 hacia la raíz
+        padre, hijo = cam_n[j], cam_n[j + 1]
+        hermanos = hijos_de.get(padre, set())
+        total = sum(subtree_d.get(h, 0.0) for h in hermanos)
+        ratio = (subtree_d.get(hijo, 0.0) / total) if total > 0 else 0.0
+        acc *= ratio
+        fracs[padre] = acc  # ρ(padre, N)
+
+    filas: list[dict] = []
+    for ai, rho in fracs.items():
+        if rho <= 0:
+            continue
+        ucs_ai = sub.filter(pl.col(col) == ai)
+        for fila in ucs_ai.iter_rows(named=True):
+            fila = dict(fila)
+            fila["_fraccion"] = rho
+            filas.append(fila)
+    # Ordenar por aporte efectivo (importe × fracción) descendente.
+    filas.sort(key=lambda f: abs(float(f.get("importe") or 0.0) * f["_fraccion"]), reverse=True)
+    n_total = len(filas)
+    return {
+        "n_total": n_total,
+        "n_devueltas": min(n_total, p.limit),
+        "filas": filas[: p.limit],
     }
 
 
@@ -477,12 +596,12 @@ def exportar_excel(filtro: Filtro) -> StreamingResponse:
 
     ws["A1"] = "Informe a la carta"
     ws["A1"].font = calibri_title
-    ws.merge_cells("A1:C1")
-    ws["A2"] = f"Orden jerárquico: {' → '.join(filtro.orden)}"
+    ws.merge_cells("A1:E1")
+    ws["A2"] = f"Estructura: {_RAÍZ_LABEL.get(filtro.estructura, filtro.estructura)}"
     ws["A2"].font = Font(name="Calibri", size=10, italic=True)
-    ws.merge_cells("A2:C2")
+    ws.merge_cells("A2:E2")
 
-    headers = ["Concepto", "UCs", "Importe (€)"]
+    headers = ["Concepto", "Directo (€)", "Descendientes (€)", "Ancestros (€)", "Total (€)"]
     for col, h in enumerate(headers, start=1):
         c = ws.cell(row=4, column=col, value=h)
         c.font = calibri_bold
@@ -494,33 +613,38 @@ def exportar_excel(filtro: Filtro) -> StreamingResponse:
         sangría = "    " * depth
         etq = f"{sangría}[{n.eje}] {n.código}  {n.descripción}"
         font = calibri_bold if depth == 0 else calibri
+        descendientes = round(n.importe - n.importe_directo, 2)
+        total = round(n.importe + n.importe_ancestros, 2)
         ws.cell(row=row, column=1, value=etq).font = font
-        ws.cell(row=row, column=2, value=n.n_ucs).font = font
-        ws.cell(row=row, column=2).number_format = "#,##0"
-        ws.cell(row=row, column=3, value=n.importe).font = font
-        ws.cell(row=row, column=3).number_format = "#,##0.00"
+        ws.cell(row=row, column=2, value=n.importe_directo or None).font = font
+        ws.cell(row=row, column=3, value=descendientes or None).font = font
+        ws.cell(row=row, column=4, value=n.importe_ancestros or None).font = font
+        ws.cell(row=row, column=5, value=total).font = font
+        for col in (2, 3, 4, 5):
+            ws.cell(row=row, column=col).number_format = "#,##0.00"
         if depth == 0:
-            for col in range(1, 4):
+            for col in range(1, 6):
                 ws.cell(row=row, column=col).fill = fill_l1
         elif depth == 1:
-            for col in range(1, 4):
+            for col in range(1, 6):
                 ws.cell(row=row, column=col).fill = fill_l2
-        for col in range(1, 4):
+        for col in range(1, 6):
             ws.cell(row=row, column=col).border = Border(bottom=thin)
         row += 1
 
-    # Total general.
-    ws.cell(row=row, column=1, value="Total").font = calibri_bold
-    ws.cell(row=row, column=2, value=res.n_ucs).font = calibri_bold
-    ws.cell(row=row, column=2).number_format = "#,##0"
-    ws.cell(row=row, column=3, value=res.importe).font = calibri_bold
-    ws.cell(row=row, column=3).number_format = "#,##0.00"
-    for col in range(1, 4):
+    # Total general (los ancestros se compensan dentro del árbol: el total
+    # global del sistema sigue siendo `res.importe`).
+    ws.cell(row=row, column=1, value=f"Total ({res.n_ucs:,} UC)".replace(",", ".")).font = calibri_bold
+    ws.cell(row=row, column=5, value=res.importe).font = calibri_bold
+    ws.cell(row=row, column=5).number_format = "#,##0.00"
+    for col in range(1, 6):
         ws.cell(row=row, column=col).border = Border(top=medio, bottom=medio)
 
-    ws.column_dimensions["A"].width = 90
-    ws.column_dimensions["B"].width = 12
+    ws.column_dimensions["A"].width = 80
+    ws.column_dimensions["B"].width = 16
     ws.column_dimensions["C"].width = 18
+    ws.column_dimensions["D"].width = 16
+    ws.column_dimensions["E"].width = 18
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -562,21 +686,25 @@ def exportar_pdf(filtro: Filtro) -> StreamingResponse:
             f'#h(0.4em)#text(fill: gray)[{_typ_escape(n.código)}]'
             f'#h(0.6em){_typ_escape(n.descripción)}]'
         )
-        n_celda = f'[{_fmt_int(n.n_ucs)}]'
-        imp_celda = f'[{_fmt_euro(n.importe)}]'
+        descendientes = round(n.importe - n.importe_directo, 2)
+        total = round(n.importe + n.importe_ancestros, 2)
+        dir_celda = f'[{_fmt_euro(n.importe_directo) if n.importe_directo else "—"}]'
+        des_celda = f'[{_fmt_euro(descendientes) if descendientes else "—"}]'
+        anc_celda = f'[{_fmt_euro(n.importe_ancestros) if n.importe_ancestros else "—"}]'
+        tot_celda = f'[{_fmt_euro(total)}]'
         if depth == 0:
             sep = ""
             if not primer_nivel_1:
                 sep = "table.hline(stroke: 0.6pt + luma(35%)),\n        "
             primer_nivel_1 = False
             filas_typ.append(
-                sep + f"strong({etiqueta}), strong({n_celda}), strong({imp_celda}),"
+                sep + f"strong({etiqueta}), strong({dir_celda}), strong({des_celda}), strong({anc_celda}), strong({tot_celda}),"
             )
         else:
-            filas_typ.append(f"{etiqueta}, {n_celda}, {imp_celda},")
+            filas_typ.append(f"{etiqueta}, {dir_celda}, {des_celda}, {anc_celda}, {tot_celda},")
 
     cuerpo_tabla = "\n        ".join(filas_typ)
-    orden_lbl = " → ".join({"cc": "Centro de coste", "act": "Actividad", "ec": "Elemento de coste"}[e] for e in filtro.orden)
+    orden_lbl = _RAÍZ_LABEL.get(filtro.estructura, filtro.estructura)
 
     typ = f"""\
 #set page(paper: "a4", flipped: true, margin: 1.5cm)
@@ -589,20 +717,20 @@ def exportar_pdf(filtro: Filtro) -> StreamingResponse:
 #align(center)[
     #text(size: 16pt, weight: "bold")[Informe a la carta]
     #v(0.2cm)
-    #text(size: 10pt, fill: gray)[Orden jerárquico: {orden_lbl}]
+    #text(size: 10pt, fill: gray)[Estructura: {orden_lbl}]
 ]
 #v(0.4cm)
 
 #table(
-    columns: (1fr, auto, auto),
+    columns: (1fr, auto, auto, auto, auto),
     stroke: none,
-    align: (left, right, right),
+    align: (left, right, right, right, right),
     table.hline(),
-    [*Concepto*], [*UCs*], [*Importe (€)*],
+    [*Concepto*], [*Directo (€)*], [*Descendientes (€)*], [*Ancestros (€)*], [*Total (€)*],
     table.hline(),
         {cuerpo_tabla}
     table.hline(),
-    strong[Total], strong[{_fmt_int(res.n_ucs)}], strong[{_fmt_euro(res.importe)}],
+    strong[Total ({_fmt_int(res.n_ucs)} UC)], [], [], [], strong[{_fmt_euro(res.importe)}],
     table.hline(),
 )
 """

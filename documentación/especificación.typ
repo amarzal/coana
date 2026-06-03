@@ -5132,11 +5132,21 @@ Cada UC tiene tres coordenadas: *centro de coste*, *actividad* y *elemento de co
 
 *Por qué hace falta la tabla.* El defecto resuelve los centros con actividad finalista propia. Pero hay centros *sin ninguna finalista* —servicios (rectorado, biblioteca, gerencia…), edificios, centros de apoyo— cuya dag no tiene base donde repartirse en su propio centro. Para esos, la Tabla 1 dice explícitamente a dónde va su coste. Indexar solo por la actividad dag no basta (una misma dag genérica —p. ej. #etqact("dags") de amortizaciones— aparece en muchos centros y debe encaminarse según el centro), por eso el índice es *(centro, actividad)*.
 
-*Ponderación.* Sobre las actividades finalistas hoja del destino se reparte por coste:
+*Ponderación.* El dag se reparte *exclusivamente entre nodos hoja* del árbol de actividades finalistas, nunca en nodos intermedios (umbrella: #etqact("ai"), #etqact("estudios-oficiales")…). El peso de cada hoja es su *coste imputable*: lo que tiene asignado directamente *más* lo que le baja —#emph[roll-down]— de cada ancestro en su camino a la raíz.
 
-#campo("peso(hoja) = coste_no_dag(hoja) / Σ coste_no_dag(hojas del destino)")
+#campo("peso(hoja) = imputable(hoja) / Σ imputable(hojas del destino)")
 
-con #campo("importe = importe_dag × peso"). Es el coste *directo* no-dag (una sola pasada; no se encadena dag→dag), y la conservación del importe total es exacta: #campo("Σ post-reparto = Σ entrada"). Las actividades no-dag que *no* son finalistas (organización: #etqact("absentismo"), #etqact("acción-sindical")…) se conservan intactas pero no entran en la base ni reciben coste dag.
+con #campo("importe = importe_dag × peso").
+
+El *coste imputable por hoja* se calcula primero, por centro y sobre el coste *directo* no-dag de las finalistas (una sola pasada; no se encadena dag→dag), construyendo el diccionario #campo("{(centro, hoja): imputable}") que es la base de pesos del reparto dag:
+
++ #campo("directo(centro, act)") = Σ importe de UC no-dag finalistas con ese par (incluye nodos intermedios).
++ Por centro, los *nodos relevantes* son las actividades con coste de ese centro ∪ sus ancestros hasta #etqact("principales").
++ #emph[Roll-down step-down] desde #etqact("principales"): a cada nodo le baja un #campo("recibido"); reparte #campo("directo + recibido") entre sus hijos relevantes *en proporción al coste directo total de su subárbol* (a partes iguales si esa base es #val("0")). Un nodo *sin hijos relevantes* es hoja para ese centro y acumula el importe.
+
+Conservación por centro: #campo("Σ imputable = Σ directo finalista"), y global exacta: #campo("Σ post-reparto = Σ entrada"). Las actividades no-dag que *no* son finalistas (organización: #etqact("absentismo"), #etqact("acción-sindical")…) se conservan intactas pero no entran en la base ni reciben coste dag. Las UC no-dag *no se mueven*: el diccionario imputable es solo la base de pesos; las UC de nodos intermedios se quedan donde están.
+
+*Caso degenerado.* Si una rama tiene coste directo solo en un nodo intermedio y *ninguna* de sus hojas tiene coste para ese centro (p. ej. #etqact("otras-ait-financiación-propia") o un umbrella #etqact("ai") que solo recibe coste directo), ese intermedio actúa de hoja: no hay nada más específico a lo que bajar el coste. Es el único caso en que un fragmento dag puede no caer en una hoja estricta del árbol.
 
 *Destino con coste cero.* Si las finalistas del destino suman importe #val("0") (no hay base donde ponderar), no se descarta el reparto: se hace *a partes iguales* entre las actividades finalistas *nombradas* en la regla (materializadas del árbol aunque no tengan UCs previas). Esto permite, en particular, *crear* la actividad destino cuando no existía.
 
@@ -5248,12 +5258,18 @@ Cifras 2025: total finalistas #val("80,5 M €") (≈ #val("53 %") del total gen
 
 == Informes a la carta
 
-El menú *Informes · A la carta* (#ruta("coana", "web", "routers", "informes_carta.py")) permite construir una vista jerárquica ad-hoc:
+El menú *Informes · A la carta* (#ruta("coana", "web", "routers", "informes_carta.py")) construye una vista jerárquica *monográfica*: un solo eje (#campo("estructura"): CC, actividades o EC) vertebra el árbol; *no se mezclan estructuras*. Es una aproximación de *árbol único*, así que no hay priorización ni anidamiento de ejes.
 
-+ Seleccionar uno o más slugs en cada uno de los tres ejes (CC, actividades, EC). Selección vacía = «todos». Cada slug elegido incluye implícitamente su subárbol.
-+ Elegir el orden de los tres niveles arrastrando tres fichas (CC / actividad / EC en cualquier permutación). Las fichas llevan un *handle rugoso* a la izquierda (#val("dots-grip")) y se reordenan con drag & drop nativo HTML5.
-+ Pulsar *Generar*: la consulta agrega las UC filtradas y devuelve una tabla expandible con tres niveles, mostrando `n_ucs` e importe por nodo, subtotales y total.
-+ Al pulsar el botón *UCs* de un nodo se abre un modal con las UC concretas que caen en esa combinación (ancestros acumulados desde la raíz).
++ Elegir la *estructura* del informe (un eje) con un selector segmentado.
++ Los *otros dos ejes* actúan SOLO como *filtro*: cada slug seleccionado restringe las UC a su subárbol; selección vacía = «todos».
++ La selección en el *eje de estructura* es solo *foco*: el árbol se ancla SIEMPRE en la raíz real (#etqcen("UJI")) y se muestran la *espina* de ancestros desde la raíz hasta cada nodo seleccionado *más* el subárbol completo del nodo. Los importes son el coste *total real* del nodo, sin recortar por el foco: elegir un nodo no oculta el coste de sus ancestros, solo centra la vista. Sin foco, se muestra el árbol entero.
++ Pulsar *Generar*: la consulta devuelve el árbol del eje de estructura. El árbol se presenta *autoexpandido* hasta dejar visible a la primera cada nodo de foco (se abren todas las ramas que conducen a un nodo seleccionado, y el propio nodo); sin foco, solo se abre el nivel raíz. Cada nodo muestra cuatro importes:
+  - *Directo* (a): Σ de las UC asignadas exactamente a ese nodo.
+  - *Descendientes* (b): Σ de las UC de todo su subárbol salvo él mismo (#val("0") en las hojas).
+  - *Ancestros* (c): Σ de las *fracciones* de las UC de sus ancestros (el camino del nodo a la raíz #etqcen("UJI")) que le corresponden. El coste directo de cada ancestro baja a TODOS sus descendientes por #emph[roll-down step-down] proporcional al coste directo del subárbol (idéntico al de la fase de reparto, y calculado sobre el árbol completo); como todo nodo del árbol está en el camino de algún coste, el peso nunca es cero. Es el *coste de infraestructura* que el nodo necesita para existir: un nodo y los que cuelgan de él se «comen» la parte que les toca del coste de sus ancestros.
+  - *Total* = a + b + c: el *coste totalmente cargado* del nodo. Ojo: al cargar el coste de un ancestro sobre varios descendientes, el Total deja de ser sumable hacia arriba (cada fila responde, por separado, «¿cuánto cuesta?»); el total global del sistema sigue siendo Σ(a) = coste directo total.
++ Cada importe es clicable y abre un modal con su detalle: *Directo* (UC exactas), *Descendientes* (UC del subárbol sin el propio nodo) y *Total* (todo el subárbol) listan las UC con su % de aportación al nodo; *Ancestros* (endpoint #raw("/api/informes-carta/uc-ancestros")) lista las UC de los ancestros con la *fracción* (`%`) que se le asigna al nodo y el importe efectivamente aportado (`importe × fracción`).
+  - El modal presenta primero unas *estadísticas globales* (Total, «No dag» y «Procedentes de dag», con nº de UC y suma — importe, o lo aportado en el modo Ancestros; avisa si la lista se truncó al límite) y a continuación las UC en *dos bloques*: primero las que *no* provienen de reparto dag (#campo("marca_dag") vacío) y después las *procedentes de dag* (#campo("marca_dag") con la actividad dag de origen).
 
 *Configuraciones guardadas*. El usuario puede dar un nombre a la combinación actual y persistirla en #ruta("data", "informes", "carta_configs", "<nombre>.yaml"); reaparece en el desplegable «Cargar…» para reaplicarla con un clic. También admite eliminar configuraciones existentes. CRUD vía endpoints #raw("/api/informes-carta/configs[/{nombre}]") (GET / PUT / DELETE).
 

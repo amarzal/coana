@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { api } from "@/api/client";
 import { cn } from "@/lib/cn";
 
-type NodoTree = {
+export type NodoTree = {
     código: string;
     descripción: string;
     identificador: string;
@@ -20,14 +20,14 @@ type Props = {
 
 /** Normaliza un texto: minúsculas y sin tildes. Equivalente al `sin_tildes`
  * del backend para que la búsqueda sea consistente. */
-function normalizar(s: string): string {
+export function normalizar(s: string): string {
     return s.normalize("NFKD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 }
 
 /** Resalta en `<mark>` cada ocurrencia de `query` en `texto`. Si la query
  * está vacía, devuelve el texto tal cual. La búsqueda es insensible a
  * tildes y mayúsculas; el highlight respeta el casing original. */
-function Highlight({ texto, query }: { texto: string; query: string }) {
+export function Highlight({ texto, query }: { texto: string; query: string }) {
     if (!query) return <>{texto}</>;
     const tn = normalizar(texto);
     const qn = normalizar(query);
@@ -61,7 +61,7 @@ function Highlight({ texto, query }: { texto: string; query: string }) {
 
 /** Devuelve true si el nodo (cualquier campo: código, descripción,
  * identificador) contiene la query normalizada. */
-function nodoCoincide(n: NodoTree, q: string): boolean {
+export function nodoCoincide(n: NodoTree, q: string): boolean {
     if (!q) return false;
     return (
         normalizar(n.código).includes(q) ||
@@ -71,7 +71,7 @@ function nodoCoincide(n: NodoTree, q: string): boolean {
 }
 
 /** True si el subárbol enraizado en `n` contiene algún nodo coincidente. */
-function subarbolCoincide(n: NodoTree, q: string): boolean {
+export function subarbolCoincide(n: NodoTree, q: string): boolean {
     if (nodoCoincide(n, q)) return true;
     return n.hijos.some((h) => subarbolCoincide(h, q));
 }
