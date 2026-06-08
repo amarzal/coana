@@ -114,6 +114,19 @@ def listar_uc_persona(
     return svc.listar_uc_persona(per_id, p)
 
 
+# ---- Absentismo (bonificación de SS) --------------------------------
+
+@router.get("/absentismo/_resumen", response_model=KpiPanel)
+def resumen_absentismo() -> KpiPanel:
+    return svc.resumen_absentismo()
+
+
+@router.get("/absentismo", response_model=ListResponse)
+def listar_absentismo(p: QueryParams = Depends(query_dependency)) -> ListResponse:
+    """UC de absentismo: persona-mes con bonificación de SS (tipo «BS»)."""
+    return svc.listar_absentismo(p)
+
+
 # ---- Anomalías PDI --------------------------------------------------
 
 @router.get("/anomalias-pdi", response_model=ListResponse)

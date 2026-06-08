@@ -239,3 +239,49 @@ def detalle_dag(marca_dag: str, params: QueryParams) -> ListResponse:
         df = df.sort("importe", descending=True, nulls_last=True)
     df, total, stats = apply_query(df, params, search_columns=_SEARCH_DAG_DETALLE)
     return ListResponse(columns=_COLS_DAG_DETALLE, rows=df.to_dicts(), total=total, column_stats=stats)
+
+
+_COLS_DAG_FRAGMENTOS: list[ColumnSpec] = [
+    ColumnSpec(name="id", label="ID UC", format="text"),
+    ColumnSpec(name="elemento_de_coste", label="Elemento de coste", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro de coste", format="text"),
+    ColumnSpec(name="actividad", label="Actividad destino", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+    ColumnSpec(name="origen_porción", label="Porción", format="float"),
+    ColumnSpec(name="origen_id", label="Origen ID", format="text"),
+]
+_SEARCH_DAG_FRAGMENTOS = ["id", "elemento_de_coste", "centro_de_coste", "actividad", "origen_id"]
+
+
+def fragmentos_dag(
+    marca_dag: str,
+    params: QueryParams,
+    centro_de_coste: str | None = None,
+    actividad: str | None = None,
+) -> ListResponse:
+    """Fragmentos individuales (una UC por fila) de una actividad dag.
+
+    Opcionalmente acotados a un destino concreto (centro_de_coste +
+    actividad), para encadenar tras `detalle_dag`. Cada fila es una UC
+    con origen «reparto-dag»: el trozo de coste dag que cayó en ese par
+    (centro, actividad) para un elemento de coste dado.
+    """
+    df = _safe_read(PATH_UC)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_DAG_FRAGMENTOS, rows=[], total=0)
+    frags = df.filter(
+        (pl.col("origen") == _ORIGEN_FRAG) & (pl.col("marca_dag") == marca_dag)
+    )
+    if centro_de_coste is not None:
+        frags = frags.filter(pl.col("centro_de_coste") == centro_de_coste)
+    if actividad is not None:
+        frags = frags.filter(pl.col("actividad") == actividad)
+    if frags.is_empty():
+        return ListResponse(columns=_COLS_DAG_FRAGMENTOS, rows=[], total=0)
+    df = frags.select([c.name for c in _COLS_DAG_FRAGMENTOS])
+    if not params.sort_by:
+        df = df.sort("importe", descending=True, nulls_last=True)
+    df, total, stats = apply_query(df, params, search_columns=_SEARCH_DAG_FRAGMENTOS)
+    return ListResponse(
+        columns=_COLS_DAG_FRAGMENTOS, rows=df.to_dicts(), total=total, column_stats=stats,
+    )

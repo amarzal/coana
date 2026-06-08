@@ -57,6 +57,9 @@ class ResultadoNóminas:
     uc_indemnizaciones_asistencias: pl.DataFrame = field(default_factory=pl.DataFrame)
     # UC generadas a partir de cargos PDI/PVI (conceptos 19, 64).
     uc_cargos: pl.DataFrame = field(default_factory=pl.DataFrame)
+    # UC de absentismo: meses con bonificación de SS (tipo «BS» en la
+    # aplicación 1211) colapsados en una única UC por persona-mes.
+    uc_absentismo: pl.DataFrame = field(default_factory=pl.DataFrame)
     # Datos necesarios para el reparto de seguridad social (que se
     # ejecuta en el orquestador, tras la regla 23, para poder incluir
     # también las UC por reparto regla 23 en la base de cálculo).
@@ -223,6 +226,40 @@ def _elemento_coste_pdi(categoría: str, concepto_retributivo: str) -> str | Non
     if yyy is None:
         return None
     return f"pdi-{xxx}-{yyy}"
+
+
+def _ec_categoría_absentismo(
+    sector: str,
+    categoría,
+    perceptor=None,
+    provisión=None,
+    categoría_plaza=None,
+    sector_plaza=None,
+    per_id: int | None = None,
+) -> str | None:
+    """Nodo de elemento de coste a nivel de categoría (`{sector}-{XXX}`)
+    para la UC de absentismo del mes con bonificación de SS.
+
+    Es el ancestro «categoría» del EC retributivo de la persona, sin la
+    parte de concepto (YYY). Reutiliza los mismos mapeos que la
+    generación retributiva, de modo que las excepciones (p. ej. el
+    director PTGAS `ptgas-dir`, o el PVI por provisión) se respetan. Para
+    PVI el prefijo del árbol es `piyotper`, no `pvi`. Devuelve None si la
+    categoría no se reconoce (PTGAS/PDI); en PVI siempre resuelve.
+    """
+    if sector == "PTGAS":
+        cat = str(categoría).strip()
+        if cat == "FC" and per_id == _PTGAS_PER_ID_DIR:
+            return "ptgas-dir"
+        xxx = _PTGAS_CAT_XXX.get(cat)
+        return f"ptgas-{xxx}" if xxx else None
+    if sector == "PDI":
+        xxx = _PDI_CAT_XXX.get(str(categoría).strip())
+        return f"pdi-{xxx}" if xxx else None
+    if sector == "PVI":
+        xxx = _xxx_pvi(categoría, perceptor, provisión, categoría_plaza, sector_plaza)
+        return f"piyotper-{xxx}"
+    return None
 
 
 # Acumulador global de etiquetas de elemento de coste que no existen en el
@@ -1567,6 +1604,132 @@ def _aplicar_extras_cargos_al_cr68(
     return nóminas, extras_aplicadas
 
 
+# Marca de bonificación de seguridad social: en la aplicación 1211, el
+# `tipo_coste` «BS» identifica el mes de una baja tan larga que la SS la
+# bonifica. Todo lo percibido/cotizado ese mes por esa persona se desvía
+# a una única UC de absentismo (CC raíz UJI, actividad `absentismo`).
+_TIPO_COSTE_BS = "BS"
+_APLICACIÓN_BS = "1211"
+
+
+def _separar_meses_absentismo(
+    nóminas: pl.DataFrame,
+    expedientes: pl.DataFrame,
+) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """Detecta los pares (per_id, mes) con bonificación de SS (tipo «BS»
+    en la aplicación 1211) y parte las nóminas en dos.
+
+    Devuelve `(meses, nóminas_normales, nóminas_absentismo)`:
+      - `meses`: DataFrame único de `(per_id, mes)` afectados.
+      - `nóminas_normales`: líneas que siguen el circuito habitual.
+      - `nóminas_absentismo`: TODAS las líneas (cualquier `tipo_coste`)
+        de esos persona-mes, que se colapsarán en una UC de absentismo.
+
+    El particionado se hace por el `id` de la línea de nómina para
+    preservar exactamente el esquema original de `nóminas`.
+    """
+    vacío_meses = pl.DataFrame(schema={"per_id": pl.Int64, "mes": pl.Utf8})
+    apli = pl.col("aplicación").cast(pl.Utf8)
+    nm = nóminas.join(
+        expedientes.select("expediente", "per_id"), on="expediente", how="left",
+    ).with_columns(pl.col("fecha").dt.strftime("%Y-%m").alias("_mes"))
+
+    meses = (
+        nm.filter((pl.col("tipo_coste") == _TIPO_COSTE_BS) & (apli == _APLICACIÓN_BS))
+        .select("per_id", "_mes").drop_nulls().unique()
+    )
+    if meses.is_empty():
+        return vacío_meses, nóminas, nóminas.clear()
+
+    ids_bs = (
+        nm.join(meses.with_columns(pl.lit(True).alias("_bs")), on=["per_id", "_mes"], how="left")
+        .filter(pl.col("_bs"))
+        .get_column("id")
+    )
+    es_bs = pl.col("id").is_in(ids_bs)
+    nóminas_bs = nóminas.filter(es_bs)
+    nóminas_normales = nóminas.filter(~es_bs)
+    return meses.rename({"_mes": "mes"}), nóminas_normales, nóminas_bs
+
+
+def _generar_uc_absentismo(
+    nóminas_bs: pl.DataFrame,
+    expedientes: pl.DataFrame,
+    árbol_ec=None,
+) -> pl.DataFrame:
+    """Genera una UC por cada persona-mes con bonificación de SS.
+
+    La UC es la suma del `importe` de TODAS las líneas de ese persona-mes
+    (retribuciones de cualquier concepto + cotizado tipo «S» + la
+    bonificación negativa «BS»). Se imputa a:
+      - centro de coste: raíz `UJI`.
+      - actividad: `absentismo`.
+      - elemento de coste: `{sector}-{categoría}` (nodo intermedio).
+    """
+    if nóminas_bs.is_empty():
+        return pl.DataFrame()
+
+    exm = _mapear_sector(expedientes).select("expediente", "per_id", "sector_mapeado")
+    nm = nóminas_bs.join(exm, on="expediente", how="left").with_columns(
+        pl.col("fecha").dt.strftime("%Y-%m").alias("_mes")
+    )
+    # Por construcción cada (per_id, mes) tiene un único expediente /
+    # categoría / sector; agregamos tomando el primero de cada uno.
+    agg = nm.group_by("per_id", "_mes").agg(
+        pl.col("importe").sum().alias("importe"),
+        pl.col("expediente").first().alias("expediente"),
+        pl.col("sector_mapeado").first().alias("sector"),
+        pl.col("categoría").first().alias("categoría"),
+        pl.col("perceptor").first().alias("perceptor"),
+        pl.col("provisión").first().alias("provisión"),
+        pl.col("categoría_plaza").first().alias("categoría_plaza"),
+        pl.col("sector_plaza").first().alias("sector_plaza"),
+    ).sort("per_id", "_mes")
+
+    from coana.fase1.nóminas.reducciones_jornada import (
+        ACT_ABSENTISMO, CC_ABSENTISMO,
+    )
+
+    filas = []
+    for i, r in enumerate(agg.iter_rows(named=True), start=1):
+        ec = _ec_categoría_absentismo(
+            r["sector"], r["categoría"], r["perceptor"], r["provisión"],
+            r["categoría_plaza"], r["sector_plaza"], r["per_id"],
+        )
+        filas.append({
+            "id": f"ABS-{i:05d}",
+            "per_id": r["per_id"],
+            "expediente": r["expediente"],
+            "mes": r["_mes"],
+            "sector": r["sector"],
+            "categoría": r["categoría"],
+            "elemento_de_coste": ec,
+            "centro_de_coste": CC_ABSENTISMO,
+            "actividad": ACT_ABSENTISMO,
+            "importe": r["importe"],
+            "origen": "nómina",
+            "origen_id": f"ABS-{r['expediente']}-{r['_mes']}",
+            "origen_porción": 1.0,
+        })
+    df = pl.DataFrame(filas)
+
+    sin_ec = df.filter(pl.col("elemento_de_coste").is_null())
+    if not sin_ec.is_empty():
+        print(
+            f"    ⚠ {sin_ec.height:,} persona-mes de absentismo sin elemento "
+            f"de coste resoluble ({float(sin_ec['importe'].sum()):,.2f} €)"
+        )
+    df = df.filter(pl.col("elemento_de_coste").is_not_null())
+
+    importes_por_etq = dict(
+        df.group_by("elemento_de_coste")
+        .agg(pl.col("importe").sum().alias("imp"))
+        .iter_rows()
+    )
+    _validar_etiquetas_ec(importes_por_etq, árbol_ec, contexto="absentismo")
+    return df
+
+
 def preprocesar_nóminas(
     ctx: ContextoNóminas,
     dir_salida: Path,
@@ -1683,6 +1846,24 @@ def preprocesar_nóminas(
     # CR 68 entre regla 23 y cargos_uc, y sin SS huérfana.
     nóminas.write_parquet(dir_salida / "nominas_aplicadas.parquet")
 
+    # -- Absentismo por bonificación de SS (tipo «BS» en aplicación 1211) --
+    # Separa los persona-mes con bonificación: sus líneas se retiran del
+    # circuito normal de generación de UC (retributivas, despidos,
+    # indemnizaciones, cargos y reparto de SS) y se colapsan en una única
+    # UC de absentismo. `meses_absentismo.parquet` es la fuente de verdad
+    # que también consulta el reparto de cargos (`generar_cargos_uc`).
+    # El resto de cálculos (totales por sector, multiexpediente, atrasos,
+    # clases pasivas) sigue usando la nómina completa `nóminas`.
+    meses_absentismo, nóminas_uc, nóminas_bs = _separar_meses_absentismo(
+        nóminas, expedientes,
+    )
+    meses_absentismo.write_parquet(dir_salida / "meses_absentismo.parquet")
+    if not meses_absentismo.is_empty():
+        print(
+            f"  Absentismo (bonificación SS): {meses_absentismo.height:,} "
+            f"persona-mes · {float(nóminas_bs['importe'].sum()):,.2f} € desviados"
+        )
+
     # Join para obtener per_id y sector de cada línea de nómina.
     con_sector = nóminas.join(
         expedientes.select("expediente", "per_id", "sector"),
@@ -1755,7 +1936,7 @@ def preprocesar_nóminas(
 
     # -- UC de retribuciones ordinarias PTGAS --
     uc_ptgas = _generar_uc_ptgas(
-        nóminas, expedientes,
+        nóminas_uc, expedientes,
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
         árbol_cc=árbol_cc,
@@ -1772,7 +1953,7 @@ def preprocesar_nóminas(
 
     # -- UC «extra» PVI (proyecto NO general) --
     uc_pvi = _generar_uc_pvi(
-        nóminas, expedientes,
+        nóminas_uc, expedientes,
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
         árbol_cc=árbol_cc,
@@ -1787,7 +1968,7 @@ def preprocesar_nóminas(
 
     # -- UC «extra» PDI (proyecto NO general) --
     uc_pdi = _generar_uc_pdi(
-        nóminas, expedientes,
+        nóminas_uc, expedientes,
         ctx_enriquecimiento=ctx_enriquecimiento,
         árbol_actividades=árbol_actividades,
         árbol_cc=árbol_cc,
@@ -1800,8 +1981,18 @@ def preprocesar_nóminas(
         print(f"  UC PDI extras: {len(uc_pdi):,} UC, {importe_pdi:,.2f} €")
         uc_pdi.write_parquet(dir_salida / "uc_pdi.parquet")
 
-    # Spec: validamos aquí —tras procesar las tres ramas— para reportar
-    # todas las etiquetas faltantes en una sola pasada.
+    # -- UC de absentismo (persona-mes con bonificación de SS) --
+    uc_absentismo = _generar_uc_absentismo(nóminas_bs, expedientes, árbol_ec)
+    if not uc_absentismo.is_empty():
+        importe_abs = float(uc_absentismo["importe"].sum())
+        print(
+            f"  UC absentismo (bonificación SS): {len(uc_absentismo):,} UC, "
+            f"{importe_abs:,.2f} €"
+        )
+        uc_absentismo.write_parquet(dir_salida / "uc_absentismo.parquet")
+
+    # Spec: validamos aquí —tras procesar las tres ramas y el absentismo—
+    # para reportar todas las etiquetas faltantes en una sola pasada.
     _detener_si_etiquetas_ec_faltantes()
 
     # -- Regla 23: diccionarios de dedicación real (PDI/PVI) --
@@ -1823,11 +2014,13 @@ def preprocesar_nóminas(
         distribución_costes=distribución_costes,
         obtener_descripciones=obtener_descripciones,
     )
-    uc_despidos = generar_uc_despidos(nóminas, expedientes, dir_salida, **_clasif_kw)
+    # Despidos / indemnizaciones / cargos: usan la nómina SIN los meses de
+    # absentismo (esas líneas ya están colapsadas en `uc_absentismo`).
+    uc_despidos = generar_uc_despidos(nóminas_uc, expedientes, dir_salida, **_clasif_kw)
     uc_indemn = generar_uc_indemnizaciones_asistencias(
-        nóminas, expedientes, dir_salida, **_clasif_kw,
+        nóminas_uc, expedientes, dir_salida, **_clasif_kw,
     )
-    uc_cargos = generar_uc_cargos(nóminas, expedientes, dir_salida, **_clasif_kw)
+    uc_cargos = generar_uc_cargos(nóminas_uc, expedientes, dir_salida, **_clasif_kw)
 
     # -- Costes sociales calculados (clases pasivas PDI funcionario) --
     ss_calculados = _generar_costes_sociales_calculados(
@@ -1847,7 +2040,10 @@ def preprocesar_nóminas(
         uc_ptgas=uc_ptgas,
         uc_pvi=uc_pvi,
         uc_pdi=uc_pdi,
-        nóminas=nóminas,
+        uc_absentismo=uc_absentismo,
+        # El reparto de SS debe operar sobre la nómina sin los meses de
+        # absentismo (su cotización ya está en `uc_absentismo`).
+        nóminas=nóminas_uc,
         expedientes=expedientes,
         ss_calculados=ss_calculados,
     )

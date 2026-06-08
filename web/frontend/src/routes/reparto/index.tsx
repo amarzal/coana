@@ -102,11 +102,12 @@ export function RepartoPorcentajes() {
 export function RepartoDag() {
     const [dag, setDag] = useState<string | null>(null);
     const [dagLabel, setDagLabel] = useState<string>("");
+    const [destino, setDestino] = useState<{ centro: string; actividad: string; label: string } | null>(null);
     return (
         <div className="flex flex-col gap-6">
             <Cabecera
                 title="Reparto de actividades · Por actividad dag"
-                subtitle="Cada fila es una actividad dag que se repartió. Pincha una para ver a qué actividades finalistas (y centros) fue a parar su coste, con el importe y el % del total del dag."
+                subtitle="Cada fila es una actividad dag que se repartió. Pincha una para ver a qué actividades finalistas (y centros) fue a parar su coste; pincha un destino para ver los fragmentos individuales (una UC por elemento de coste)."
             />
             <DataTable
                 endpoint="/api/reparto/dag"
@@ -118,6 +119,7 @@ export function RepartoDag() {
                     setDagLabel(
                         `${row.código ?? ""} · ${row.descripción ?? row.marca_dag ?? ""}`,
                     );
+                    setDestino(null);
                 }}
             />
             {dag && (
@@ -130,6 +132,30 @@ export function RepartoDag() {
                         endpoint={`/api/reparto/dag/${encodeURIComponent(dag)}`}
                         queryKey={`reparto:dag:detalle:${dag}`}
                         reorderImportes={false}
+                        onRowSelect={(row) => {
+                            const centro = String(row.centro_de_coste ?? "");
+                            const actividad = String(row.actividad ?? "");
+                            setDestino({
+                                centro,
+                                actividad,
+                                label: `${row.código ?? ""} · ${row.descripción ?? actividad} (${centro})`,
+                            });
+                        }}
+                    />
+                </div>
+            )}
+            {dag && destino && (
+                <div className="rounded-md border border-slate-200 bg-white p-4">
+                    <h2 className="mb-2 text-sm font-medium uppercase tracking-wide text-slate-500">
+                        Fragmentos · {destino.label}
+                    </h2>
+                    <DataTable
+                        key={`${dag}:${destino.centro}:${destino.actividad}`}
+                        endpoint={`/api/reparto/dag/${encodeURIComponent(dag)}/fragmentos`}
+                        queryKey={`reparto:dag:fragmentos:${dag}:${destino.centro}:${destino.actividad}`}
+                        extraParams={{ centro: destino.centro, actividad: destino.actividad }}
+                        reorderImportes={false}
+                        showPopoverOnRowClick
                     />
                 </div>
             )}

@@ -14,6 +14,7 @@ import polars as pl
 
 from coana.util import Árbol, read_excel
 from coana.web.deps import DIR_AUX, DIR_ENTRADA, DIR_FASE1, _mtime_ns, read_parquet
+from coana.web.services.uc_fuentes import FUENTES_UC, FuenteUC
 from coana.web.schemas.common import (
     ColumnSpec,
     FieldValue,
@@ -27,20 +28,9 @@ from coana.web.services.query import QueryParams, apply_query
 
 DIR_NOMINAS = DIR_AUX / "nóminas"
 
-# Las fuentes de UC: (etiqueta para columna `_origen`, ruta del parquet).
-_FUENTES_UC: list[tuple[str, Path]] = [
-    ("presupuesto",     DIR_FASE1 / "uc presupuesto.parquet"),
-    ("amortizaciones",  DIR_FASE1 / "uc amortizaciones.parquet"),
-    ("suministros",     DIR_FASE1 / "uc suministros.parquet"),
-    ("nóminas-PTGAS",   DIR_NOMINAS / "uc_ptgas.parquet"),
-    ("nóminas-PVI",     DIR_NOMINAS / "uc_pvi.parquet"),
-    ("nóminas-PDI",     DIR_NOMINAS / "uc_pdi.parquet"),
-    ("despidos",        DIR_NOMINAS / "uc_despidos.parquet"),
-    ("indemnizaciones", DIR_NOMINAS / "uc_indemnizaciones_asistencias.parquet"),
-    ("cargos",          DIR_NOMINAS / "uc_cargos.parquet"),
-    ("regla-23",        DIR_FASE1 / "regla23" / "uc_reparto_regla_23.parquet"),
-    ("seguridad-social", DIR_NOMINAS / "persona_ss.parquet"),
-]
+# Las fuentes de UC vienen del registro canónico único (un solo sitio
+# donde declararlas). Mapa nombre→ruta para las vistas por origen.
+_FUENTE_PATH = {f.nombre: f.ruta for f in FUENTES_UC}
 
 
 def _safe_read(path: Path) -> pl.DataFrame | None:
@@ -50,44 +40,45 @@ def _safe_read(path: Path) -> pl.DataFrame | None:
         return None
 
 
-def _normalize(df: pl.DataFrame, fuente: str) -> pl.DataFrame:
+def _normalize(df: pl.DataFrame, fuente: FuenteUC) -> pl.DataFrame:
     """Asegura que el DF tiene las columnas mínimas para el listado consolidado."""
     cols_min = ["id", "elemento_de_coste", "centro_de_coste", "actividad", "importe"]
     out = df
     if "id" not in out.columns:
-        # persona_ss no tiene id; lo construimos
-        if fuente == "seguridad-social":
-            out = out.with_row_index("_idx").with_columns(
-                pl.format("SS-{}", pl.col("_idx").cast(pl.String)).alias("id"),
-            ).drop("_idx")
-        else:
-            out = out.with_row_index("id").with_columns(pl.col("id").cast(pl.String))
+        # p. ej. persona_ss no tiene id; lo construimos con el nombre.
+        prefijo = "".join(w[0] for w in fuente.nombre.upper().split("-"))[:3] or "UC"
+        out = out.with_row_index("_idx").with_columns(
+            pl.format(prefijo + "-{}", pl.col("_idx").cast(pl.String)).alias("id"),
+        ).drop("_idx")
     if "importe" not in out.columns:
-        # persona_ss usa ss_proporcional como importe efectivo
-        if "ss_proporcional" in out.columns:
-            out = out.with_columns(pl.col("ss_proporcional").alias("importe"))
+        if fuente.importe_col in out.columns:
+            out = out.with_columns(pl.col(fuente.importe_col).alias("importe"))
         else:
             out = out.with_columns(pl.lit(0.0).alias("importe"))
     for c in ("elemento_de_coste", "centro_de_coste", "actividad"):
         if c not in out.columns:
             out = out.with_columns(pl.lit(None).cast(pl.Utf8).alias(c))
-    return out.select(cols_min).with_columns(pl.lit(fuente).alias("_origen"))
+    return out.select(cols_min).with_columns(pl.lit(fuente.nombre).alias("_origen"))
 
 
 # Caché de la concatenación: clave = tupla con los mtime_ns de todos los parquets.
 def _key_mtimes() -> tuple[int, ...]:
-    return tuple(_mtime_ns(p) for _, p in _FUENTES_UC)
+    return tuple(_mtime_ns(f.ruta) for f in FUENTES_UC)
 
 
 @lru_cache(maxsize=4)
 def _todas_uc_cached(key: tuple[int, ...]) -> pl.DataFrame:
     del key
     partes: list[pl.DataFrame] = []
-    for fuente, path in _FUENTES_UC:
-        df = _safe_read(path)
+    for f in FUENTES_UC:
+        df = _safe_read(f.ruta)
         if df is None or df.is_empty():
             continue
-        partes.append(_normalize(df, fuente))
+        if f.filtro_tipo is not None and "tipo" in df.columns:
+            df = df.filter(pl.col("tipo") == f.filtro_tipo)
+            if df.is_empty():
+                continue
+        partes.append(_normalize(df, f))
     if not partes:
         return pl.DataFrame(schema={
             "id": pl.Utf8, "elemento_de_coste": pl.Utf8,
@@ -127,7 +118,8 @@ def resumen() -> KpiPanel:
                 pl.col("importe").sum().alias("imp"),
             ).iter_rows(named=True)
         }
-        for fuente, _ in _FUENTES_UC:
+        for f in FUENTES_UC:
+            fuente = f.nombre
             if fuente not in por_origen:
                 continue
             n, imp = por_origen[fuente]
@@ -151,9 +143,6 @@ _COLS_TODAS: list[ColumnSpec] = [
     ColumnSpec(name="actividad", label="Actividad", format="text"),
     ColumnSpec(name="importe", label="Importe", format="euro"),
 ]
-
-
-_FUENTE_PATH = dict(_FUENTES_UC)
 
 
 def _format_de(name: str, value) -> str:
@@ -418,22 +407,14 @@ def obtener_uc(origen: str, uc_id: str) -> RecordResponse | None:
     if df is None or df.is_empty():
         return None
 
-    # Caso especial: persona_ss no tiene id natural; durante la
-    # consolidación lo construimos como "SS-{idx}".
-    if origen == "seguridad-social":
-        if not uc_id.startswith("SS-"):
-            return None
-        try:
-            idx = int(uc_id[3:])
-        except ValueError:
-            return None
-        if idx < 0 or idx >= df.height:
-            return None
-        fila = df.slice(idx, 1)
-    else:
-        if "id" not in df.columns:
-            return None
-        fila = df.filter(pl.col("id").cast(pl.Utf8) == str(uc_id))
+    # Aplicar el filtro por tipo de la fuente (p. ej. seguridad-social =
+    # persona_uc con tipo=coste social) antes de buscar por id natural.
+    fu = next((f for f in FUENTES_UC if f.nombre == origen), None)
+    if fu is not None and fu.filtro_tipo is not None and "tipo" in df.columns:
+        df = df.filter(pl.col("tipo") == fu.filtro_tipo)
+    if "id" not in df.columns:
+        return None
+    fila = df.filter(pl.col("id").cast(pl.Utf8) == str(uc_id))
 
     if fila.is_empty():
         return None

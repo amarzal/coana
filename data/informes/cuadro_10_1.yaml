@@ -1,50 +1,50 @@
 id: cuadro_10_1
 título: Informe de elementos de coste
 encabezado_concepto: Elemento de coste
-total: 152779410.95
+total: 152563950.4
 filas:
 - código: '01'
   slug: costes-personal
   nombre: Costes de personal
   nivel: 1
-  importe: 116634350.2
+  importe: 116418889.65
   pct_elemento: 100.0
-  pct_total: 76.3417
+  pct_total: 76.3083
 - código: '01.01'
   slug: salario-pdi
   nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
   nivel: 2
-  importe: 54533631.98
-  pct_elemento: 46.7561
+  importe: 54454170.06
+  pct_elemento: 46.7743
   pct_total: null
 - código: '01.02'
   slug: salario-ptgas
   nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
     y Servicios (PTGAS)
   nivel: 2
-  importe: 27251708.68
-  pct_elemento: 23.3651
+  importe: 26980076.04
+  pct_elemento: 23.175
   pct_total: null
 - código: '01.03'
   slug: salario-piyotper
   nombre: Costes del Personal Investigador laboral y de otro personal
   nivel: 2
-  importe: 10666638.71
-  pct_elemento: 9.1454
+  importe: 10650287.37
+  pct_elemento: 9.1482
   pct_total: null
 - código: '01.04'
   slug: ss
   nombre: Cotizaciones sociales a cargo del empleador
   nivel: 2
-  importe: 17165983.46
-  pct_elemento: 14.7178
+  importe: 17317968.55
+  pct_elemento: 14.8756
   pct_total: null
 - código: '01.05'
   slug: prevsoc-funcs
   nombre: Previsión social de funcionarios (costes calculados)
   nivel: 2
-  importe: 4697604.03
-  pct_elemento: 4.0276
+  importe: 4697604.29
+  pct_elemento: 4.0351
   pct_total: null
 - código: '01.06'
   slug: indem
@@ -58,21 +58,21 @@ filas:
   nombre: Otros costes sociales
   nivel: 2
   importe: 395573.23
-  pct_elemento: 0.3392
+  pct_elemento: 0.3398
   pct_total: null
 - código: '01.08'
   slug: indemnizaciones-servicio
   nombre: Indemnizaciones por razón de servicio
   nivel: 2
   importe: 1627250.87
-  pct_elemento: 1.3952
+  pct_elemento: 1.3978
   pct_total: null
 - código: '01.09'
   slug: otras-indemnizaciones
   nombre: Otras indemnizaciones
   nivel: 2
   importe: 295959.24
-  pct_elemento: 0.2537
+  pct_elemento: 0.2542
   pct_total: null
 - código: '01.10'
   slug: transp-personal
@@ -87,7 +87,7 @@ filas:
   nivel: 1
   importe: 10371613.24
   pct_elemento: 100.0
-  pct_total: 6.7886
+  pct_total: 6.7982
 - código: '03.03'
   slug: material-laboratorio
   nombre: Coste de material e instrumental de laboratorio y experimentación
@@ -136,7 +136,7 @@ filas:
   nivel: 1
   importe: 16353369.39
   pct_elemento: 100.0
-  pct_total: 10.7039
+  pct_total: 10.719
 - código: '04.02'
   slug: conservación
   nombre: Reparaciones y conservación
@@ -206,7 +206,7 @@ filas:
   nivel: 1
   importe: 6347526.73
   pct_elemento: 100.0
-  pct_total: 4.1547
+  pct_total: 4.1606
 - código: '07.01'
   slug: amortización-inmovilizado-material
   nombre: Del inmovilizado material
@@ -234,7 +234,7 @@ filas:
   nivel: 1
   importe: 3041838.91
   pct_elemento: 100.0
-  pct_total: 1.991
+  pct_total: 1.9938
 - código: '09.01'
   slug: transferencias-alumnos
   nombre: A alumnos/as

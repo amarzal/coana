@@ -74,8 +74,26 @@ def total_general(ucs: pl.DataFrame) -> float:
     return float(ucs["importe"].sum() or 0.0)
 
 
-def cargar_ucs(ruta_base: Path) -> pl.DataFrame:
-    """Carga las UC generadas por la Fase 1."""
+def cargar_ucs(ruta_base: Path, *, post_reparto: bool = True) -> pl.DataFrame:
+    """Carga las UC para los informes de Fase 2.
+
+    Por defecto usa el conjunto **post-reparto**
+    (#ruta("fase1", "reparto", "uc_post_reparto.parquet")): el coste de
+    las actividades dag ya está repartido a las actividades finalistas,
+    que es lo que necesitan los cuadros oficiales. Conserva las columnas
+    #campo("origen") y #campo("marca_dag") para que un informe pueda
+    *segregar* lo no-dag de lo procedente de dag (los fragmentos llevan
+    #campo("origen") = #val("reparto-dag") y su #campo("marca_dag") de
+    procedencia; las UC normales llevan #campo("marca_dag") nulo).
+
+    Si el reparto no se ha ejecutado, cae al combinado pre-reparto
+    (#ruta("fase1", "unidades de coste.xlsx")) para no romper, asumiendo
+    que el coste dag aún está sin repartir.
+    """
+    if post_reparto:
+        pr = ruta_base / "fase1" / "reparto" / "uc_post_reparto.parquet"
+        if pr.exists():
+            return pl.read_parquet(pr)
     p = ruta_base / "fase1" / "unidades de coste.xlsx"
     if not p.exists():
         raise FileNotFoundError(f"No existe {p}. Ejecuta antes la Fase 1.")

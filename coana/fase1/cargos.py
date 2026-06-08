@@ -273,6 +273,26 @@ def generar_cargos_uc(
     cat = read_excel(cat_path)
     rd = read_excel(rd_path)
 
+    # Excluir los meses de absentismo (bonificación de SS): sus líneas
+    # —incluido el CR 19/64— se desvían a la UC de absentismo, así que no
+    # deben entrar en el reparto de cargos (evita el doble cómputo).
+    meses_abs_path = Path(dir_salida) / "meses_absentismo.parquet"
+    if meses_abs_path.exists():
+        meses_abs = pl.read_parquet(meses_abs_path)
+        if not meses_abs.is_empty():
+            nom = (
+                nom.join(exp.select("expediente", "per_id"), on="expediente", how="left")
+                .with_columns(pl.col("fecha").dt.strftime("%Y-%m").alias("_mes"))
+                .join(
+                    meses_abs.rename({"mes": "_mes"}).with_columns(
+                        pl.lit(True).alias("_abs")
+                    ),
+                    on=["per_id", "_mes"], how="left",
+                )
+                .filter(pl.col("_abs").is_null())
+                .drop("per_id", "_mes", "_abs")
+            )
+
     # Inyección de overrides cableados (per_id, cargo) → titulación.
     # Se aplica ANTES de la propagación para que tenga prioridad sobre
     # el histórico de la persona en ese cargo (puede que en años

@@ -228,7 +228,8 @@ def calcular_reparto(
     # --- Resolver el destino de cada par (centro, actividad) dag ---
     reglas_exp = [
         (
-            _descendientes(árbol_centros, r.centro_índice),
+            {r.centro_índice} if r.índice_exacto_centro
+            else _descendientes(árbol_centros, r.centro_índice),
             _descendientes(árbol_actividades, r.actividad_índice),
             i,
         )

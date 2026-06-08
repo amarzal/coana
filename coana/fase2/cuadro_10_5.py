@@ -44,7 +44,13 @@ _CENTROS_PRINCIPALES: list[tuple[str, str, str]] = [
 
 
 def generar_cuadro_10_5(ruta_base: Path, dir_informes: Path) -> None:
-    ucs = cargar_ucs(ruta_base)
+    # Este cuadro clasifica el coste de cada centro en directo/indirecto
+    # según la columna de traza `regla_cc`, que solo existe en el
+    # combinado PRE-reparto. La clasificación es una propiedad del centro
+    # de coste, invariante al reparto de actividades dag (que redistribuye
+    # actividades dentro del mismo centro), así que usar el pre-reparto es
+    # correcto y conserva el total.
+    ucs = cargar_ucs(ruta_base, post_reparto=False)
     árbol_ec = cargar_árbol_elementos_de_coste(ruta_base)
     árbol_cc = cargar_árbol_centros_de_coste(ruta_base)
 

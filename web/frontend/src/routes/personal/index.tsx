@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { DataTable } from "@/components/DataTable";
+import { KpiPanel } from "@/components/KpiPanel";
 import { RecordCard } from "@/components/RecordCard";
 import { Tabs } from "@/components/Tabs";
 import { formatEuro } from "@/lib/format";
@@ -410,6 +411,27 @@ export function PersonalCostesSocialesCalculados() {
                 endpoint="/api/personal/costes-sociales-calculados"
                 queryKey="personal:costes-sociales-calculados"
                 rowKey="per_id"
+                showPopoverOnRowClick
+            />
+        </div>
+    );
+}
+
+export function PersonalAbsentismo() {
+    return (
+        <div className="flex flex-col gap-6">
+            <Cabecera
+                title="Personal · Absentismo"
+                subtitle="Meses con bonificación de seguridad social (tipo «BS» en la aplicación 1211): bajas tan largas que la SS las bonifica. Todo lo percibido y cotizado ese mes se desvía a una única UC imputada al centro raíz UJI y a la actividad «absentismo», con el elemento de coste de la categoría de la persona."
+            />
+            <KpiPanel
+                endpoint="/api/personal/absentismo/_resumen"
+                queryKey="personal:absentismo:resumen"
+            />
+            <DataTable
+                endpoint="/api/personal/absentismo"
+                queryKey="personal:absentismo"
+                rowKey="id"
                 showPopoverOnRowClick
             />
         </div>

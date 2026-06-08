@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MainNav, EntradasMenu } from "@/components/MainNav";
 import { EjecutarFase1 } from "@/components/EjecutarFase1";
 import { StatusFooter } from "@/components/StatusFooter";
+import { PipelineStaleBanner } from "@/components/PipelineStaleBanner";
 import { TerminalPanel } from "@/components/TerminalPanel";
 import {
     PresupuestoResumen,
@@ -47,6 +48,7 @@ import {
     PersonalPersona,
     PersonalAnomaliasPdi,
     PersonalCostesSocialesCalculados,
+    PersonalAbsentismo,
     PersonalAtrasosNoVinculados,
 } from "@/routes/personal";
 import { PersonaPdi, PersonaPvi } from "@/routes/personal/PersonaPdiPvi";
@@ -111,6 +113,7 @@ function Layout() {
                 <StatusFooter />
             </aside>
             <main className="overflow-auto p-6">
+                <PipelineStaleBanner />
                 <Outlet />
             </main>
             <TerminalPanel />
@@ -163,6 +166,7 @@ export function App() {
                         <Route path="personal/otros" element={<ExpedientesOtros />} />
                         <Route path="personal/multiexpediente" element={<PersonalMultiexpediente />} />
                         <Route path="personal/persona" element={<PersonalPersona />} />
+                        <Route path="personal/absentismo" element={<PersonalAbsentismo />} />
                         <Route path="personal/atrasos-no-vinculados" element={<PersonalAtrasosNoVinculados />} />
                     <Route path="personal/costes-sociales-calculados" element={<PersonalCostesSocialesCalculados />} />
                         <Route path="personal/anomalias" element={<PersonalAnomaliasPdi />} />

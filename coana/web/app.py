@@ -14,6 +14,7 @@ from coana.web.routers import (
     amortizaciones,
     cargos,
     entradas,
+    estado,
     informes,
     informes_carta,
     lookups,
@@ -49,6 +50,7 @@ app.add_middleware(
 
 # Routers
 app.include_router(sistema.router, prefix="/api/sistema", tags=["sistema"])
+app.include_router(estado.router, prefix="/api/estado", tags=["estado pipeline"])
 app.include_router(presupuesto.router, prefix="/api/presupuesto", tags=["presupuesto"])
 app.include_router(cargos.router, prefix="/api/cargos", tags=["cargos académicos"])
 app.include_router(superficies.router, prefix="/api/superficies", tags=["superficies"])

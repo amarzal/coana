@@ -31,7 +31,7 @@ from coana.util import read_excel
 _TIPO_SINDICAL = "8"
 
 # Destino de la fracción no trabajada por absentismo.
-CC_ABSENTISMO = "UJI"
+CC_ABSENTISMO = "cc-uji"
 ACT_ABSENTISMO = "absentismo"
 
 

@@ -747,6 +747,9 @@ _UC_PATHS_TRANSVERSALES = [
     DIR_NOMINAS / "uc_despidos.parquet",
     DIR_NOMINAS / "uc_indemnizaciones_asistencias.parquet",
     DIR_NOMINAS / "uc_cargos.parquet",
+    # Absentismo (bonificación de SS): lleva `expediente`; sus columnas
+    # extra (per_id, mes, sector, categoría) se descartan al seleccionar.
+    DIR_NOMINAS / "uc_absentismo.parquet",
 ]
 
 # UC de seguridad social: una fila por (per_id, actividad, CC) sin
@@ -1159,11 +1162,22 @@ def listar_personas(params: QueryParams) -> ListResponse:
     if uc is None and ss is None:
         return ListResponse(columns=_COLS_PERSONA, rows=[], total=0)
 
-    if uc is not None and "per_id" in uc.columns:
-        agg_uc = uc.group_by("per_id").agg(
-            pl.len().alias("n_uc"),
-            pl.col("importe").sum().alias("importe_total"),
-        )
+    # Las UC de absentismo (mes con bonificación de SS) viven en su
+    # propio parquet, no en persona_uc; se unen aquí para no infravalorar
+    # a las personas con baja bonificada.
+    absent = _safe_read(PATH_ABSENTISMO)
+    if uc is not None:
+        bloques_uc = [uc.select("per_id", "importe")] if "per_id" in uc.columns else []
+        if absent is not None and not absent.is_empty() and "per_id" in absent.columns:
+            bloques_uc.append(absent.select("per_id", "importe"))
+        if bloques_uc:
+            uc_full = pl.concat(bloques_uc, how="vertical_relaxed")
+            agg_uc = uc_full.group_by("per_id").agg(
+                pl.len().alias("n_uc"),
+                pl.col("importe").sum().alias("importe_total"),
+            )
+        else:
+            agg_uc = pl.DataFrame(schema={"per_id": pl.Int64, "n_uc": pl.UInt32, "importe_total": pl.Float64})
     else:
         agg_uc = pl.DataFrame(schema={"per_id": pl.Int64, "n_uc": pl.UInt32, "importe_total": pl.Float64})
 
@@ -1242,9 +1256,18 @@ def obtener_persona(per_id: int) -> RecordResponse | None:
 
 def listar_uc_persona(per_id: int, params: QueryParams) -> ListResponse:
     uc = _safe_read(PATH_UC)
-    if uc is None or "per_id" not in uc.columns:
+    partes: list[pl.DataFrame] = []
+    if uc is not None and "per_id" in uc.columns:
+        partes.append(uc.filter(pl.col("per_id") == per_id))
+    # UC de absentismo (mes con bonificación de SS): parquet aparte.
+    absent = _safe_read(PATH_ABSENTISMO)
+    if absent is not None and not absent.is_empty() and "per_id" in absent.columns:
+        sub = absent.filter(pl.col("per_id") == per_id)
+        if not sub.is_empty():
+            partes.append(sub.with_columns(pl.lit("absentismo").alias("tipo")))
+    if not partes:
         return ListResponse(columns=_COLS_UC_PERSONA, rows=[], total=0)
-    df = uc.filter(pl.col("per_id") == per_id)
+    df = pl.concat(partes, how="diagonal")
     df = df.select([c.name for c in _COLS_UC_PERSONA if c.name in df.columns])
     df, total, stats = apply_query(
         df, params,
@@ -1346,3 +1369,76 @@ def listar_atrasos_no_vinculados(params: QueryParams) -> ListResponse:
         total=total,
         column_stats=stats,
     )
+
+
+# ----------------------------------------------------------------------
+# Absentismo (meses con bonificación de seguridad social)
+# ----------------------------------------------------------------------
+#
+# Cuando una persona en régimen general de SS tiene una baja tan larga que
+# la SS la bonifica (tipo «BS» en la aplicación 1211), TODO lo percibido y
+# cotizado ese mes se desvía a una única UC de absentismo (centro raíz UJI,
+# actividad `absentismo`, elemento de coste `{sector}-{categoría}`). Esta
+# vista permite estudiar el efecto de ese absentismo.
+
+PATH_ABSENTISMO = DIR_NOMINAS / "uc_absentismo.parquet"
+
+_COLS_ABSENTISMO: list[ColumnSpec] = [
+    ColumnSpec(name="id", label="ID UC", format="text"),
+    ColumnSpec(name="per_id", label="per_id", format="id"),
+    ColumnSpec(name="persona", label="Persona", format="text"),
+    ColumnSpec(name="expediente", label="Expediente", format="id"),
+    ColumnSpec(name="mes", label="Mes", format="text"),
+    ColumnSpec(name="sector", label="Sector", format="text"),
+    ColumnSpec(name="categoría", label="Categoría", format="text"),
+    ColumnSpec(name="elemento_de_coste", label="Elemento de coste", format="text"),
+    ColumnSpec(name="centro_de_coste", label="Centro", format="text"),
+    ColumnSpec(name="actividad", label="Actividad", format="text"),
+    ColumnSpec(name="importe", label="Importe", format="euro"),
+]
+
+
+def listar_absentismo(params: QueryParams) -> ListResponse:
+    """UC de absentismo: una fila por persona-mes con bonificación de SS."""
+    df = _safe_read(PATH_ABSENTISMO)
+    if df is None or df.is_empty():
+        return ListResponse(columns=_COLS_ABSENTISMO, rows=[], total=0)
+    df = _enriquecer_per_id(df)
+    nombres = [c.name for c in _COLS_ABSENTISMO if c.name in df.columns]
+    df = df.select(nombres)
+    df, total, stats = apply_query(
+        df, params,
+        search_columns=[
+            "persona", "mes", "sector", "categoría", "elemento_de_coste",
+        ],
+    )
+    return ListResponse(
+        columns=_COLS_ABSENTISMO,
+        rows=_serialize(df.to_dicts()),
+        total=total,
+        column_stats=stats,
+    )
+
+
+def resumen_absentismo() -> KpiPanel:
+    """KPIs del absentismo: nº de persona-mes, coste total y personas."""
+    df = _safe_read(PATH_ABSENTISMO)
+    if df is None or df.is_empty():
+        return KpiPanel(kpis=[
+            Kpi(label="Persona-mes con bonificación", value=0, format="int"),
+            Kpi(label="Coste total absentismo", value=0.0, format="euro"),
+            Kpi(label="Personas afectadas", value=0, format="int"),
+        ])
+    kpis = [
+        Kpi(label="Persona-mes con bonificación", value=df.height, format="int"),
+        Kpi(label="Coste total absentismo", value=float(df["importe"].sum() or 0), format="euro"),
+        Kpi(label="Personas afectadas", value=int(df["per_id"].n_unique()), format="int"),
+    ]
+    for sector in ("PDI", "PTGAS", "PVI"):
+        sub = df.filter(pl.col("sector") == sector)
+        if not sub.is_empty():
+            kpis.append(Kpi(
+                label=f"Coste {sector}",
+                value=float(sub["importe"].sum() or 0), format="euro",
+            ))
+    return KpiPanel(kpis=kpis)

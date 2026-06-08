@@ -378,7 +378,7 @@ Cada una de estas estructuras se describe en un fichero `.tree` en el directorio
 
 Cuando se cargan en memoria las líneas, se asocia a cada línea un código de la forma #código[01.02.03.01], en función de su nivel de profundidad y orden (#código[05.03.01] significa «primer hijo del tercer hijo del quinto árbol»).
 
-El identificador de cada línea se puede usar para referirse al nodo. De cada nodo se puede conocer su lista ordenada de hijos y quién es su padre. Aunque no se especifique en los fichero, podemos asumir que los árboles del bosque dependen de una raíz única: un nodo sin descripción y cuyo código es la cadena vacía. Llamamos UJI (es la organización en su conjunto) a ese nodo.
+El identificador de cada línea se puede usar para referirse al nodo. De cada nodo se puede conocer su lista ordenada de hijos y quién es su padre. Aunque no se especifique en los fichero, podemos asumir que los árboles del bosque dependen de una raíz única: un nodo sin descripción y cuyo código es la cadena vacía, que representa la organización en su conjunto. Para evitar ambigüedad entre árboles, su identificador es propio de cada uno: #etq("cc-uji") en el árbol de centros de coste, #etq("act-uji") en el de actividades y #etq("ec-uji") en el de elementos de coste (otros árboles usan #etq("UJI") por defecto). Se infiere del nombre del fichero al cargar y se persiste en una cabecera #raw("# raíz: …") del propio fichero.
 
 Un ejemplo de un fragmento de árbol. Si el contenido de un fichero `.tree` es el siguiente:
 
@@ -3427,7 +3427,7 @@ El árbol de centros de coste modificado por las reglas se ha de mostrar en la #
         ))
 
     - #nombre-regla[Servicios centrales como coste de la organización]
-        Los apuntes con #campo("centro") = #val("SC001") que NO entren en la distribución OTOP (aplicaciones distintas de #val("2251"), #val("2252"), #val("2222"), #val("2223") y #val("2225")) son gasto de la organización en su conjunto y se imputan al centro raíz #etqcen("UJI"). Desde ahí se reparten downstream entre los centros productivos en la proporción que les toque.
+        Los apuntes con #campo("centro") = #val("SC001") que NO entren en la distribución OTOP (aplicaciones distintas de #val("2251"), #val("2252"), #val("2222"), #val("2223") y #val("2225")) son gasto de la organización en su conjunto y se imputan al centro raíz #etqcen("cc-uji"). Desde ahí se reparten downstream entre los centros productivos en la proporción que les toque.
 
 ]
 
@@ -4283,7 +4283,7 @@ En ambos casos la suma de #campo("horas_finales") de la persona es exactamente s
 
 ==== Reducciones de jornada no sindicales (absentismo)
 
-Las reducciones de jornada por motivos personales (conciliación, cuidado de hijos o familiares, lactancia, etc.) son los tipos *distintos del 8* de #ruta("entrada", "nóminas", "reducciones laborales.xlsx"). A diferencia de la representación sindical —que es una actividad de la organización repercutible a un colectivo— la parte no trabajada es un *coste propio de la organización*: se imputa a la actividad #etqact("absentismo") (#val("06.01")) y al centro raíz #etqcen("UJI").
+Las reducciones de jornada por motivos personales (conciliación, cuidado de hijos o familiares, lactancia, etc.) son los tipos *distintos del 8* de #ruta("entrada", "nóminas", "reducciones laborales.xlsx"). A diferencia de la representación sindical —que es una actividad de la organización repercutible a un colectivo— la parte no trabajada es un *coste propio de la organización*: se imputa a la actividad #etqact("absentismo") (#val("06.01")) y al centro raíz #etqcen("cc-uji").
 
 *Factor anual de jornada trabajada Y.* Para cada expediente con alguna reducción no sindical que solape el año en al menos un día se calcula, *día a día*, la fracción trabajada: cada día vale $max(0, 1 - sum_i (1 - p_i))$ sobre las reducciones activas ese día ($p_i$ = #campo("porcentaje trabajado") de cada una; #val("1") si ese día no hay reducción). $Y$ es la media diaria, acotada a $[0, 1]$. El cálculo por día —no la suma de días×porcentaje— evita contar dos veces los períodos solapados (una persona con dos reducciones simultáneas no «trabaja menos de 0»). Una #campo("fecha fin") vacía se interpreta como reducción en curso (igual que el tipo 8). El núcleo del cálculo es común al del factor sindical.
 
@@ -4291,11 +4291,29 @@ Las reducciones de jornada por motivos personales (conciliación, cuidado de hij
 
 *Aplicación (mismos puntos que el sindical).*
 
-- *UC directas PTGAS:* tras el corte sindical, cada UC ordinaria se parte en $Y times$ (conserva su centro/actividad) y $(1 - Y) times$ en #etqact("absentismo") / #etqcen("UJI"). Las retribuciones extra finalistas no se cortan, igual que en el sindical.
-- *Jornada regla 23:* la jornada de reparto pasa a $T = "jornada_anual_pdi" times "fracción_año" times X_"persona" times Y_"persona"$ y se emite una fila #etqact("absentismo") / #etqcen("UJI") con $#campo("horas_finales") = (1 - Y_"persona") times X_"persona" times "jornada_anual_pdi" times "fracción_año"$. La suma de horas finales de la persona —docencia, gestión, investigación, sindical y absentismo— sigue siendo su jornada disponible.
-- *Masa regla 23:* sobre la masa que queda tras el sindical se aparta $(1 - Y) times "importe"$ a #etqact("absentismo") / #etqcen("UJI") antes del reparto por dedicación.
+- *UC directas PTGAS:* tras el corte sindical, cada UC ordinaria se parte en $Y times$ (conserva su centro/actividad) y $(1 - Y) times$ en #etqact("absentismo") / #etqcen("cc-uji"). Las retribuciones extra finalistas no se cortan, igual que en el sindical.
+- *Jornada regla 23:* la jornada de reparto pasa a $T = "jornada_anual_pdi" times "fracción_año" times X_"persona" times Y_"persona"$ y se emite una fila #etqact("absentismo") / #etqcen("cc-uji") con $#campo("horas_finales") = (1 - Y_"persona") times X_"persona" times "jornada_anual_pdi" times "fracción_año"$. La suma de horas finales de la persona —docencia, gestión, investigación, sindical y absentismo— sigue siendo su jornada disponible.
+- *Masa regla 23:* sobre la masa que queda tras el sindical se aparta $(1 - Y) times "importe"$ a #etqact("absentismo") / #etqcen("cc-uji") antes del reparto por dedicación.
 
 Como el reparto de la SS es proporcional a las UC retributivas (ya divididas), la SS hereda automáticamente la fracción de absentismo sin código adicional.
+
+==== Absentismo por bonificación de seguridad social
+
+Las personas en el *régimen general* de la Seguridad Social (todas salvo el PDI funcionario en clases pasivas) que sufren una baja tan larga que la SS *bonifica* la cotización reciben un tratamiento especial *mes a mes*. Esa bonificación aparece en la nómina como un concepto de coste social en la aplicación presupuestaria #val("1211") con #campo("tipo_coste") = #val("BS") (bonificación de seguridad social), con importe negativo.
+
+*Detección.* El disparador es el par (#campo("per_id"), mes) con al menos una línea #campo("tipo_coste") = #val("BS") en la aplicación #val("1211"). El mes se toma del año-mes de #campo("fecha"). El conjunto de pares afectados se persiste en #ruta("auxiliares", "nóminas", "meses_absentismo.parquet").
+
+*Tratamiento del mes.* En un mes con bonificación, *ningún* ítem de la persona se imputa a su centro/actividad/elemento de coste habitual. En su lugar se genera *una única unidad de coste* por persona-mes, cuyo importe es la *suma de todas las líneas de nómina de esa persona ese mes*: retribuciones de cualquier concepto (#campo("tipo_coste") #val("I") y #val("V")), importe cotizado (#val("S")) y la bonificación negativa (#val("BS")) —incluidos despidos, indemnizaciones y cargos de ese mes—. Esa UC se imputa a:
+
+- centro de coste: el raíz #etqcen("cc-uji");
+- actividad: #etqact("absentismo");
+- elemento de coste: #etqele("{sector}-{categoría}") —el nodo intermedio de la categoría de la persona—: #etqele("ptgas-func"), #etqele("pdi-cu"), #etqele("pdi-as"), #etqele("ptgas-labfijo")…; para el PVI el prefijo del árbol es #etqele("piyotper") (p. ej. #etqele("piyotper-act")).
+
+Los demás meses (sin bonificación) se tratan como siempre. Por construcción, cada persona-mes con bonificación tiene un único expediente, categoría y sector, de modo que el elemento de coste es inequívoco.
+
+*Exclusión del circuito normal.* Las líneas de los meses con bonificación se retiran de la generación de UC retributivas (PTGAS/PVI/PDI), de despidos, indemnizaciones y cargos, y del reparto de seguridad social, para no contarlas dos veces. El resto de cómputos (totales por sector, multiexpediente, atrasos, clases pasivas) sigue usando la nómina completa. La UC se persiste en #ruta("auxiliares", "nóminas", "uc_absentismo.parquet"), con #campo("per_id"), #campo("expediente") y #campo("mes") para el visor.
+
+*Visor.* En la #app, la entrada #campo("Absentismo") del bloque «Personal» muestra los KPI del absentismo (persona-mes con bonificación, coste total, personas afectadas y coste por sector) y una tabla con una fila por persona-mes (persona, expediente, mes, sector, categoría, elemento de coste e importe).
 
 ==== Agrupamiento por expediente y sector
 
@@ -5019,7 +5037,7 @@ Hay un caso especial sistemático: el PDI fallecido o cesado que cobra en el añ
 - Esa retribución variable está concentrada exclusivamente en el mes de marzo y con un único #campo("concepto_retributivo") = #val("67") (OTVARS / incentivos del ejercicio anterior).
 - Las atrasos (#campo("tipo_coste") = #val("I")) pueden estar o no estar y en cualquier mes; no cuentan a estos efectos.
 
-A esas personas, en vez de imputarles la masa a (#etqcen("pendiente"), #etqact("pendiente")), se les imputa a (#etqcen("UJI"), #etqact("UJI")): el coste se reconoce como gasto general de la institución, no atribuible ya a ninguna actividad concreta (la actividad sucedió el año anterior). La detección automática se hace en #campo("_detecta_incentivos_residuales") y los parámetros (mes y concepto retributivo) son las constantes #campo("_MES_INCENTIVOS") y #campo("_CR_INCENTIVOS_AÑO_ANTERIOR") en #ruta("coana", "fase1", "regla23", "uc_reparto.py").
+A esas personas, en vez de imputarles la masa a (#etqcen("pendiente"), #etqact("pendiente")), se les imputa a (#etqcen("cc-uji"), #etqact("act-uji")): el coste se reconoce como gasto general de la institución, no atribuible ya a ninguna actividad concreta (la actividad sucedió el año anterior). La detección automática se hace en #campo("_detecta_incentivos_residuales") y los parámetros (mes y concepto retributivo) son las constantes #campo("_MES_INCENTIVOS") y #campo("_CR_INCENTIVOS_AÑO_ANTERIOR") en #ruta("coana", "fase1", "regla23", "uc_reparto.py").
 
 *Caso especial sistemático: associats assistencials (PAA) de ciencias de la salud sin docencia en el POD.* Los #etq("PAA") (#emph[Professor/a Associat/da Assistencial]) son personal clínico que imparte la práctica asistencial de los grados de ciencias de la salud, una docencia que no figura en el POD. Cuando un #etq("PAA") no tiene ninguna carga en el POD (y por tanto caería a #etqact("pendiente")), es su *departamento* —resuelto a partir del #campo("servicio") de su nómina vía #ruta("entrada", "inventario", "servicios.xlsx")— el que decide la titulación a la que va su coste, siempre al *Grado* correspondiente y con centro #etqcen("fcs") (Facultat de Ciències de la Salut):
 
@@ -5037,19 +5055,19 @@ A esas personas, en vez de imputarles la masa a (#etqcen("pendiente"), #etqact("
     table.hline(),
 )
 
-Esta regla se aplica antes del fallback genérico a #etqact("pendiente") / #etqcen("UJI"); un #etq("PAA") de un departamento no listado mantiene el comportamiento por defecto. La detección y el mapeo están en #campo("_DEPTO_SALUD_A_GRADO") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
+Esta regla se aplica antes del fallback genérico a #etqact("pendiente") / #etqcen("cc-uji"); un #etq("PAA") de un departamento no listado mantiene el comportamiento por defecto. La detección y el mapeo están en #campo("_DEPTO_SALUD_A_GRADO") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
 
 *Caso especial sistemático: personal investigador (PVI/PI) sin proyecto ni grupo imputable.* El personal investigador (elemento de coste con prefijo #val("piyotper")) cobra a menudo de proyectos generales sin estar adscrito a ningún proyecto ni grupo concreto, de modo que no tiene dedicación calculable y caería a #etqact("pendiente"). En ese caso su masa se imputa a la investigación con financiación propia del Vicerrectorado de Investigación: actividad #etqact("otras-ait-financiación-propia"), centro #etqcen("vi"). Las constantes son #campo("_INVESTIGADOR_SIN_PROYECTO_ACT") y #campo("_INVESTIGADOR_SIN_PROYECTO_CC") en #ruta("coana", "fase1", "regla23", "uc_reparto.py").
 
-*Caso especial sistemático: funcionarios en servicios especiales.* Un funcionario en situación de servicios especiales en otra administración deja de prestar servicio en la UJI —y por tanto no tiene docencia, gestión ni investigación que imputar—, pero la UJI le sigue abonando sus *trienios* consolidados (la antigüedad corre a cargo de la administración de origen). Su huella en la masa regla 23 es inconfundible: percibe trienios (#campo("CR 03")) y, en su caso, la parte proporcional de la paga extra, *sin sueldo base* (#campo("CR 01")). Ese gasto, que no corresponde a ninguna actividad realizada en la UJI, se imputa a (#etqcen("UJI"), #etqact("UJI")) como gasto general de la institución. La detección está en #campo("_detecta_servicios_especiales") y los conceptos en las constantes #campo("_CR_TRIENIOS") y #campo("_CR_SOU_BASE") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
+*Caso especial sistemático: funcionarios en servicios especiales.* Un funcionario en situación de servicios especiales en otra administración deja de prestar servicio en la UJI —y por tanto no tiene docencia, gestión ni investigación que imputar—, pero la UJI le sigue abonando sus *trienios* consolidados (la antigüedad corre a cargo de la administración de origen). Su huella en la masa regla 23 es inconfundible: percibe trienios (#campo("CR 03")) y, en su caso, la parte proporcional de la paga extra, *sin sueldo base* (#campo("CR 01")). Ese gasto, que no corresponde a ninguna actividad realizada en la UJI, se imputa a (#etqcen("cc-uji"), #etqact("act-uji")) como gasto general de la institución. La detección está en #campo("_detecta_servicios_especiales") y los conceptos en las constantes #campo("_CR_TRIENIOS") y #campo("_CR_SOU_BASE") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
 
-*Caso especial sistemático: figuras puramente docentes sin POD.* Los associats (#campo("pdi-as")) y substituts (#campo("pdi-ps")) que no figuran en el POD del año (ni en sus períodos ocultos) y que no son #etq("PAA") de ciencias de la salud son, en su mayoría, contratos breves o finiquitos que no llegaron a generar carga docente registrada. Su masa se imputa a estudios oficiales de la institución: actividad #etqact("estudios-oficiales"), centro #etqcen("UJI"). Las constantes son #campo("_DOCENTE_PURO_SIN_POD_ACT") y #campo("_DOCENTE_PURO_SIN_POD_CC"), con los prefijos de elemento de coste en #campo("_EC_DOCENTE_PURO_PREFIJOS") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
+*Caso especial sistemático: figuras puramente docentes sin POD.* Los associats (#campo("pdi-as")) y substituts (#campo("pdi-ps")) que no figuran en el POD del año (ni en sus períodos ocultos) y que no son #etq("PAA") de ciencias de la salud son, en su mayoría, contratos breves o finiquitos que no llegaron a generar carga docente registrada. Su masa se imputa a estudios oficiales de la institución: actividad #etqact("estudios-oficiales"), centro #etqcen("cc-uji"). Las constantes son #campo("_DOCENTE_PURO_SIN_POD_ACT") y #campo("_DOCENTE_PURO_SIN_POD_CC"), con los prefijos de elemento de coste en #campo("_EC_DOCENTE_PURO_PREFIJOS") (#ruta("coana", "fase1", "regla23", "uc_reparto.py")).
 
-*Regla escoba (última instancia).* Lo que ninguna regla anterior captura es ruido residual: cobros puntuales de poca cuantía (finiquitos, atrasos sueltos) sin patrón común. Para no dejarlos en #etqact("pendiente") indefinidamente, se barren a (#etqcen("UJI"), #etqact("UJI")) *siempre que la masa residual total de la persona sea inferior al umbral* #campo("umbral_residual_regla23") (configurable, por defecto #val("500 €")). Si la masa residual es igual o superior al umbral, la persona se mantiene en (#etqcen("pendiente"), #etqact("pendiente")) como anomalía real: es la red de seguridad que evita que un importe material e inexplicado se diluya silenciosamente en gasto general.
+*Regla escoba (última instancia).* Lo que ninguna regla anterior captura es ruido residual: cobros puntuales de poca cuantía (finiquitos, atrasos sueltos) sin patrón común. Para no dejarlos en #etqact("pendiente") indefinidamente, se barren a (#etqcen("cc-uji"), #etqact("act-uji")) *siempre que la masa residual total de la persona sea inferior al umbral* #campo("umbral_residual_regla23") (configurable, por defecto #val("500 €")). Si la masa residual es igual o superior al umbral, la persona se mantiene en (#etqcen("pendiente"), #etqact("pendiente")) como anomalía real: es la red de seguridad que evita que un importe material e inexplicado se diluya silenciosamente en gasto general.
 
-El orden de precedencia de los fallbacks para personas con masa pero sin dedicación es, de mayor a menor: override individual (se aparta antes del reparto) → #etq("PAA") de salud → incentivos residuales (#etqcen("UJI")) → investigador sin proyecto (#etqcen("vi")) → servicios especiales (#etqcen("UJI")) → figura puramente docente sin POD (#etqact("estudios-oficiales")) → residual bajo umbral (#etqcen("UJI")) → #etqact("pendiente") (masa ≥ umbral, anomalía).
+El orden de precedencia de los fallbacks para personas con masa pero sin dedicación es, de mayor a menor: override individual (se aparta antes del reparto) → #etq("PAA") de salud → incentivos residuales (#etqcen("cc-uji")) → investigador sin proyecto (#etqcen("vi")) → servicios especiales (#etqcen("cc-uji")) → figura puramente docente sin POD (#etqact("estudios-oficiales")) → residual bajo umbral (#etqcen("cc-uji")) → #etqact("pendiente") (masa ≥ umbral, anomalía).
 
-*Overrides individuales (casos super-específicos).* Algunas personas tienen una situación laboral que ninguna regla automática puede inferir a partir de los datos disponibles (nóminas, POD, proyectos…), pero cuyo destino correcto es conocido por revisión manual. Para esos casos se mantiene una tabla de overrides por #campo("per_id") en #ruta("coana", "fase1", "regla23", "uc_reparto.py"): cuando una persona figura en ella, *toda* su masa regla 23 se imputa íntegramente al par (#campo("actividad"), #campo("centro_de_coste")) indicado, con prioridad sobre el reparto por dedicación y sobre cualquier otro fallback (incluidos #etqcen("pendiente") y #etqcen("UJI")). La tabla actual:
+*Overrides individuales (casos super-específicos).* Algunas personas tienen una situación laboral que ninguna regla automática puede inferir a partir de los datos disponibles (nóminas, POD, proyectos…), pero cuyo destino correcto es conocido por revisión manual. Para esos casos se mantiene una tabla de overrides por #campo("per_id") en #ruta("coana", "fase1", "regla23", "uc_reparto.py"): cuando una persona figura en ella, *toda* su masa regla 23 se imputa íntegramente al par (#campo("actividad"), #campo("centro_de_coste")) indicado, con prioridad sobre el reparto por dedicación y sobre cualquier otro fallback (incluidos #etqcen("pendiente") y #etqcen("cc-uji")). La tabla actual:
 
 #table(
     columns: (auto, 1.4fr, auto, auto),
@@ -5159,11 +5177,13 @@ La Tabla 1 es un *artefacto de diseño* (no proviene de la base de datos corpora
 Cada regla tiene dos campos de *índice* (qué captura) y dos de *destino* (a dónde va):
 
 - *Índice* #campo("(centro_índice, actividad_índice)"): captura las UC dag con #campo("centro ∈ subárbol(centro_índice)") y #campo("actividad ∈ subárbol(actividad_índice)"). #etqact("dags") (raíz, código #val("02")) cubre cualquier dag.
-- *Destino* #campo("(centro_destino, actividades_destino)"): el coste se reparte entre las finalistas hoja con #campo("centro ∈ subárbol(centro_destino)") y #campo("actividad ∈ ⋃ subárbol(actividades_destino)"). #etqcen("UJI") (raíz) = toda la universidad.
+- *Destino* #campo("(centro_destino, actividades_destino)"): el coste se reparte entre las finalistas hoja con #campo("centro ∈ subárbol(centro_destino)") y #campo("actividad ∈ ⋃ subárbol(actividades_destino)"). #etqcen("cc-uji") (raíz) = toda la universidad.
 
 #campo("centro_destino") admite el valor especial #val("·mismo·") (*mismo centro*): la dag se reparte entre las finalistas del *propio* centro de la UC (= comportamiento por defecto) y, si ese centro *no* tiene base finalista, se transforma en las #campo("actividades_destino") nombradas (a partes iguales). Es el caso de los *grupos e institutos sin actividad*: su dag no tiene dónde repartirse, así que la regla #campo("(investigación, dags, ·mismo·, [otras-ait-financiación-propia])") *transforma* esa UC dag en una UC finalista de #etqact("otras-ait-financiación-propia") en el propio grupo, conservando su #campo("marca_dag").
 
 *Ejemplo.* La regla #campo("(bibliotecas, dags, UJI, [principales])") captura toda UC dag de la biblioteca —que no tiene finalistas propias— y la reparte entre *todas* las finalistas de la UJI, ponderando por su coste. Para dirigirla solo a docencia e investigación se pondría #campo("(bibliotecas, dags, UJI, [docencia, ai])").
+
+*Índice de centro exacto.* Una regla puede marcar su #campo("centro_índice") como *exacto* (#campo("índice_exacto_centro")), de modo que case solo ese nodo y *no* su subárbol. Es imprescindible para anclar reglas en la *raíz* #etqcen("cc-uji") (código «», padre de #val("01"), #val("02")…): indexar por el subárbol de #etqcen("cc-uji") capturaría TODOS los centros (sería un catch-all que anularía el defecto «reparte dentro del propio centro» de las facultades). Los *costes generales* imputados literalmente al centro raíz —primas de seguros, gastos financieros, material de oficina, tributos…— no tienen base finalista propia (el centro raíz solo acumula residuos), así que con la regla #campo("(cc-uji exacto, dags, cc-uji, [principales])") se reparten entre *todas* las actividades finalistas de la universidad ponderando por su coste.
 
 *Semilla inicial.* Las reglas de partida capturan las grandes ramas de centros sin finalista propia y las reparten a #etqact("principales") (toda la actividad finalista de la UJI):
 
@@ -5179,19 +5199,20 @@ Cada regla tiene dos campos de *índice* (qué captura) y dos de *destino* (a d�
         [*actividades destino*],
         table.hline(),
     ),
-    [#etqcen("paraninfo")], [#etqact("dags")], [#etqcen("UJI")], [#etqact("cultura")],
-    [#etqcen("llotja-cànem")], [#etqact("dags")], [#etqcen("UJI")], [#etqact("cultura")],
+    [#etqcen("cc-uji") (exacto)], [#etqact("dags")], [#etqcen("cc-uji")], [#etqact("principales")],
+    [#etqcen("paraninfo")], [#etqact("dags")], [#etqcen("cc-uji")], [#etqact("cultura")],
+    [#etqcen("llotja-cànem")], [#etqact("dags")], [#etqcen("cc-uji")], [#etqact("cultura")],
 
     [#etqcen("unidad-divulgación-científica")],
     [#etqact("dag-divulgación-científica")],
     [#etqcen("unidad-divulgación-científica")],
     [#etqact("divulgación-científica")],
 
-    [#etqcen("soporte")], [#etqact("dags")], [#etqcen("UJI")], [#etqact("principales")],
-    [#etqcen("apoyo-docencia-investigación")], [#etqact("dags")], [#etqcen("UJI")], [#etqact("principales")],
-    [#etqcen("anexos")], [#etqact("dags")], [#etqcen("UJI")], [#etqact("principales")],
-    [#etqcen("centros-agrupaciones-costes")], [#etqact("dags")], [#etqcen("UJI")], [#etqact("principales")],
-    [#etqcen("centros-intermedios-coste")], [#etqact("dags")], [#etqcen("UJI")], [#etqact("principales")],
+    [#etqcen("soporte")], [#etqact("dags")], [#etqcen("cc-uji")], [#etqact("principales")],
+    [#etqcen("apoyo-docencia-investigación")], [#etqact("dags")], [#etqcen("cc-uji")], [#etqact("principales")],
+    [#etqcen("anexos")], [#etqact("dags")], [#etqcen("cc-uji")], [#etqact("principales")],
+    [#etqcen("centros-agrupaciones-costes")], [#etqact("dags")], [#etqcen("cc-uji")], [#etqact("principales")],
+    [#etqcen("centros-intermedios-coste")], [#etqact("dags")], [#etqcen("cc-uji")], [#etqact("principales")],
     [#etqcen("investigación")], [#etqact("dags")], [#val("·mismo·")], [#etqact("otras-ait-financiación-propia")],
     table.hline(),
 )
@@ -5200,11 +5221,23 @@ A partir de aquí el trabajo es *iterativo*: ejecutar el reparto, revisar el vis
 
 == Anomalías del reparto
 
-Una UC dag que ni una regla ni el defecto sepan repartir *no se reparte*: se conserva intacta (para no perder coste) y se lista en el visor de anomalías con su motivo (#val("sin_regla_ni_base") cuando el centro no tiene finalistas y ninguna regla lo captura; #val("destino_de_regla_sin_base") cuando la regla casa pero su destino no tiene coste finalista). El visor de anomalías es la *herramienta de diseño* de la Tabla 1: muestra los patrones #campo("(centro, actividad)") pendientes para convertirlos en reglas. El visor *Por actividad dag* complementa: permite pinchar cada dag repartida y ver el detalle de su reparto (a qué finalistas y centros fue, con importe y %).
+Una UC dag que ni una regla ni el defecto sepan repartir *no se reparte*: se conserva intacta (para no perder coste) y se lista en el visor de anomalías con su motivo (#val("sin_regla_ni_base") cuando el centro no tiene finalistas y ninguna regla lo captura; #val("destino_de_regla_sin_base") cuando la regla casa pero su destino no tiene coste finalista). El visor de anomalías es la *herramienta de diseño* de la Tabla 1: muestra los patrones #campo("(centro, actividad)") pendientes para convertirlos en reglas. El visor *Por actividad dag* complementa: permite pinchar cada dag repartida y ver el detalle de su reparto (a qué finalistas y centros fue, con importe y %); y, pinchando un destino, los *fragmentos individuales* (una UC por elemento de coste, con su importe, porción y #campo("origen_id")) que componen ese destino.
 
 == Artefactos y visores
 
 La fase escribe en #ruta("data", "fase1", "reparto"): #ruta("uc_post_reparto.parquet") (UC tras el reparto, con #campo("marca_dag")), #ruta("porcentajes_centro.parquet") (la tabla de % por centro) y #ruta("anomalias.parquet"). El bloque *Reparto de actividades* de la #app expone cuatro vistas —Resumen, UC tras reparto, Porcentajes por centro y Anomalías— y reutiliza el gestor de jobs y el panel terminal de la fase 1.
+
+=== Consumo del reparto por la Fase 2
+
+Los informes de la Fase 2 (cuadros 10.x) consumen por defecto el conjunto *post-reparto* (#ruta("uc_post_reparto.parquet")): el coste de las actividades dag ya está repartido a las finalistas, que es lo que necesita un cuadro por actividad. Como #ruta("uc_post_reparto.parquet") conserva #campo("origen") y #campo("marca_dag"), un informe puede *segregar* lo no-dag de lo procedente de dag (los fragmentos llevan #campo("origen") = #val("reparto-dag")). Excepción: el cuadro 10.5 (directo/indirecto por centro) usa el combinado *pre-reparto* porque clasifica por la columna de traza #campo("regla_cc"), que es una propiedad del centro invariante al reparto de actividades. Si el reparto no se ha ejecutado, los cuadros caen al combinado pre-reparto.
+
+=== Aviso de obsolescencia
+
+El pipeline es por etapas (Fase 1 → Reparto → Fase 2) y cada visor lee artefactos de su etapa. Si se reejecuta una etapa temprana sin las posteriores, las pantallas que leen artefactos posteriores mostrarían números incoherentes. Para evitarlo, la #app compara los #campo("mtime") de las salidas de cada etapa con los de su entrada (endpoint #raw("/api/estado/pipeline")) y muestra un *banner de aviso* cuando el Reparto o la Fase 2 están obsoletos respecto a la Fase 1.
+
+=== Registro canónico de fuentes de UC
+
+Para evitar que las distintas vistas que agregan UC (Resultados, persona 360º, Personal) mantengan listas paralelas de fuentes que se desincronizan, todas cuelgan de un *registro único* (#ruta("coana", "web", "services", "uc_fuentes.py")). Añadir una fuente nueva de UC (p. ej. el absentismo) se hace en un solo sitio.
 
 
 = Fase 2: Informes consolidados
@@ -5262,11 +5295,11 @@ El menú *Informes · A la carta* (#ruta("coana", "web", "routers", "informes_ca
 
 + Elegir la *estructura* del informe (un eje) con un selector segmentado.
 + Los *otros dos ejes* actúan SOLO como *filtro*: cada slug seleccionado restringe las UC a su subárbol; selección vacía = «todos».
-+ La selección en el *eje de estructura* es solo *foco*: el árbol se ancla SIEMPRE en la raíz real (#etqcen("UJI")) y se muestran la *espina* de ancestros desde la raíz hasta cada nodo seleccionado *más* el subárbol completo del nodo. Los importes son el coste *total real* del nodo, sin recortar por el foco: elegir un nodo no oculta el coste de sus ancestros, solo centra la vista. Sin foco, se muestra el árbol entero.
++ La selección en el *eje de estructura* es solo *foco*: el árbol se ancla SIEMPRE en la raíz real (#etqcen("cc-uji")) y se muestran la *espina* de ancestros desde la raíz hasta cada nodo seleccionado *más* el subárbol completo del nodo. Los importes son el coste *total real* del nodo, sin recortar por el foco: elegir un nodo no oculta el coste de sus ancestros, solo centra la vista. Sin foco, se muestra el árbol entero.
 + Pulsar *Generar*: la consulta devuelve el árbol del eje de estructura. El árbol se presenta *autoexpandido* hasta dejar visible a la primera cada nodo de foco (se abren todas las ramas que conducen a un nodo seleccionado, y el propio nodo); sin foco, solo se abre el nivel raíz. Cada nodo muestra cuatro importes:
   - *Directo* (a): Σ de las UC asignadas exactamente a ese nodo.
   - *Descendientes* (b): Σ de las UC de todo su subárbol salvo él mismo (#val("0") en las hojas).
-  - *Ancestros* (c): Σ de las *fracciones* de las UC de sus ancestros (el camino del nodo a la raíz #etqcen("UJI")) que le corresponden. El coste directo de cada ancestro baja a TODOS sus descendientes por #emph[roll-down step-down] proporcional al coste directo del subárbol (idéntico al de la fase de reparto, y calculado sobre el árbol completo); como todo nodo del árbol está en el camino de algún coste, el peso nunca es cero. Es el *coste de infraestructura* que el nodo necesita para existir: un nodo y los que cuelgan de él se «comen» la parte que les toca del coste de sus ancestros.
+  - *Ancestros* (c): Σ de las *fracciones* de las UC de sus ancestros (el camino del nodo a la raíz #etqcen("cc-uji")) que le corresponden. El coste directo de cada ancestro baja a TODOS sus descendientes por #emph[roll-down step-down] proporcional al coste directo del subárbol (idéntico al de la fase de reparto, y calculado sobre el árbol completo); como todo nodo del árbol está en el camino de algún coste, el peso nunca es cero. Es el *coste de infraestructura* que el nodo necesita para existir: un nodo y los que cuelgan de él se «comen» la parte que les toca del coste de sus ancestros.
   - *Total* = a + b + c: el *coste totalmente cargado* del nodo. Ojo: al cargar el coste de un ancestro sobre varios descendientes, el Total deja de ser sumable hacia arriba (cada fila responde, por separado, «¿cuánto cuesta?»); el total global del sistema sigue siendo Σ(a) = coste directo total.
 + Cada importe es clicable y abre un modal con su detalle: *Directo* (UC exactas), *Descendientes* (UC del subárbol sin el propio nodo) y *Total* (todo el subárbol) listan las UC con su % de aportación al nodo; *Ancestros* (endpoint #raw("/api/informes-carta/uc-ancestros")) lista las UC de los ancestros con la *fracción* (`%`) que se le asigna al nodo y el importe efectivamente aportado (`importe × fracción`).
   - El modal presenta primero unas *estadísticas globales* (Total, «No dag» y «Procedentes de dag», con nº de UC y suma — importe, o lo aportado en el modo Ancestros; avisa si la lista se truncó al límite) y a continuación las UC en *dos bloques*: primero las que *no* provienen de reparto dag (#campo("marca_dag") vacío) y después las *procedentes de dag* (#campo("marca_dag") con la actividad dag de origen).

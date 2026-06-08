@@ -32,7 +32,7 @@ from coana.util.configuración import cfg_float
 
 # Regla escoba: una persona sin dedicación cuya masa residual (la que
 # iría a pendiente) es inferior a este umbral por persona se imputa a
-# (UJI, UJI) como gasto general; si es igual o superior, se mantiene en
+# (act-uji, cc-uji) como gasto general; si es igual o superior, se mantiene en
 # (pendiente, pendiente) como anomalía real a revisar. Origen:
 # data/configuración.xlsx (clave `umbral_residual_regla23`).
 _UMBRAL_RESIDUAL = cfg_float("umbral_residual_regla23")
@@ -42,7 +42,7 @@ _UMBRAL_RESIDUAL = cfg_float("umbral_residual_regla23")
 # que se abona en marzo por el ejercicio anterior. Cuando es la única
 # retribución variable del año (V) y la persona no tiene dedicación
 # detectable, asumimos que es un cobro residual de alguien que ya no está
-# en activo y lo imputamos a (UJI, UJI) en vez de (pendiente, pendiente).
+# en activo y lo imputamos a (act-uji, cc-uji) en vez de (pendiente, pendiente).
 _CR_INCENTIVOS_AÑO_ANTERIOR = "67"
 _MES_INCENTIVOS = 3
 
@@ -50,7 +50,7 @@ _MES_INCENTIVOS = 3
 # no les paga su salario (lo paga el destino), pero sigue abonándoles los
 # trienios consolidados. Su perfil en la masa regla 23 es «solo trienios
 # (CR 03) y, en su caso, paga extra, SIN sueldo base (CR 01)». Como no
-# prestan actividad en la UJI, ese gasto se imputa a (UJI, UJI).
+# prestan actividad en la UJI, ese gasto se imputa a (act-uji, cc-uji).
 _CR_TRIENIOS = "03"
 _CR_SOU_BASE = "01"
 
@@ -97,7 +97,7 @@ _INVESTIGADOR_SIN_PROYECTO_CC = "vi"
 # se imputa a estudios oficiales de la UJI.
 _EC_DOCENTE_PURO_PREFIJOS = ("pdi-as", "pdi-ps")
 _DOCENTE_PURO_SIN_POD_ACT = "estudios-oficiales"
-_DOCENTE_PURO_SIN_POD_CC = "UJI"
+_DOCENTE_PURO_SIN_POD_CC = "cc-uji"
 
 
 def generar_uc_reparto_regla_23(
@@ -157,6 +157,30 @@ def generar_uc_reparto_regla_23(
     )
     if masa.is_empty():
         return _esquema_vacío()
+
+    # Excluir los meses con bonificación de SS (absentismo): toda la
+    # nómina de esos persona-mes ya está colapsada en `uc_absentismo`,
+    # así que NO debe entrar también en la masa regla 23 (evita el doble
+    # cómputo del coste del mes bonificado).
+    meses_abs_path = (
+        ruta_base / "fase1" / "auxiliares" / "nóminas" / "meses_absentismo.parquet"
+    )
+    if meses_abs_path.exists():
+        meses_abs = pl.read_parquet(meses_abs_path)
+        if not meses_abs.is_empty():
+            masa = (
+                masa.with_columns(pl.col("fecha").dt.strftime("%Y-%m").alias("_mes"))
+                .join(
+                    meses_abs.rename({"mes": "_mes"}).with_columns(
+                        pl.lit(True).alias("_abs")
+                    ),
+                    on=["per_id", "_mes"], how="left",
+                )
+                .filter(pl.col("_abs").is_null())
+                .drop("_mes", "_abs")
+            )
+        if masa.is_empty():
+            return _esquema_vacío()
 
     # Calcular elemento de coste fila a fila (depende del sector).
     ecs: list[str | None] = []
@@ -322,7 +346,7 @@ def generar_uc_reparto_regla_23(
     # cuyo perfil retributivo encaja con «PDI cesado/fallecido cobrando
     # incentivos del año anterior» (única retribución variable en marzo,
     # concepto retributivo 67 y, opcionalmente, atrasos posteriores) se
-    # imputan a (UJI, UJI) en vez de (pendiente, pendiente).
+    # imputan a (act-uji, cc-uji) en vez de (pendiente, pendiente).
     sin_ded = masa_pp.join(
         totales.select("per_id"), on="per_id", how="anti",
     )
@@ -339,7 +363,7 @@ def generar_uc_reparto_regla_23(
         paa_salud = _override_paa_salud(masa, ruta_base)
         sin_ded = sin_ded.join(paa_salud, on="per_id", how="left")
         # Funcionarios en servicios especiales (solo trienios, sin sueldo
-        # base) → (UJI, UJI).
+        # base) → (act-uji, cc-uji).
         serv_esp = _detecta_servicios_especiales(
             masa, sin_ded.select("per_id").unique(),
         )
@@ -364,7 +388,7 @@ def generar_uc_reparto_regla_23(
         m_doc = ~_es_paa & ~_inc & ~_es_invest & ~_serv & _es_doc
         # Lo que ninguna regla anterior captura. Regla escoba: si la masa
         # residual TOTAL de la persona es menor que el umbral, se barre a
-        # (UJI, UJI); si no, se mantiene como anomalía en (pendiente).
+        # (act-uji, cc-uji); si no, se mantiene como anomalía en (pendiente).
         _resto_pend = ~_es_paa & ~_inc & ~_es_invest & ~_serv & ~_es_doc
         sin_ded = sin_ded.with_columns(
             pl.when(_resto_pend).then(pl.col("importe_ec")).otherwise(0.0)
@@ -374,19 +398,19 @@ def generar_uc_reparto_regla_23(
         m_pend = _resto_pend & (pl.col("_masa_residual_persona") >= _UMBRAL_RESIDUAL)
         sin_ded = sin_ded.with_columns(
             pl.when(m_paa).then(pl.col("_act_paa"))
-              .when(m_uji).then(pl.lit("UJI"))
+              .when(m_uji).then(pl.lit("act-uji"))
               .when(m_inv).then(pl.lit(_INVESTIGADOR_SIN_PROYECTO_ACT))
-              .when(m_serv).then(pl.lit("UJI"))
+              .when(m_serv).then(pl.lit("act-uji"))
               .when(m_doc).then(pl.lit(_DOCENTE_PURO_SIN_POD_ACT))
-              .when(m_resid).then(pl.lit("UJI"))
+              .when(m_resid).then(pl.lit("act-uji"))
               .otherwise(pl.lit("pendiente"))
               .alias("_act_fb"),
             pl.when(m_paa).then(pl.col("_cc_paa"))
-              .when(m_uji).then(pl.lit("UJI"))
+              .when(m_uji).then(pl.lit("cc-uji"))
               .when(m_inv).then(pl.lit(_INVESTIGADOR_SIN_PROYECTO_CC))
-              .when(m_serv).then(pl.lit("UJI"))
+              .when(m_serv).then(pl.lit("cc-uji"))
               .when(m_doc).then(pl.lit(_DOCENTE_PURO_SIN_POD_CC))
-              .when(m_resid).then(pl.lit("UJI"))
+              .when(m_resid).then(pl.lit("cc-uji"))
               .otherwise(pl.lit("pendiente"))
               .alias("_cc_fb"),
         )
@@ -412,7 +436,7 @@ def generar_uc_reparto_regla_23(
             print(
                 f"    ℹ {n_uji:,} personas con masa regla 23 sin "
                 f"dedicación pero con perfil de incentivos residuales "
-                f"({imp_uji:,.2f} €) — repartido a (UJI, UJI)."
+                f"({imp_uji:,.2f} €) — repartido a (act-uji, cc-uji)."
             )
         if n_inv > 0:
             print(
@@ -425,7 +449,7 @@ def generar_uc_reparto_regla_23(
             print(
                 f"    ℹ {n_serv:,} funcionarios en servicios especiales "
                 f"(solo trienios, sin sueldo base) ({imp_serv:,.2f} €) — "
-                f"repartido a (UJI, UJI)."
+                f"repartido a (act-uji, cc-uji)."
             )
         if n_doc > 0:
             print(
@@ -438,7 +462,7 @@ def generar_uc_reparto_regla_23(
             print(
                 f"    ℹ {n_resid:,} personas con masa residual < "
                 f"{_UMBRAL_RESIDUAL:,.0f} € ({imp_resid:,.2f} €) — barrido "
-                f"a (UJI, UJI) por la regla escoba."
+                f"a (act-uji, cc-uji) por la regla escoba."
             )
         if n_pendientes > 0:
             print(

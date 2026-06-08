@@ -235,6 +235,14 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
         todas_uc.append(resultado_nom.uc_indemnizaciones_asistencias)
     if not resultado_nom.uc_cargos.is_empty():
         todas_uc.append(resultado_nom.uc_cargos)
+    # UC de absentismo (persona-mes con bonificación de SS): selecciona
+    # las columnas estándar (lleva además per_id/expediente/mes para el
+    # visor, que no entran en el fichero combinado de UC).
+    if not resultado_nom.uc_absentismo.is_empty():
+        todas_uc.append(resultado_nom.uc_absentismo.select(
+            "id", "elemento_de_coste", "centro_de_coste", "actividad",
+            "importe", "origen", "origen_id", "origen_porción",
+        ))
 
     # -- Cargos académicos: reparto CR 19/64 proyecto general entre cargos --
     print("Procesando cargos académicos…")

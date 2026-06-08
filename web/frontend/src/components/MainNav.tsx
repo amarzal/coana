@@ -108,6 +108,7 @@ const GROUPS: Group[] = [
             },
             { label: "Multiexpediente", to: "/personal/multiexpediente" },
             { label: "Costes sociales calculados", to: "/personal/costes-sociales-calculados" },
+            { label: "Absentismo", to: "/personal/absentismo" },
             { label: "Atrasos a no vinculados", to: "/personal/atrasos-no-vinculados" },
             { label: "Despidos", to: "/personal/despidos" },
             { label: "Indemnizaciones asistencias", to: "/personal/indemnizaciones" },

@@ -29,6 +29,7 @@ import polars as pl
 from coana.util import read_excel
 from coana.util.configuración import cfg_int, cfg_tuple
 from coana.web.deps import DIR_AUX, DIR_ENTRADA, DIR_FASE1, _mtime_ns, read_parquet
+from coana.web.services.uc_fuentes import FUENTES_RETRIBUTIVAS
 from coana.web.schemas.common import (
     ColumnSpec,
     Kpi,
@@ -58,6 +59,8 @@ PATH_UC_DESPIDOS = DIR_NOMINAS / "uc_despidos.parquet"
 PATH_UC_INDEM = DIR_NOMINAS / "uc_indemnizaciones_asistencias.parquet"
 PATH_UC_CARGOS = DIR_NOMINAS / "uc_cargos.parquet"           # CR 19/64 en proy ESPECÍFICO
 PATH_CARGOS_UC = DIR_NOMINAS / "cargos_uc.parquet"           # reparto cargos en proy GENERAL
+PATH_UC_ABSENTISMO = DIR_NOMINAS / "uc_absentismo.parquet"   # persona-mes con bonificación de SS
+PATH_MESES_ABSENTISMO = DIR_NOMINAS / "meses_absentismo.parquet"  # (per_id, mes) bonificados
 PATH_PERSONA_SS = DIR_NOMINAS / "persona_ss.parquet"
 PATH_PERSONA_UC = DIR_NOMINAS / "persona_uc.parquet"
 PATH_UC_REPARTO_R23 = DIR_REGLA23 / "uc_reparto_regla_23.parquet"
@@ -261,8 +264,26 @@ def _conceptos_clasificados(df: pl.DataFrame) -> pl.DataFrame:
     es_ss = apli.str.starts_with("12")
     es_pdi_pvi = sector.is_in(["PDI", "PI"])
 
-    return df.with_columns(
-        pl.when(es_ss).then(pl.lit("ss"))
+    # Meses con bonificación de SS (absentismo): TODA la línea de ese
+    # persona-mes —cualquier concepto— se desvía a la UC de absentismo,
+    # así que tiene precedencia sobre el resto de la clasificación. La
+    # UC de contrapartida es `uc_absentismo.parquet`.
+    es_absentismo = pl.lit(False)
+    meses_abs = _safe_read(PATH_MESES_ABSENTISMO)
+    if (
+        meses_abs is not None and not meses_abs.is_empty()
+        and "per_id" in df.columns and "fecha" in df.columns
+    ):
+        df = df.with_columns(pl.col("fecha").dt.strftime("%Y-%m").alias("_mes")).join(
+            meses_abs.rename({"mes": "_mes"}).with_columns(pl.lit(True).alias("_es_abs")),
+            on=["per_id", "_mes"],
+            how="left",
+        )
+        es_absentismo = pl.col("_es_abs").fill_null(False)
+
+    out = df.with_columns(
+        pl.when(es_absentismo).then(pl.lit("absentismo"))
+        .when(es_ss).then(pl.lit("ss"))
         .when((cr == "48")).then(pl.lit("indemnizaciones"))
         .when((cr == "47") & es_proy_gen_nom & es_pdi_pvi).then(pl.lit("despidos"))
         .when((cr == "47")).then(pl.lit("despidos-extra"))
@@ -272,11 +293,16 @@ def _conceptos_clasificados(df: pl.DataFrame) -> pl.DataFrame:
         .otherwise(pl.lit("retribuciones-extras"))
         .alias("concepto")
     )
+    for c in ("_es_abs", "_mes"):
+        if c in out.columns:
+            out = out.drop(c)
+    return out
 
 
 _ORDEN_CONCEPTO = [
     "masa-regla-23", "cargos-reparto", "despidos", "indemnizaciones",
     "retribuciones-extras", "cargos-extras", "despidos-extra",
+    "absentismo",
     "ss",
 ]
 
@@ -287,6 +313,9 @@ _CONCEPTO_A_UC = {
     "indemnizaciones": ["uc_indemnizaciones_asistencias"],
     "retribuciones-extras": ["uc_ptgas", "uc_pdi", "uc_pvi"],
     "cargos-extras": ["uc_cargos"],
+    # Absentismo por bonificación de SS: el mes entero colapsado en una
+    # única UC (uc_absentismo.parquet).
+    "absentismo": ["uc_absentismo"],
     # «despidos-extra» (CR 47 en proyecto NO general) canalizan en
     # uc_pdi/uc_pvi como cualquier extra. Su importe ya está contado
     # en «retribuciones-extras», así que aquí no le asignamos UC para
@@ -385,47 +414,33 @@ def _uc_retributivas_por_persona(per_ids: set[int]) -> pl.DataFrame:
     """Suma de importes de todas las UC retributivas para las personas
     indicadas, agregadas por per_id. Incluye TODOS sus expedientes (no
     solo los del sector).
+
+    Itera el registro canónico `FUENTES_RETRIBUTIVAS`: al añadir una
+    fuente retributiva nueva (como el absentismo) se incluye aquí sin
+    tocar este código.
     """
     pids = list(per_ids)
-    # Mapa expediente → per_id para uc_pdi/pvi.
-    exp_all = read_excel(PATH_EXP).filter(pl.col("per_id").is_in(pids))
+    exp_map = read_excel(PATH_EXP).filter(
+        pl.col("per_id").is_in(pids)
+    ).select("expediente", "per_id")
     partes: list[pl.DataFrame] = []
 
-    # uc_ptgas, uc_pdi y uc_pvi: por expediente → per_id.
-    for path in (PATH_UC_PTGAS, PATH_UC_PDI, PATH_UC_PVI):
-        df = _safe_read(path)
-        if df is None or df.is_empty() or "expediente" not in df.columns:
+    for f in FUENTES_RETRIBUTIVAS:
+        df = _safe_read(f.ruta)
+        if df is None or df.is_empty():
             continue
-        sub = df.join(
-            exp_all.select("expediente", "per_id"), on="expediente", how="inner",
-        )
+        imp = f.importe_col if f.importe_col in df.columns else "importe"
+        if f.clave == "expediente":
+            if "expediente" not in df.columns:
+                continue
+            sub = df.join(exp_map, on="expediente", how="inner")
+        else:  # per_id
+            if "per_id" not in df.columns:
+                continue
+            sub = df.filter(pl.col("per_id").is_in(pids))
         if sub.is_empty():
             continue
-        partes.append(sub.select("per_id", "importe"))
-
-    # uc_despidos, uc_indemnizaciones, uc_cargos: traen per_id.
-    for path in (PATH_UC_DESPIDOS, PATH_UC_INDEM, PATH_UC_CARGOS):
-        df = _safe_read(path)
-        if df is None or df.is_empty() or "per_id" not in df.columns:
-            continue
-        sub = df.filter(pl.col("per_id").is_in(pids))
-        if sub.is_empty():
-            continue
-        partes.append(sub.select("per_id", "importe"))
-
-    # cargos_uc: per_id directo, importe en `importe_uc`.
-    cargos = _safe_read(PATH_CARGOS_UC)
-    if cargos is not None and not cargos.is_empty() and "per_id" in cargos.columns:
-        sub = cargos.filter(pl.col("per_id").is_in(pids))
-        if not sub.is_empty():
-            partes.append(sub.select("per_id", pl.col("importe_uc").alias("importe")))
-
-    # uc_reparto_regla_23: per_id directo.
-    r23 = _safe_read(PATH_UC_REPARTO_R23)
-    if r23 is not None and not r23.is_empty() and "per_id" in r23.columns:
-        sub = r23.filter(pl.col("per_id").is_in(pids))
-        if not sub.is_empty():
-            partes.append(sub.select("per_id", "importe"))
+        partes.append(sub.select("per_id", pl.col(imp).alias("importe")))
 
     if not partes:
         return pl.DataFrame(schema={"per_id": pl.Int64, "uc_retr": pl.Float64})
@@ -702,6 +717,12 @@ def _uc_persona_por_concepto(sector: str, per_id: int) -> dict[str, float]:
         if v != 0:
             out["uc_reparto_regla_23"] = v
 
+    df = _safe_read(PATH_UC_ABSENTISMO)
+    if df is not None and not df.is_empty() and "per_id" in df.columns:
+        v = float(df.filter(pl.col("per_id") == per_id)["importe"].sum() or 0.0)
+        if v != 0:
+            out["uc_absentismo"] = v
+
     df = _safe_read(PATH_PERSONA_SS)
     if df is not None and not df.is_empty() and "per_id" in df.columns:
         sub = df.filter((pl.col("per_id") == per_id) & ~pl.col("ss_proporcional").is_nan())
@@ -811,6 +832,7 @@ def listar_uc_persona_completa(
     _cargar("uc_cargos", PATH_UC_CARGOS, via_expediente=False)
     _cargar("cargos_uc", PATH_CARGOS_UC, via_expediente=False, importe_col="importe_uc")
     _cargar("uc_reparto_regla_23", PATH_UC_REPARTO_R23, via_expediente=False)
+    _cargar("uc_absentismo", PATH_UC_ABSENTISMO, via_expediente=False)
 
     # persona_ss → expandimos a UC sintéticas.
     ss_df = _safe_read(PATH_PERSONA_SS)

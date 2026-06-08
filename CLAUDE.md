@@ -60,7 +60,7 @@ documentación/
 
 - **Unidad de coste (UC):** registro con `id`, `tipo` (elemento de coste), `centro_de_coste`, `actividad`, `importe`, `origen` (OrigenUC enum), `origen_id`, `origen_porción`.
 - **OrigenUC:** `Enum(presupuesto, nómina, inventario, unidad)`.
-- **Árbol / .tree:** estructura jerárquica de nodos con `código` (01.02.03…), `descripción` e `identificador` único (slug con guiones, p.ej. `estce`). La raíz representa la organización (UJI).
+- **Árbol / .tree:** estructura jerárquica de nodos con `código` (01.02.03…), `descripción` e `identificador` único (slug con guiones, p.ej. `estce`). La raíz (código «») representa la organización; su identificador es propio de cada árbol para evitar ambigüedad: `cc-uji` (centros de coste), `act-uji` (actividades), `ec-uji` (elementos de coste). Se infiere del nombre de fichero al cargar y se persiste en una cabecera `# raíz: …`.
 - Salidas presupuesto: `uc presupuesto.xlsx` y `presupuesto sin uc.xlsx`.
 
 ## Convenios de código

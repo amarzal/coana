@@ -7,12 +7,25 @@ indentadas de la forma::
         Descripción del hijo | id-hijo
 
 Cada nodo recibe un código automático (01, 01.02, 01.02.03…) según
-su posición en el árbol.  La raíz es un nodo virtual con
-identificador ``UJI``.
+su posición en el árbol.  La raíz es un nodo virtual (código «»). Su
+identificador depende del árbol: ``cc-uji`` (centros de coste),
+``act-uji`` (actividades), ``ec-uji`` (elementos de coste) o ``UJI``
+por defecto. Se infiere del nombre de fichero en `from_file`, se puede
+forzar con el parámetro `raíz_id`, y `to_str` lo persiste en una
+cabecera ``# raíz: …`` para que el round-trip lo conserve.
 """
 
+import re
 from pathlib import Path
 from typing import Any, Self
+
+# Identificador de la raíz virtual según el nombre del fichero .tree.
+_RAÍCES_POR_NOMBRE: dict[str, str] = {
+    "centros de coste": "cc-uji",
+    "actividades": "act-uji",
+    "elementos de coste": "ec-uji",
+}
+_RAÍZ_POR_DEFECTO = "UJI"
 
 from pydantic import GetCoreSchemaHandler, GetJsonSchemaHandler
 from pydantic.json_schema import JsonSchemaValue
@@ -189,16 +202,27 @@ class Árbol:
     # --- Lectura / Escritura ---
 
     @classmethod
-    def from_str(cls, texto: str) -> Self:
-        """Construye un árbol a partir de texto en formato ``.tree``."""
-        raíz = NodoÁrbol(código="", descripción="", identificador="UJI")
+    def from_str(cls, texto: str, *, raíz_id: str | None = None) -> Self:
+        """Construye un árbol a partir de texto en formato ``.tree``.
+
+        El identificador de la raíz se toma (por prioridad) de la
+        cabecera ``# raíz: …`` del texto si existe, del parámetro
+        `raíz_id`, o de `_RAÍZ_POR_DEFECTO`.
+        """
+        raíz_id_efectivo = raíz_id or _RAÍZ_POR_DEFECTO
         líneas: list[tuple[int, str]] = []
         for línea in texto.splitlines():
             stripped = línea.strip()
-            if not stripped or stripped.startswith("#"):
+            if not stripped:
+                continue
+            if stripped.startswith("#"):
+                m = re.match(r"#\s*raíz:\s*(\S+)", stripped)
+                if m:
+                    raíz_id_efectivo = m.group(1)
                 continue
             indent = len(línea) - len(línea.lstrip())
             líneas.append((indent, stripped))
+        raíz = NodoÁrbol(código="", descripción="", identificador=raíz_id_efectivo)
 
         if not líneas:
             return cls(raíz)
@@ -240,13 +264,21 @@ class Árbol:
         return cls(raíz)
 
     @classmethod
-    def from_file(cls, path: str | Path) -> Self:
-        """Carga un árbol desde un fichero ``.tree``."""
-        return cls.from_str(Path(path).read_text(encoding="utf-8"))
+    def from_file(cls, path: str | Path, *, raíz_id: str | None = None) -> Self:
+        """Carga un árbol desde un fichero ``.tree``.
+
+        Si no se da `raíz_id`, se infiere del nombre del fichero
+        (`_RAÍCES_POR_NOMBRE`). Una cabecera ``# raíz: …`` en el fichero
+        tiene prioridad sobre ambos.
+        """
+        if raíz_id is None:
+            raíz_id = _RAÍCES_POR_NOMBRE.get(Path(path).stem)
+        return cls.from_str(Path(path).read_text(encoding="utf-8"), raíz_id=raíz_id)
 
     def to_str(self) -> str:
         """Serializa el árbol a formato ``.tree``."""
-        líneas: list[str] = []
+        # Cabecera con el id de la raíz para que el round-trip lo conserve.
+        líneas: list[str] = [f"# raíz: {self.raíz.identificador}"]
 
         def _rec(nodo: NodoÁrbol, nivel: int) -> None:
             for hijo in nodo.hijos:
