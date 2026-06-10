@@ -1,7 +1,7 @@
 id: cuadro_10_1
 título: Informe de elementos de coste
 encabezado_concepto: Elemento de coste
-total: 152563950.4
+total: 152617893.03
 filas:
 - código: '01'
   slug: costes-personal
@@ -9,7 +9,7 @@ filas:
   nivel: 1
   importe: 116418889.65
   pct_elemento: 100.0
-  pct_total: 76.3083
+  pct_total: 76.2813
 - código: '01.01'
   slug: salario-pdi
   nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
@@ -87,7 +87,7 @@ filas:
   nivel: 1
   importe: 10371613.24
   pct_elemento: 100.0
-  pct_total: 6.7982
+  pct_total: 6.7958
 - código: '03.03'
   slug: material-laboratorio
   nombre: Coste de material e instrumental de laboratorio y experimentación
@@ -136,7 +136,7 @@ filas:
   nivel: 1
   importe: 16353369.39
   pct_elemento: 100.0
-  pct_total: 10.719
+  pct_total: 10.7152
 - código: '04.02'
   slug: conservación
   nombre: Reparaciones y conservación
@@ -204,14 +204,14 @@ filas:
   slug: amortizaciones
   nombre: Amortizaciones (costes calculados)
   nivel: 1
-  importe: 6347526.73
+  importe: 6401469.36
   pct_elemento: 100.0
-  pct_total: 4.1606
+  pct_total: 4.1944
 - código: '07.01'
   slug: amortización-inmovilizado-material
   nombre: Del inmovilizado material
   nivel: 2
-  importe: 6347526.73
+  importe: 6401469.36
   pct_elemento: 100.0
   pct_total: null
 - código: '07.02'
@@ -234,7 +234,7 @@ filas:
   nivel: 1
   importe: 3041838.91
   pct_elemento: 100.0
-  pct_total: 1.9938
+  pct_total: 1.9931
 - código: '09.01'
   slug: transferencias-alumnos
   nombre: A alumnos/as

@@ -21,157 +21,157 @@ filas:
   nombre: Actividades finalistas o principales y asimiladas
   nivel: 1
   valores:
-    depts: 15538027.33
+    depts: 15457417.76
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 12125064.7
-    otros: 119948066.09
+    dag: 12042747.88
+    otros: 120110992.48
     total: 147611158.12
 - código: '01.01'
   slug: docencia
   nombre: Actividades de docencia
   nivel: 2
   valores:
-    depts: 2144051.24
+    depts: 2131904.38
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 1211936.82
-    otros: 43997103.28
-    total: 47353091.34
+    dag: 1204492.32
+    otros: 44748319.64
+    total: 48084716.34
 - código: 01.01.01
   slug: estudios-oficiales
   nombre: Estudios oficiales
   nivel: 3
   valores:
-    depts: 25414.09
+    depts: 25279.2
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 433272.0
-    otros: 43175250.67
-    total: 43633936.77
+    dag: 432321.25
+    otros: 43933794.1
+    total: 44391394.54
 - código: 01.01.02
   slug: enseñanzas-propias
   nombre: Enseñanzas propias universitarias
   nivel: 3
   valores:
-    depts: 2118637.15
+    depts: 2106625.18
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 778664.82
-    otros: 821852.61
-    total: 3719154.58
+    dag: 772171.08
+    otros: 814525.54
+    total: 3693321.79
 - código: '01.02'
   slug: ai
   nombre: Actividades de investigación y transferencia del conocimiento
   nivel: 2
   valores:
-    depts: 13179533.65
+    depts: 13111910.11
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 6503784.29
-    otros: 71004511.07
-    total: 90687829.01
+    dag: 6461923.75
+    otros: 70433731.85
+    total: 90007565.71
 - código: 01.02.01
   slug: ai-financiación-propia
   nombre: Actividades de investigación con financiación propia
   nivel: 3
   valores:
-    depts: 1554711.57
+    depts: 1547138.95
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 4817528.75
-    otros: 8918156.45
-    total: 15290396.76
+    dag: 4784263.42
+    otros: 8848134.21
+    total: 15179536.59
 - código: 01.02.02
   slug: ait-financiación-externa
   nombre: Actividades de investigación y transferencia con financiación externa
   nivel: 3
   valores:
-    depts: 11624822.09
+    depts: 11564771.15
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 1686255.54
-    otros: 50684749.66
-    total: 63995827.29
+    dag: 1677660.33
+    otros: 50276817.23
+    total: 63519248.72
 - código: 01.02.02.01
   slug: ai-financiación-competitiva
   nombre: Actividades financiadas por agentes externos en convocatorias competitivas
   nivel: 4
   valores:
-    depts: 9456818.05
+    depts: 9406326.88
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 1229157.43
-    otros: 40648328.23
-    total: 51334303.71
+    dag: 1221993.34
+    otros: 40319875.18
+    total: 50948195.4
 - código: 01.02.02.01.01
   slug: ai-regional
   nombre: Actividades con financiación de programas regionales
   nivel: 5
   valores:
-    depts: 3533372.67
+    depts: 3514864.63
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 106346.47
-    otros: 14395126.21
-    total: 18034845.35
+    dag: 105491.13
+    otros: 14278984.36
+    total: 17899340.12
 - código: 01.02.02.01.02
   slug: ai-nacional
   nombre: Actividades con financiación de programas nacionales
   nivel: 5
   valores:
-    depts: 4855223.59
+    depts: 4828340.82
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 1044095.4
-    otros: 22475242.72
-    total: 28374561.71
+    dag: 1038442.9
+    otros: 22293635.15
+    total: 28160418.88
 - código: 01.02.02.01.03
   slug: ai-internacional
   nombre: Actividades con financiación de programas internacionales
   nivel: 5
   valores:
-    depts: 931128.63
+    depts: 926677.91
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 78715.56
-    otros: 3537148.66
-    total: 4546992.85
+    dag: 78059.31
+    otros: 3508399.53
+    total: 4513136.76
 - código: 01.02.02.01.04
   slug: ai-otras-competitivas
   nombre: Otras actividades de investigación en convocatorias competitivas
   nivel: 5
   valores:
-    depts: 137093.16
+    depts: 136443.51
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
     dag: 0.0
-    otros: 240810.64
-    total: 377903.8
+    otros: 238856.13
+    total: 375299.64
 - código: 01.02.02.02
   slug: transf
   nombre: Actividades de investigación aplicada y transferencia
   nivel: 4
   valores:
-    depts: 2168004.04
+    depts: 2158444.28
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 436475.35
-    otros: 10036421.43
-    total: 12640900.81
+    dag: 435208.47
+    otros: 9956942.06
+    total: 12550594.8
 - código: 01.02.03
   slug: doctorado
   nombre: Doctorado
@@ -182,25 +182,25 @@ filas:
     laboratorios: 0.0
     aulas: 0.0
     dag: 0.0
-    otros: 6564266.94
-    total: 6564266.94
+    otros: 6510392.84
+    total: 6510392.84
 - código: '01.03'
   slug: deportes-extensión-universitaria
   nombre: Actividades deportivas y de extensión universitaria
   nivel: 2
   valores:
-    depts: 214442.43
+    depts: 213603.28
     biblioteca: 0.0
     laboratorios: 0.0
     aulas: 0.0
-    dag: 4409343.59
-    otros: 4946451.75
-    total: 9570237.77
+    dag: 4376331.8
+    otros: 4928940.99
+    total: 9518876.07
 total:
-  depts: 15538027.33
+  depts: 15457417.76
   biblioteca: 0.0
   laboratorios: 0.0
   aulas: 0.0
-  dag: 12125064.7
-  otros: 119948066.09
+  dag: 12042747.88
+  otros: 120110992.48
   total: 147611158.12

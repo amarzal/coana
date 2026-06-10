@@ -283,6 +283,8 @@ def generar_uc_amortizaciones(
         .then(pl.lit("estce"))
         .when(pl.col("_desc_norm").str.contains("residencia", literal=True))
         .then(pl.lit("residencia-universitaria"))
+        .when(pl.col("_desc_norm").str.contains("urbaniza", literal=True))
+        .then(pl.lit("urbanización"))
         .otherwise(pl.col("centro"))
         .alias("centro"),
     ).drop("_desc_norm")

@@ -6,7 +6,7 @@ cursos UJI, OAD…) que se incorporan a `dedicación_pdi.parquet`.
 
 Filtro: el proyecto presupuestario asociado a la fila debe ser de uno
 de los tipos #val("EPM"), #val("EPDE"), #val("EPDEX"), #val("EPC"),
-#val("EPMI"), #val("CUID"), #val("CUES") u #val("OAD"). El resto (con
+#val("EPMI"), #val("CUID"), #val("CUEX") u #val("OAD"). El resto (con
 financiación genérica) se descarta.
 
 Regularización de horas: los datos de origen guardan tres campos por
@@ -57,7 +57,7 @@ _FACTOR_DOCENTE: float = cfg_float("factor_impartición_docente")
 # Tipos de proyecto presupuestario que financian docencia no oficial
 # propia (formación permanente, cursos UJI, OAD, idiomas…).
 TIPOS_PROYECTO_NO_OFICIAL: tuple[str, ...] = (
-    "EPM", "EPDE", "EPDEX", "EPC", "EPMI", "CUID", "CUES", "OAD",
+    "EPM", "EPDE", "EPDEX", "EPC", "EPMI", "CUID", "CUEX", "CUES", "OAD",
 )
 
 # Regla «Formación permanente» del clasificador de actividades
@@ -70,9 +70,9 @@ ACTIVIDAD_POR_TIPO: dict[str, str] = {
     "EPC": "cursos-formación-permanente",
     "EPMI": "microcredenciales",
     "CUID": "cursos-idiomas",
+    # `CUEX` es el tipo del catálogo oficial (`tipos de proyecto.xlsx`);
+    # `CUES` se tolera como variante observada y se trata como sinónimo.
     "CUEX": "cursos-extranjeros",
-    # `CUES` aparece como variante observada del tipo CUEX en la
-    # cláusula de filtro previa; se trata como sinónimo.
     "CUES": "cursos-extranjeros",
 }
 

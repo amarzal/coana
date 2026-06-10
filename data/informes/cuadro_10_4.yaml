@@ -1,49 +1,49 @@
 id: cuadro_10_4
 título: Informe de costes por centros de coste según su finalidad
 encabezado_concepto: Tipo de centro
-total: 152563950.4
+total: 152617893.03
 filas:
 - código: '01'
   slug: docencia
   nombre: Centros de docencia
   nivel: 1
-  importe: 44116686.04
+  importe: 44866893.14
   pct_elemento: 100.0
-  pct_total: 28.9168
+  pct_total: 29.3982
 - código: '01.01'
   slug: facultades-escuelas
   nombre: Facultades y escuelas
   nivel: 2
-  importe: 43344452.16
-  pct_elemento: 98.2496
+  importe: 44101559.05
+  pct_elemento: 98.2942
   pct_total: null
 - código: 01.01.01
   slug: estce
   nombre: Escuela Superior de Tecnología y Ciencias Experimentales
   nivel: 3
-  importe: 13448114.45
-  pct_elemento: 30.4831
+  importe: 13654504.36
+  pct_elemento: 30.4334
   pct_total: null
 - código: 01.01.02
   slug: fchs
   nombre: Facultad de Ciencias Humanas y Sociales
   nivel: 3
-  importe: 12192854.28
-  pct_elemento: 27.6377
+  importe: 12381663.41
+  pct_elemento: 27.5964
   pct_total: null
 - código: 01.01.03
   slug: fcje
   nombre: Facultad de Ciencias Jurídicas y Económicas
   nivel: 3
-  importe: 9926251.35
-  pct_elemento: 22.5
+  importe: 10083290.38
+  pct_elemento: 22.4738
   pct_total: null
 - código: 01.01.04
   slug: fcs
   nombre: Facultad de Ciencias de la Salud
   nivel: 3
-  importe: 7747720.95
-  pct_elemento: 17.5619
+  importe: 7952854.05
+  pct_elemento: 17.7254
   pct_total: null
 - código: '01.02'
   slug: aulas-laboratorios-docentes
@@ -56,149 +56,149 @@ filas:
   slug: otros-docentes
   nombre: Otros centros docentes
   nivel: 2
-  importe: 763971.37
-  pct_elemento: 1.7317
+  importe: 757145.57
+  pct_elemento: 1.6875
   pct_total: null
 - código: 01.03.01
   slug: universidad-mayores
   nombre: Universidad de los Mayores
   nivel: 3
-  importe: 763971.37
-  pct_elemento: 1.7317
+  importe: 757145.57
+  pct_elemento: 1.6875
   pct_total: null
 - código: '02'
   slug: investigación
   nombre: Centros de investigación
   nivel: 1
-  importe: 65298325.24
+  importe: 64780387.29
   pct_elemento: 100.0
-  pct_total: 42.8006
+  pct_total: 42.4461
 - código: '02.01'
   slug: institutos
   nombre: Institutos de investigación
   nivel: 2
-  importe: 64081763.57
-  pct_elemento: 98.1369
+  importe: 63574020.03
+  pct_elemento: 98.1378
   pct_total: null
 - código: 02.01.01
   slug: iidl
   nombre: Instituto Interuniversitario de Desarrollo Local
   nivel: 3
-  importe: 673601.35
-  pct_elemento: 1.0316
+  importe: 668899.71
+  pct_elemento: 1.0326
   pct_total: null
 - código: 02.01.02
   slug: idsp
   nombre: Instituto Interuniversitario de Desarrollo Social y Paz
   nivel: 3
-  importe: 775238.16
-  pct_elemento: 1.1872
+  importe: 769020.05
+  pct_elemento: 1.1871
   pct_total: null
 - código: 02.01.03
   slug: iei
   nombre: Instituto Interuniversitario de Economía Internacional
   nivel: 3
-  importe: 1451832.52
-  pct_elemento: 2.2234
+  importe: 1440684.15
+  pct_elemento: 2.224
   pct_total: null
 - código: 02.01.04
   slug: ifv
   nombre: Instituto Interuniversitario de Filología Valenciana
   nivel: 3
-  importe: 273494.98
-  pct_elemento: 0.4188
+  importe: 271680.17
+  pct_elemento: 0.4194
   pct_total: null
 - código: 02.01.05
   slug: iigeo
   nombre: Instituto Interuniversitario de Geografía
   nivel: 3
   importe: 69722.33
-  pct_elemento: 0.1068
+  pct_elemento: 0.1076
   pct_total: null
 - código: 02.01.06
   slug: ilma
   nombre: Instituto Interuniversitario de Lenguas Modernas y Aplicadas
   nivel: 3
-  importe: 45966.01
-  pct_elemento: 0.0704
+  importe: 45815.95
+  pct_elemento: 0.0707
   pct_total: null
 - código: 02.01.07
   slug: ii-lópez-piñero
   nombre: Instituto Interuniversitario López Piñero
   nivel: 3
-  importe: 281652.05
-  pct_elemento: 0.4313
+  importe: 279886.24
+  pct_elemento: 0.4321
   pct_total: null
 - código: 02.01.08
   slug: iudt
   nombre: Instituto Universitario de Derecho del Transporte
   nivel: 3
-  importe: 495607.62
-  pct_elemento: 0.759
+  importe: 491717.15
+  pct_elemento: 0.7591
   pct_total: null
 - código: 02.01.09
   slug: iuef
   nombre: Instituto Universitario de Estudios Feministas y de Género Purificación
     Escribano
   nivel: 3
-  importe: 157919.23
-  pct_elemento: 0.2418
+  importe: 157304.89
+  pct_elemento: 0.2428
   pct_total: null
 - código: 02.01.10
   slug: imac
   nombre: Instituto Universitario de Matemáticas y Aplicaciones de Castellón
   nivel: 3
-  importe: 1888008.69
-  pct_elemento: 2.8914
+  importe: 1873302.49
+  pct_elemento: 2.8918
   pct_total: null
 - código: 02.01.11
   slug: inam
   nombre: Instituto Universitario de Materiales Avanzados
   nivel: 3
-  importe: 6961520.04
-  pct_elemento: 10.6611
+  importe: 6905897.94
+  pct_elemento: 10.6605
   pct_total: null
 - código: 02.01.12
   slug: init
   nombre: Instituto Universitario de Nuevas Tecnologías de la Imagen
   nivel: 3
-  importe: 5372339.32
-  pct_elemento: 8.2274
+  importe: 5328351.55
+  pct_elemento: 8.2253
   pct_total: null
 - código: 02.01.13
   slug: iupa
   nombre: Instituto Universitario de Plaguicidas y Aguas - LARP
   nivel: 3
-  importe: 2210114.43
-  pct_elemento: 3.3846
+  importe: 2194717.99
+  pct_elemento: 3.3879
   pct_total: null
 - código: 02.01.14
   slug: iutc
   nombre: Instituto Universitario de Tecnología Cerámica Agustín Escardino
   nivel: 3
-  importe: 1940901.07
-  pct_elemento: 2.9724
+  importe: 1926943.19
+  pct_elemento: 2.9746
   pct_total: null
 - código: 02.01.15
   slug: iuturismo
   nombre: Instituto Universitario de Turismo
   nivel: 3
-  importe: 258834.04
-  pct_elemento: 0.3964
+  importe: 256966.66
+  pct_elemento: 0.3967
   pct_total: null
 - código: 02.01.16
   slug: iuce
   nombre: Instituto Universitario en Ciencias de la Educación
   nivel: 3
-  importe: 156078.82
+  importe: 154847.25
   pct_elemento: 0.239
   pct_total: null
 - código: 02.01.17
   slug: inves
   nombre: Grupos no adscritos a institutos
   nivel: 3
-  importe: 41068932.91
-  pct_elemento: 62.8943
+  importe: 40738262.32
+  pct_elemento: 62.8867
   pct_total: null
 - código: '02.02'
   slug: centros-unidades-investigación
@@ -218,234 +218,234 @@ filas:
   slug: cátedras-investigación
   nombre: Cátedras de investigación
   nivel: 2
-  importe: 1005577.74
-  pct_elemento: 1.54
+  importe: 997165.48
+  pct_elemento: 1.5393
   pct_total: null
 - código: '02.05'
   slug: otros-investigación
   nombre: Otros centros de investigación
   nivel: 2
-  importe: 210983.93
-  pct_elemento: 0.3231
+  importe: 209201.78
+  pct_elemento: 0.3229
   pct_total: null
 - código: '03'
   slug: docencia-investigación
   nombre: Centros de docencia e investigación
   nivel: 1
-  importe: 22346700.44
+  importe: 22210152.32
   pct_elemento: 100.0
-  pct_total: 14.6474
+  pct_total: 14.5528
 - código: '03.01'
   slug: departamentos
   nombre: Departamentos
   nivel: 2
-  importe: 15538027.33
-  pct_elemento: 69.5316
+  importe: 15457417.76
+  pct_elemento: 69.5962
   pct_total: null
 - código: 03.01.01
   slug: daem
   nombre: Departamento de Administración de Empresas y Marketing
   nivel: 3
-  importe: 457438.3
-  pct_elemento: 2.047
+  importe: 454756.05
+  pct_elemento: 2.0475
   pct_total: null
 - código: 03.01.02
   slug: dbbcn
   nombre: Departamento de Biología, Bioquímica i Ciencias Naturales
   nivel: 3
-  importe: 1064763.24
-  pct_elemento: 4.7647
+  importe: 1059363.7
+  pct_elemento: 4.7697
   pct_total: null
 - código: 03.01.03
   slug: dcc
   nombre: Departamento de Ciencias de la Comunicación
   nivel: 3
-  importe: 316293.39
-  pct_elemento: 1.4154
+  importe: 315012.57
+  pct_elemento: 1.4183
   pct_total: null
 - código: 03.01.04
   slug: ddpri
   nombre: Departamento de Derecho Privado
   nivel: 3
-  importe: 110774.26
-  pct_elemento: 0.4957
+  importe: 110401.34
+  pct_elemento: 0.4971
   pct_total: null
 - código: 03.01.05
   slug: ddpub
   nombre: Departamento de Derecho Público
   nivel: 3
-  importe: 304047.3
-  pct_elemento: 1.3606
+  importe: 302367.15
+  pct_elemento: 1.3614
   pct_total: null
 - código: 03.01.06
   slug: deco
   nombre: Departamento de Economía
   nivel: 3
-  importe: 673147.07
-  pct_elemento: 3.0123
+  importe: 668345.59
+  pct_elemento: 3.0092
   pct_total: null
 - código: 03.01.07
   slug: dede
   nombre: Departamento de Educación y Didácticas Específicas
   nivel: 3
-  importe: 161242.21
-  pct_elemento: 0.7215
+  importe: 160224.39
+  pct_elemento: 0.7214
   pct_total: null
 - código: 03.01.08
   slug: dea
   nombre: Departamento de Estudios Ingleses
   nivel: 3
-  importe: 437068.08
-  pct_elemento: 1.9559
+  importe: 435915.38
+  pct_elemento: 1.9627
   pct_total: null
 - código: 03.01.09
   slug: dfce
   nombre: Departamento de Filología y Culturas Europeas
   nivel: 3
-  importe: 209289.82
-  pct_elemento: 0.9366
+  importe: 208169.1
+  pct_elemento: 0.9373
   pct_total: null
 - código: 03.01.10
   slug: dfs
   nombre: Departamento de Filosofía y Sociología
   nivel: 3
-  importe: 156344.94
-  pct_elemento: 0.6996
+  importe: 155490.03
+  pct_elemento: 0.7001
   pct_total: null
 - código: 03.01.11
   slug: dfc
   nombre: Departamento de Finanzas y Contabilidad
   nivel: 3
-  importe: 306867.68
+  importe: 304981.29
   pct_elemento: 1.3732
   pct_total: null
 - código: 03.01.12
   slug: dfis
   nombre: Departamento de Física
   nivel: 3
-  importe: 586672.96
-  pct_elemento: 2.6253
+  importe: 583848.47
+  pct_elemento: 2.6287
   pct_total: null
 - código: 03.01.13
   slug: dhga
   nombre: Departamento de Historia, Geografía y Arte
   nivel: 3
-  importe: 364871.41
+  importe: 362639.86
   pct_elemento: 1.6328
   pct_total: null
 - código: 03.01.14
   slug: desid
   nombre: Departamento de Ingeniería de Sistemas Industriales y Diseño
   nivel: 3
-  importe: 1782106.91
-  pct_elemento: 7.9748
+  importe: 1771510.17
+  pct_elemento: 7.9761
   pct_total: null
 - código: 03.01.15
   slug: dmc
   nombre: Departamento de Ingeniería Mecánica y Construcción
   nivel: 3
-  importe: 1182295.25
-  pct_elemento: 5.2907
+  importe: 1177923.15
+  pct_elemento: 5.3035
   pct_total: null
 - código: 03.01.16
   slug: deq
   nombre: Departamento de Ingeniería Química
   nivel: 3
-  importe: 528667.15
-  pct_elemento: 2.3658
+  importe: 525313.22
+  pct_elemento: 2.3652
   pct_total: null
 - código: 03.01.17
   slug: dicc
   nombre: Departamento de Ingeniería y Ciencia de los Computadores
   nivel: 3
-  importe: 1470919.81
-  pct_elemento: 6.5823
+  importe: 1462788.1
+  pct_elemento: 6.5861
   pct_total: null
 - código: 03.01.18
   slug: dlsi
   nombre: Departamento de Lenguajes y Sistemas Informáticos
   nivel: 3
-  importe: 414126.09
-  pct_elemento: 1.8532
+  importe: 413757.71
+  pct_elemento: 1.8629
   pct_total: null
 - código: 03.01.19
   slug: dmat
   nombre: Departamento de Matemáticas
   nivel: 3
-  importe: 435500.93
-  pct_elemento: 1.9488
+  importe: 433995.14
+  pct_elemento: 1.954
   pct_total: null
 - código: 03.01.20
   slug: dpdcsll
   nombre: Departamento de Pedagogia y Didáctica de las Ciencias Sociales, la Lengua
     y la Literatura
   nivel: 3
-  importe: 276477.89
-  pct_elemento: 1.2372
+  importe: 275031.13
+  pct_elemento: 1.2383
   pct_total: null
 - código: 03.01.21
   slug: dpbcp
   nombre: Departamento de Psicología Básica, Clínica y Psicobiología
   nivel: 3
-  importe: 1383529.14
-  pct_elemento: 6.1912
+  importe: 1373759.08
+  pct_elemento: 6.1853
   pct_total: null
 - código: 03.01.22
   slug: dpeesm
   nombre: Departamento de Psicología Evolutiva, Educativa, Social y Metodología
   nivel: 3
-  importe: 384103.02
-  pct_elemento: 1.7188
+  importe: 382415.66
+  pct_elemento: 1.7218
   pct_total: null
 - código: 03.01.23
   slug: dqfa
   nombre: Departamento de Química Física y Analítica
   nivel: 3
-  importe: 516302.8
-  pct_elemento: 2.3104
+  importe: 514364.34
+  pct_elemento: 2.3159
   pct_total: null
 - código: 03.01.24
   slug: dqio
   nombre: Departamento de Química Inorgánica y Orgánica
   nivel: 3
-  importe: 816602.62
-  pct_elemento: 3.6542
+  importe: 812588.5
+  pct_elemento: 3.6586
   pct_total: null
 - código: 03.01.25
   slug: dtc
   nombre: Departamento de Traducción y Comunicación
   nivel: 3
-  importe: 308711.13
-  pct_elemento: 1.3815
+  importe: 307293.22
+  pct_elemento: 1.3836
   pct_total: null
 - código: 03.01.26
   slug: updtssee
   nombre: Unidad Predepartamental de Derecho del Trabajo y Seguridad Social y Eclesiástico
     del Estado
   nivel: 3
-  importe: 96448.96
-  pct_elemento: 0.4316
+  importe: 96242.81
+  pct_elemento: 0.4333
   pct_total: null
 - código: 03.01.27
   slug: upi
   nombre: Unidad Predepartamental de Enfermería
   nivel: 3
-  importe: 200961.32
-  pct_elemento: 0.8993
+  importe: 199900.47
+  pct_elemento: 0.9
   pct_total: null
 - código: 03.01.28
   slug: upm
   nombre: Unidad Predepartamental de Medicina
   nivel: 3
-  importe: 592453.64
-  pct_elemento: 2.6512
+  importe: 589020.16
+  pct_elemento: 2.652
   pct_total: null
 - código: '03.02'
   slug: ed
   nombre: Escuela de doctorado
   nivel: 2
-  importe: 6808673.12
-  pct_elemento: 30.4684
+  importe: 6752734.56
+  pct_elemento: 30.4038
   pct_total: null
 - código: '03.03'
   slug: laboratorios-docencia-investigación
@@ -465,106 +465,106 @@ filas:
   slug: apoyo-docencia-investigación
   nombre: Centros de apoyo a docencia e investigación
   nivel: 1
-  importe: 2603348.33
+  importe: 2594852.65
   pct_elemento: 100.0
-  pct_total: 1.7064
+  pct_total: 1.7002
 - código: '04.01'
   slug: bibliotecas
   nombre: Bibliotecas
   nivel: 2
   importe: 39322.9
-  pct_elemento: 1.5105
+  pct_elemento: 1.5154
   pct_total: null
 - código: '04.02'
   slug: otros-apoyo-docencia
   nombre: Otras unidades de apoyo a la docencia
   nivel: 2
-  importe: 717102.83
-  pct_elemento: 27.5454
+  importe: 710793.55
+  pct_elemento: 27.3924
   pct_total: null
 - código: 04.02.01
   slug: cent
   nombre: Centro de Educación y Nuevas Tecnologías
   nivel: 3
-  importe: 7940.29
-  pct_elemento: 0.305
+  importe: 7932.1
+  pct_elemento: 0.3057
   pct_total: null
 - código: 04.02.02
   slug: ufie
   nombre: Unidad de Formación e Innovación Educativa
   nivel: 3
   importe: 723.67
-  pct_elemento: 0.0278
+  pct_elemento: 0.0279
   pct_total: null
 - código: 04.02.03
   slug: sgde
   nombre: Servicio de Gestión de la Docencia y Estudiantado
   nivel: 3
   importe: 3560.1
-  pct_elemento: 0.1368
+  pct_elemento: 0.1372
   pct_total: null
 - código: 04.02.04
   slug: oe
   nombre: Oficina de Estudios
   nivel: 3
-  importe: 361721.48
-  pct_elemento: 13.8945
+  importe: 358491.83
+  pct_elemento: 13.8155
   pct_total: null
 - código: 04.02.05
   slug: oipep
   nombre: Oficina de Inserción Profesional y Estancias en Prácticas
   nivel: 3
-  importe: 329957.69
-  pct_elemento: 12.6744
+  importe: 326994.77
+  pct_elemento: 12.6017
   pct_total: null
 - código: 04.02.06
   slug: opp
   nombre: Oficina de Planificación y Prospectiva
   nivel: 3
   importe: 753.93
-  pct_elemento: 0.029
+  pct_elemento: 0.0291
   pct_total: null
 - código: 04.02.07
   slug: uo
   nombre: Unidad de Orientación
   nivel: 3
-  importe: 12445.67
-  pct_elemento: 0.4781
+  importe: 12337.15
+  pct_elemento: 0.4754
   pct_total: null
 - código: '04.03'
   slug: otros-apoyo-investigación
   nombre: Otras unidades de apoyo a la investigación
   nivel: 2
-  importe: 1734239.61
-  pct_elemento: 66.6157
+  importe: 1732181.06
+  pct_elemento: 66.7545
   pct_total: null
 - código: 04.03.01
   slug: sgit
   nombre: Servicio de Gestión de la Investigación y la Transferencia
   nivel: 3
   importe: 9365.39
-  pct_elemento: 0.3597
+  pct_elemento: 0.3609
   pct_total: null
 - código: 04.03.02
   slug: scic
   nombre: Servicio Central de Instrumentación Científica
   nivel: 3
-  importe: 1429207.85
-  pct_elemento: 54.8988
+  importe: 1427862.29
+  pct_elemento: 55.0267
   pct_total: null
 - código: 04.03.03
   slug: sea
   nombre: Servicio de Experimentación Animal
   nivel: 3
-  importe: 295666.37
-  pct_elemento: 11.3572
+  importe: 294953.37
+  pct_elemento: 11.3669
   pct_total: null
 - código: '04.04'
   slug: otros-apoyo
   nombre: Otras unidades de apoyo
   nivel: 2
-  importe: 112682.99
-  pct_elemento: 4.3284
+  importe: 112555.14
+  pct_elemento: 4.3376
   pct_total: null
 - código: 04.04.01
   slug: invernadero
@@ -584,50 +584,50 @@ filas:
   slug: labcom
   nombre: Laboratorio de Comunicación (LabCom)
   nivel: 3
-  importe: 60456.79
-  pct_elemento: 2.3223
+  importe: 60328.94
+  pct_elemento: 2.3249
   pct_total: null
 - código: 04.04.04
   slug: sala-disección
   nombre: Sala de Disección
   nivel: 3
   importe: 51418.56
-  pct_elemento: 1.9751
+  pct_elemento: 1.9816
   pct_total: null
 - código: 04.04.05
   slug: increa
   nombre: Cátedra INCREA
   nivel: 3
   importe: 807.64
-  pct_elemento: 0.031
+  pct_elemento: 0.0311
   pct_total: null
 - código: '05'
   slug: extensión-universitaria-deportes
   nombre: Centros de extensión universitaria y deportes
   nivel: 1
-  importe: 4572140.75
+  importe: 4558898.88
   pct_elemento: 100.0
-  pct_total: 2.9969
+  pct_total: 2.9871
 - código: '05.01'
   slug: actividades-culturales
   nombre: Centros de actividades culturales
   nivel: 2
-  importe: 1414702.44
-  pct_elemento: 30.9418
+  importe: 1406304.63
+  pct_elemento: 30.8475
   pct_total: null
 - código: '05.02'
   slug: deportes
   nombre: Centros de deportes
   nivel: 2
-  importe: 2390006.49
-  pct_elemento: 52.2732
+  importe: 2387165.87
+  pct_elemento: 52.3628
   pct_total: null
 - código: '05.03'
   slug: cooperación
   nombre: Cooperación
   nivel: 2
-  importe: 605336.4
-  pct_elemento: 13.2397
+  importe: 604396.12
+  pct_elemento: 13.2575
   pct_total: null
 - código: '05.04'
   slug: movilidad
@@ -641,28 +641,28 @@ filas:
   nombre: Otros centros de extensión universitaria y deportes
   nivel: 2
   importe: 45523.14
-  pct_elemento: 0.9957
+  pct_elemento: 0.9986
   pct_total: null
 - código: '06'
   slug: soporte
   nombre: Centros de soporte
   nivel: 1
-  importe: 10201156.61
+  importe: 10127335.46
   pct_elemento: 100.0
-  pct_total: 6.6865
+  pct_total: 6.6357
 - código: '06.01'
   slug: área-rectorado
   nombre: Rectorado
   nivel: 2
   importe: 73023.05
-  pct_elemento: 0.7158
+  pct_elemento: 0.721
   pct_total: null
 - código: 06.01.01
   slug: rectorado
   nombre: Rectorado
   nivel: 3
   importe: 72220.79
-  pct_elemento: 0.708
+  pct_elemento: 0.7131
   pct_total: null
 - código: 06.01.02
   slug: delegado
@@ -690,92 +690,92 @@ filas:
   slug: vicerrectorados
   nombre: Vicerrectorados
   nivel: 2
-  importe: 6336981.46
-  pct_elemento: 62.1202
+  importe: 6285000.41
+  pct_elemento: 62.0598
   pct_total: null
 - código: '06.03'
   slug: área-secretaria-general
   nombre: Secretaría General
   nivel: 2
   importe: 4936.7
-  pct_elemento: 0.0484
+  pct_elemento: 0.0487
   pct_total: null
 - código: 06.03.01
   slug: secretaría-general
   nombre: Secretaría General
   nivel: 3
   importe: 3129.05
-  pct_elemento: 0.0307
+  pct_elemento: 0.0309
   pct_total: null
 - código: 06.03.02
   slug: asesoría-jurídica
   nombre: Asesoría Jurídica
   nivel: 3
   importe: 1038.52
-  pct_elemento: 0.0102
+  pct_elemento: 0.0103
   pct_total: null
 - código: 06.03.03
   slug: junta-electoral
   nombre: Junta Electoral
   nivel: 3
   importe: 769.12
-  pct_elemento: 0.0075
+  pct_elemento: 0.0076
   pct_total: null
 - código: '06.04'
   slug: gerencia
   nombre: Gerencia
   nivel: 2
-  importe: 1211124.17
-  pct_elemento: 11.8724
+  importe: 1208424.36
+  pct_elemento: 11.9323
   pct_total: null
 - código: '06.05'
   slug: órganos-colegiados
   nombre: Órganos colegiados
   nivel: 2
-  importe: 94956.27
-  pct_elemento: 0.9308
+  importe: 94622.37
+  pct_elemento: 0.9343
   pct_total: null
 - código: 06.05.01
   slug: consejo-social
   nombre: Consejo Social
   nivel: 3
-  importe: 93468.78
-  pct_elemento: 0.9163
+  importe: 93134.89
+  pct_elemento: 0.9196
   pct_total: null
 - código: 06.05.02
   slug: consejo-estudiantes
   nombre: Consejo de Estudiantes
   nivel: 3
   importe: 1487.49
-  pct_elemento: 0.0146
+  pct_elemento: 0.0147
   pct_total: null
 - código: '06.06'
   slug: servicios-generales-centrales
   nombre: Servicios generales y centrales
   nivel: 2
   importe: 11778.1
-  pct_elemento: 0.1155
+  pct_elemento: 0.1163
   pct_total: null
 - código: 06.06.01
   slug: scag
   nombre: Servicio de Contratación y Asuntos Generales
   nivel: 3
   importe: 2403.8
-  pct_elemento: 0.0236
+  pct_elemento: 0.0237
   pct_total: null
 - código: 06.06.02
   slug: sci
   nombre: Servicio de Control Interno
   nivel: 3
   importe: 685.46
-  pct_elemento: 0.0067
+  pct_elemento: 0.0068
   pct_total: null
 - código: 06.06.03
   slug: sge
   nombre: Servicio de Gestión Económica
   nivel: 3
   importe: 4321.03
-  pct_elemento: 0.0424
+  pct_elemento: 0.0427
   pct_total: null
 - código: 06.06.04
   slug: sic
@@ -789,7 +789,7 @@ filas:
   nombre: Servicio de Recursos Humanos
   nivel: 3
   importe: 2906.92
-  pct_elemento: 0.0285
+  pct_elemento: 0.0287
   pct_total: null
 - código: 06.06.06
   slug: ugitj
@@ -803,7 +803,7 @@ filas:
   nombre: Unidad de Encargos, Convenios y Subvenciones
   nivel: 3
   importe: 798.77
-  pct_elemento: 0.0078
+  pct_elemento: 0.0079
   pct_total: null
 - código: 06.06.08
   slug: ps
@@ -816,22 +816,22 @@ filas:
   slug: otros-servicios-soporte
   nombre: Otros servicios de soporte
   nivel: 2
-  importe: 2468356.87
-  pct_elemento: 24.1968
+  importe: 2449550.47
+  pct_elemento: 24.1875
   pct_total: null
 - código: 06.07.01
   slug: scp
   nombre: Servicio de Comunicación y Publicaciones
   nivel: 3
   importe: 30419.2
-  pct_elemento: 0.2982
+  pct_elemento: 0.3004
   pct_total: null
 - código: 06.07.02
   slug: slt
   nombre: Servicio de Lenguas y Terminología
   nivel: 3
-  importe: 95789.84
-  pct_elemento: 0.939
+  importe: 94956.81
+  pct_elemento: 0.9376
   pct_total: null
 - código: 06.07.03
   slug: ol
@@ -845,7 +845,7 @@ filas:
   nombre: Oficina de Prevención, Promoción de la Salud y Medioambiente
   nivel: 3
   importe: 2404.85
-  pct_elemento: 0.0236
+  pct_elemento: 0.0237
   pct_total: null
 - código: 06.07.05
   slug: si
@@ -859,56 +859,56 @@ filas:
   nombre: Unidad de Análisis y Desarrollo TI
   nivel: 3
   importe: 6092.47
-  pct_elemento: 0.0597
+  pct_elemento: 0.0602
   pct_total: null
 - código: 06.07.07
   slug: uiic
   nombre: Unidad de Infraestructuras Informáticas de Campus
   nivel: 3
   importe: 233161.28
-  pct_elemento: 2.2856
+  pct_elemento: 2.3023
   pct_total: null
 - código: 06.07.08
   slug: otop
   nombre: Oficina Técnica de Obras y Proyectos
   nivel: 3
   importe: 85400.49
-  pct_elemento: 0.8372
+  pct_elemento: 0.8433
   pct_total: null
 - código: 06.07.09
   slug: oir
   nombre: Oficina de Información y Registro (InfoCampus)
   nivel: 3
   importe: 1703.7
-  pct_elemento: 0.0167
+  pct_elemento: 0.0168
   pct_total: null
 - código: 06.07.10
   slug: opaq
   nombre: Oficina de Promoción y Evaluación de la Calidad
   nivel: 3
   importe: 1258.64
-  pct_elemento: 0.0123
+  pct_elemento: 0.0124
   pct_total: null
 - código: 06.07.11
   slug: ori
   nombre: Oficina de Relaciones Internacionales
   nivel: 3
-  importe: 2000816.48
-  pct_elemento: 19.6136
+  importe: 1982843.11
+  pct_elemento: 19.5791
   pct_total: null
 - código: 06.07.12
   slug: oiati
   nombre: Oficina de Innovación y Auditoría TI
   nivel: 3
   importe: 8681.67
-  pct_elemento: 0.0851
+  pct_elemento: 0.0857
   pct_total: null
 - código: 06.07.13
   slug: udd
   nombre: Unidad de Diversidad y Discapacidad
   nivel: 3
   importe: 1601.39
-  pct_elemento: 0.0157
+  pct_elemento: 0.0158
   pct_total: null
 - código: 06.07.14
   slug: ui
@@ -930,7 +930,7 @@ filas:
   nivel: 1
   importe: 1511182.22
   pct_elemento: 100.0
-  pct_total: 0.9905
+  pct_total: 0.9902
 - código: '08.01'
   slug: locales-vacios
   nombre: Locales vacíos
@@ -963,6 +963,6 @@ filas:
   slug: _no_clasificable
   nombre: Sin clasificar en plantilla SUE
   nivel: 1
-  importe: 1867566.23
+  importe: 1921346.53
   pct_elemento: 100.0
-  pct_total: 1.2241
+  pct_total: 1.2589

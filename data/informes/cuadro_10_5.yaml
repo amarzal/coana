@@ -137,16 +137,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 688443.99
-    indirecto: 3285385.21
-    primario: 3973829.2
+    directo: 698845.48
+    indirecto: 3375187.01
+    primario: 4074032.49
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 1565485.25
-    primario: 1565485.25
+    indirecto: 1610915.7
+    primario: 1610915.7
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -158,9 +158,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 688443.99
+    directo: 698845.48
     indirecto: 0.0
-    primario: 688443.99
+    primario: 698845.48
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -173,15 +173,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 1089395.77
-    primario: 1089395.77
+    indirecto: 1121029.27
+    primario: 1121029.27
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 438666.76
-    primario: 438666.76
+    indirecto: 451404.61
+    primario: 451404.61
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -260,9 +260,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 30286767.44
-    indirecto: 3947843.47
-    primario: 34234610.9
+    directo: 30297168.92
+    indirecto: 4037645.27
+    primario: 34334814.19
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -274,9 +274,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 30286767.44
-    indirecto: 3947843.47
-    primario: 34234610.9
+    directo: 30297168.92
+    indirecto: 4037645.27
+    primario: 34334814.19
 - código_sue: '02'
   slug: investigación
   nombre: Centros de investigación
@@ -412,16 +412,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 259941.34
-    indirecto: 1277308.65
-    primario: 1537249.99
+    directo: 259973.61
+    indirecto: 1277200.75
+    primario: 1537174.35
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 363438.18
-    primario: 363438.18
+    indirecto: 363383.59
+    primario: 363383.59
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -433,9 +433,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 259941.34
+    directo: 259973.61
     indirecto: 102086.06
-    primario: 362027.4
+    primario: 362059.67
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -448,15 +448,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 154818.87
-    primario: 154818.87
+    indirecto: 154780.86
+    primario: 154780.86
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 62340.88
-    primario: 62340.88
+    indirecto: 62325.58
+    primario: 62325.58
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -535,9 +535,9 @@ centros:
     indirecto: 4500.0
     primario: 4500.0
   total_coste_primario:
-    directo: 40763941.5
-    indirecto: 4537634.09
-    primario: 45301575.59
+    directo: 40763973.76
+    indirecto: 4537526.19
+    primario: 45301499.95
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -549,9 +549,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 40763941.5
-    indirecto: 4537634.09
-    primario: 45301575.59
+    directo: 40763973.76
+    indirecto: 4537526.19
+    primario: 45301499.95
 - código_sue: '03'
   slug: docencia-investigación
   nombre: Centros de docencia e investigación
@@ -687,16 +687,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 406473.49
-    indirecto: 2074411.44
-    primario: 2480884.92
+    directo: 391663.59
+    indirecto: 1956198.23
+    primario: 2347861.82
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 796274.08
-    primario: 796274.08
+    indirecto: 736470.39
+    primario: 736470.39
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -708,9 +708,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 406473.49
+    directo: 391663.59
     indirecto: 56789.95
-    primario: 463263.44
+    primario: 448453.54
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -723,15 +723,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 502160.84
-    primario: 502160.84
+    indirecto: 460519.16
+    primario: 460519.16
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 202204.99
-    primario: 202204.99
+    indirecto: 185437.15
+    primario: 185437.15
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -810,9 +810,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 14908955.22
-    indirecto: 4432745.81
-    primario: 19341701.02
+    directo: 14894145.32
+    indirecto: 4314532.6
+    primario: 19208677.92
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -824,9 +824,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 14908955.22
-    indirecto: 4432745.81
-    primario: 19341701.02
+    directo: 14894145.32
+    indirecto: 4314532.6
+    primario: 19208677.92
 - código_sue: '04'
   slug: apoyo-docencia-investigación
   nombre: Centros de apoyo a docencia e investigación
@@ -962,9 +962,9 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 366345.7
+    directo: 364702.58
     indirecto: 959655.93
-    primario: 1326001.63
+    primario: 1324358.52
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
@@ -983,9 +983,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 366345.7
+    directo: 364702.58
     indirecto: 12928.13
-    primario: 379273.83
+    primario: 377630.71
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -1085,9 +1085,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 10136823.61
+    directo: 10135180.49
     indirecto: 1511464.05
-    primario: 11648287.66
+    primario: 11646644.55
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -1099,9 +1099,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 10136823.61
+    directo: 10135180.49
     indirecto: 1511464.05
-    primario: 11648287.66
+    primario: 11646644.55
 - código_sue: '05'
   slug: extensión-universitaria-deportes
   nombre: Centros de extensión universitaria y deportes
@@ -1237,16 +1237,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 238298.31
-    indirecto: 1259231.32
-    primario: 1497529.63
+    directo: 238842.62
+    indirecto: 1260643.06
+    primario: 1499485.67
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 428101.0
-    primario: 428101.0
+    indirecto: 428815.2
+    primario: 428815.2
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -1258,9 +1258,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 238298.31
+    directo: 238842.62
     indirecto: 357.36
-    primario: 238655.67
+    primario: 239199.98
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -1273,15 +1273,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 250973.23
-    primario: 250973.23
+    indirecto: 251470.53
+    primario: 251470.53
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 100498.78
-    primario: 100498.78
+    indirecto: 100699.02
+    primario: 100699.02
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -1360,9 +1360,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 3007721.87
-    indirecto: 2082891.57
-    primario: 5090613.44
+    directo: 3008266.18
+    indirecto: 2084303.31
+    primario: 5092569.48
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -1374,9 +1374,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 3007721.87
-    indirecto: 2082891.57
-    primario: 5090613.44
+    directo: 3008266.18
+    indirecto: 2084303.31
+    primario: 5092569.48
 - código_sue: '06'
   slug: soporte
   nombre: Centros de soporte
@@ -1512,16 +1512,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 305904.41
-    indirecto: 3278458.83
-    primario: 3584363.24
+    directo: 311277.75
+    indirecto: 3305255.31
+    primario: 3616533.05
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 808073.89
-    primario: 808073.89
+    indirecto: 821630.15
+    primario: 821630.15
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -1533,9 +1533,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 305904.41
+    directo: 311277.75
     indirecto: 187427.05
-    primario: 493331.46
+    primario: 498704.8
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -1548,15 +1548,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 304967.62
-    primario: 304967.62
+    indirecto: 314406.92
+    primario: 314406.92
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 122801.24
-    primario: 122801.24
+    indirecto: 126602.17
+    primario: 126602.17
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -1635,9 +1635,9 @@ centros:
     indirecto: 80219.25
     primario: 80219.25
   total_coste_primario:
-    directo: 20047394.21
-    indirecto: 11347334.47
-    primario: 31394728.67
+    directo: 20052767.54
+    indirecto: 11374130.95
+    primario: 31426898.49
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -1649,9 +1649,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 20047394.21
-    indirecto: 11347334.47
-    primario: 31394728.67
+    directo: 20052767.54
+    indirecto: 11374130.95
+    primario: 31426898.49
 - código_sue: '07'
   slug: anexos
   nombre: Centros anexos
@@ -1787,16 +1787,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 13683.49
-    indirecto: 76157.28
-    primario: 89840.77
+    directo: 13696.37
+    indirecto: 76196.72
+    primario: 89893.09
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 38527.72
-    primario: 38527.72
+    indirecto: 38547.67
+    primario: 38547.67
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -1808,9 +1808,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 13683.49
+    directo: 13696.37
     indirecto: 0.0
-    primario: 13683.49
+    primario: 13696.37
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -1823,15 +1823,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 26827.1
-    primario: 26827.1
+    indirecto: 26840.99
+    primario: 26840.99
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 10802.46
-    primario: 10802.46
+    indirecto: 10808.06
+    primario: 10808.06
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -1910,9 +1910,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 60528.02
-    indirecto: 76157.28
-    primario: 136685.3
+    directo: 60540.9
+    indirecto: 76196.72
+    primario: 136737.62
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -1924,9 +1924,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 60528.02
-    indirecto: 76157.28
-    primario: 136685.3
+    directo: 60540.9
+    indirecto: 76196.72
+    primario: 136737.62
 - código_sue: 08
   slug: centros-agrupaciones-costes
   nombre: Centros-Agrupaciones de costes
@@ -2062,16 +2062,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 5046.26
-    indirecto: 15513.28
-    primario: 20559.54
+    directo: 5135.0
+    indirecto: 15784.94
+    primario: 20919.93
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 7848.12
-    primario: 7848.12
+    indirecto: 7985.55
+    primario: 7985.55
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -2083,9 +2083,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 5046.26
+    directo: 5135.0
     indirecto: 0.0
-    primario: 5046.26
+    primario: 5135.0
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -2098,15 +2098,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 5464.7
-    primario: 5464.7
+    indirecto: 5560.39
+    primario: 5560.39
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 2200.47
-    primario: 2200.47
+    indirecto: 2239.0
+    primario: 2239.0
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -2185,9 +2185,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 1516228.48
-    indirecto: 15513.28
-    primario: 1531741.76
+    directo: 1516317.22
+    indirecto: 15784.94
+    primario: 1532102.16
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -2199,6 +2199,6 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 1516228.48
-    indirecto: 15513.28
-    primario: 1531741.76
+    directo: 1516317.22
+    indirecto: 15784.94
+    primario: 1532102.16

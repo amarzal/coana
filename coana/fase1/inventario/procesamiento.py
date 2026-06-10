@@ -41,6 +41,8 @@ class ResultadoInventario:
     presencia_edificación: pl.DataFrame  # (área, edificación, centro, m2, pct)
     presencia_complejo: pl.DataFrame     # (área, centro, m2, pct)
     presencia_uji: pl.DataFrame          # (centro, m2, pct)
+    # Correctores de superficie (para los repartos de suministros/OTOP)
+    corrector_superficie: pl.DataFrame | None
     # Estadísticas de filtro y enriquecimiento
     n_registros_original: int
     valor_inicial_total: float
@@ -545,6 +547,113 @@ def _matrices_centro(
 
 
 # ======================================================================
+# Reparto por prefijo más largo con corrector de superficie
+# ======================================================================
+
+def _coeficientes_zona(
+    códigos: list[str],
+    corrector: pl.DataFrame | None,
+    columna: str | None,
+) -> dict[str, float]:
+    """Coeficiente corrector de *columna* para cada código de zona.
+
+    Gana la fila del corrector cuyo prefijo más largo encaja con el
+    código y tiene valor no nulo en *columna*; 1.0 si ninguna encaja.
+    """
+    coefs = {c: 1.0 for c in códigos}
+    if corrector is None or columna is None or columna not in corrector.columns:
+        return coefs
+    filas = (
+        corrector.select(
+            pl.col("prefijo").cast(pl.Utf8).str.strip_chars(),
+            pl.col(columna).cast(pl.Float64, strict=False).alias("coef"),
+        )
+        .drop_nulls()
+        .sort(pl.col("prefijo").str.len_chars())
+    )
+    for prefijo, coef in filas.iter_rows():
+        for código in códigos:
+            if código.startswith(prefijo):
+                coefs[código] = coef  # los prefijos van de corto a largo
+    return coefs
+
+
+def reparto_por_prefijo_más_largo(
+    prefijos: list[str],
+    presencia_zona: pl.DataFrame,
+    corrector: pl.DataFrame | None = None,
+    columna_corrector: str | None = None,
+) -> dict[str, pl.DataFrame]:
+    """Reparte cada prefijo entre centros según presencia en sus zonas.
+
+    Cada zona (código ``área+edificio``) se asigna en exclusiva al
+    prefijo más largo de *prefijos* que concuerda con su código
+    (especificación, §suministros especiales). El peso de cada centro
+    en un prefijo es la suma de sus m² en las zonas asignadas,
+    multiplicados por el coeficiente de *columna_corrector* del fichero
+    ``corrector superficie.xlsx``. Si todos los pesos corregidos de un
+    prefijo quedan a 0, se cae a los m² sin corregir para no perder el
+    coste.
+
+    Devuelve ``{prefijo: DataFrame(centro, pct)}`` con ``pct`` en 0-100;
+    los prefijos sin zona asignada no aparecen en el diccionario.
+    """
+    únicos = sorted({str(p).strip() for p in prefijos if str(p).strip()})
+    if not únicos or presencia_zona.is_empty():
+        return {}
+
+    asignación: dict[str, str] = {}
+    for área, edificio in presencia_zona.select(_ZONA).unique().iter_rows():
+        código = f"{área}{edificio}"
+        encajan = [p for p in únicos if código.startswith(p)]
+        if encajan:
+            asignación[código] = max(encajan, key=len)
+    if not asignación:
+        return {}
+
+    coefs = _coeficientes_zona(list(asignación), corrector, columna_corrector)
+    asig_df = pl.DataFrame({
+        "_código": list(asignación),
+        "_prefijo": list(asignación.values()),
+        "_coef": [coefs[c] for c in asignación],
+    })
+
+    pesos = (
+        presencia_zona.with_columns(
+            (pl.col("área") + pl.col("edificio")).alias("_código"),
+        )
+        .join(asig_df, on="_código", how="inner")
+        .with_columns((pl.col("m2") * pl.col("_coef")).alias("_peso"))
+        .group_by("_prefijo", "centro")
+        .agg(pl.col("_peso").sum(), pl.col("m2").sum())
+    )
+    totales = pesos.group_by("_prefijo").agg(
+        pl.col("_peso").sum().alias("_total"),
+    )
+    pesos = (
+        pesos.join(totales, on="_prefijo")
+        .with_columns(
+            pl.when(pl.col("_total") > 0)
+            .then(pl.col("_peso"))
+            .otherwise(pl.col("m2"))
+            .alias("_peso_ef"),
+        )
+        .with_columns(
+            (
+                pl.col("_peso_ef")
+                / pl.col("_peso_ef").sum().over("_prefijo")
+                * 100
+            ).alias("pct"),
+        )
+        .filter(pl.col("pct") > 0)
+    )
+    return {
+        clave[0]: grupo.select("centro", "pct").sort("centro")
+        for clave, grupo in pesos.partition_by("_prefijo", as_dict=True).items()
+    }
+
+
+# ======================================================================
 # Paso 4: Distribución de costes OTOP por centro
 # ======================================================================
 
@@ -560,14 +669,15 @@ class _InfoDistribución:
 
 def _distribución_costes(
     distribución: pl.DataFrame,
-    matrices: _InfoMatrices,
+    presencia_zona: pl.DataFrame,
+    corrector: pl.DataFrame | None,
 ) -> _InfoDistribución:
     """Calcula el porcentaje de costes OTOP que corresponde a cada centro.
 
-    Para cada fila del fichero de distribución (prefijo, porcentaje), se
-    determina si el prefijo identifica una zona (≥3 chars), edificación
-    (2 chars) o complejo (1 char), y se reparte el porcentaje entre los
-    centros con presencia en ese nivel según su presencia relativa.
+    Cada zona se asigna al prefijo más largo del fichero de distribución
+    que concuerda con su código, y el porcentaje de cada fila se reparte
+    entre los centros según su presencia (m² corregidos con
+    ``corrección_limpieza``) en las zonas asignadas a ese prefijo.
 
     Si un prefijo aparece más de una vez, se agregan sus porcentajes
     antes de procesar (según la especificación).
@@ -589,34 +699,20 @@ def _distribución_costes(
     filas_detalle: list[dict] = []
     prefijos_sin_match: list[tuple[str, float, str]] = []
 
+    tablas = reparto_por_prefijo_más_largo(
+        [str(p).strip() for p in agregado["prefijo"].drop_nulls().to_list()],
+        presencia_zona,
+        corrector,
+        "corrección_limpieza",
+    )
+
     for row in agregado.iter_rows(named=True):
         prefijo = str(row["prefijo"]).strip()
         pct_dist = float(row["porcentaje"])
         comentario = str(row.get("comentario") or "")
 
-        if len(prefijo) >= 3:
-            # Zona: área = 1er char, edificio = resto
-            área = prefijo[0]
-            edificio = prefijo[1:]
-            centros_en = matrices.presencia_zona.filter(
-                (pl.col("área") == área) & (pl.col("edificio") == edificio)
-            )
-        elif len(prefijo) == 2:
-            # Edificación: área = 1er char, edificación = 2º char
-            área = prefijo[0]
-            edificación = prefijo[1]
-            centros_en = matrices.presencia_edificación.filter(
-                (pl.col("área") == área) & (pl.col("edificación") == edificación)
-            )
-        elif len(prefijo) == 1:
-            # Complejo
-            centros_en = matrices.presencia_complejo.filter(
-                pl.col("área") == prefijo
-            )
-        else:
-            continue
-
-        if centros_en.is_empty():
+        centros_en = tablas.get(prefijo)
+        if centros_en is None:
             prefijos_sin_match.append((prefijo, pct_dist, comentario))
             continue
 
@@ -709,7 +805,11 @@ def procesar_inventario(
 
     # Distribución de costes OTOP
     if ctx.distribución_costes is not None:
-        dist = _distribución_costes(ctx.distribución_costes, matrices)
+        dist = _distribución_costes(
+            ctx.distribución_costes,
+            matrices.presencia_zona,
+            ctx.corrector_superficie,
+        )
     else:
         dist = _InfoDistribución(
             por_centro=pl.DataFrame(schema={"centro": pl.Utf8, "porcentaje": pl.Float64}),
@@ -731,6 +831,7 @@ def procesar_inventario(
         presencia_edificación=matrices.presencia_edificación,
         presencia_complejo=matrices.presencia_complejo,
         presencia_uji=matrices.presencia_uji,
+        corrector_superficie=ctx.corrector_superficie,
         n_registros_original=len(ctx.inventario),
         valor_inicial_total=float(ctx.inventario["valor_inicial"].sum()),
         n_filtrados_estado=info.n_filtrados_estado,

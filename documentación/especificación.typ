@@ -181,6 +181,8 @@ uv run especificación                  # compila el PDF
     [#raw("uv run coana")],
     [Lanza el visor web (FastAPI + frontend compilado) en #raw("http://127.0.0.1:8765"). Atajo de #raw("coana web").],
     [#raw("uv run coana web --port 8000")], [Variante con flags (#raw("--reload"), #raw("--dev"), puerto, etc.).],
+    [#raw("uv run coana informes")],
+    [Genera los informes de la Fase 2 (cuadros normalizados) a partir de las UC de la fase 1.],
     [#raw("uv run coana editor-tree")],
     [Editor gráfico tkinter para los #raw(".tree") (actividades, centros de coste, elementos de coste, ingresos). Permite mover, renombrar, ver/editar identificadores y reasignar códigos automáticamente.],
     [#raw("uv run coana visor-legacy")],
@@ -679,12 +681,12 @@ Los ficheros de entrada sobre ubicaciones están en el directorio #ruta("data", 
         ),
     ),
     "corrector superficie.xlsx": (
-        descripción: [Tabla de coeficientes correctores que se aplican a las superficies de zonas/edificaciones cuyo prefijo de ubicación encaja con una de las filas. Permite ajustar el reparto de costes (energía, limpieza, otros) en espacios que no se comportan como un aula o despacho típico: pistas deportivas al aire libre, galerías de servicios, etc. El loader del contexto de inventario aplica cada coeficiente como factor multiplicativo sobre la superficie nominal en el cálculo de los pesos por centro.],
+        descripción: [Tabla de coeficientes correctores que se aplican a las superficies de zonas/edificaciones cuyo prefijo de ubicación encaja con una de las filas. Permite ajustar el reparto de costes (energía, limpieza, otros) en espacios que no se comportan como un aula o despacho típico: pistas deportivas al aire libre, galerías de servicios, etc. Cada coeficiente se aplica como factor multiplicativo sobre la superficie nominal al calcular los pesos por centro de los repartos por superficie: #campo("corrector_energía") corrige el reparto de energía eléctrica y gas, #campo("corrección_limpieza") el de la distribución de mantenimientos OTOP y #campo("corrección_otros") el del agua. Para cada zona gana la fila con el prefijo más largo que encaja y tiene valor en la columna; si ninguna encaja (o el valor está vacío), el coeficiente es #val("1").],
         campos: (
             prefijo: [Prefijo del código de ubicación al que aplica el corrector. Se hace match por prefijo (#val("DC"), #val("DA"), #val("A"), …), de modo que todas las ubicaciones cuyo código empiece por ese prefijo reciben el coeficiente.],
-            corrector_energía: [Coeficiente multiplicativo sobre la superficie a efectos de reparto del coste energético (entre #val("0") y #val("1") típicamente: #val("0,1") para una pista deportiva descontará 90 % del peso de su superficie).],
-            corrección_limpieza: [Coeficiente análogo para el reparto del coste de limpieza.],
-            corrección_otros: [Coeficiente para otros gastos de reparto por superficie (puede estar vacío si no aplica).],
+            corrector_energía: [Coeficiente multiplicativo sobre la superficie a efectos de reparto del coste energético (energía eléctrica y gas) (entre #val("0") y #val("1") típicamente: #val("0,1") para una pista deportiva descontará 90 % del peso de su superficie).],
+            corrección_limpieza: [Coeficiente análogo para el reparto de la distribución de mantenimientos OTOP (limpieza, seguridad y mantenimientos).],
+            corrección_otros: [Coeficiente para el reparto del agua y otros gastos por superficie (puede estar vacío si no aplica: equivale a #val("1")).],
             descripción: [Descripción libre del tipo de espacio al que se aplica el corrector.],
         ),
     ),
@@ -1502,22 +1504,27 @@ Todo el proceso (lectura de datos, ejecución de la fase 1, exploración de resu
 
 == Estructura general
 
-La #app se organiza en un panel lateral con un árbol de navegación y un área principal donde se muestra la vista seleccionada. El árbol tiene seis grupos en su nivel raíz, con sub-secciones dentro:
+La #app se organiza en un panel lateral con un árbol de navegación y un área principal donde se muestra la vista seleccionada. El árbol tiene ocho grupos en su nivel raíz, con sub-secciones dentro (entre paréntesis, los sub-menús desplegables):
 
 #align(center, table(
     columns: 2,
     align: (left, left),
     table.header(table.hline(), [*Grupo*], [*Sub-secciones*], table.hline()),
     [Presupuesto],
-    [Resumen, Unidades de coste, Sin clasificar, Apuntes filtrados, Suministros, Distribución mantenimientos OTOP, Reglas de actividad, Reglas de centro de coste, Reglas de elemento de coste, Árbol: Actividades, Árbol: Centros de coste, Árbol: Elementos de coste],
-    [Amortizaciones], [Resumen, Sin cuenta, Por cuenta, UC generadas, Sin centro],
+    [Resumen, Unidades de coste, Sin clasificar, Apuntes filtrados, Reglas (Actividad, Centros de coste, Elementos de coste), Estructuras (Actividades, Centros de coste, Elementos de coste)],
+    [Amortizaciones],
+    [Resumen, Inventario con amortización, Descartados (Filtrados por estado, Filtrados por cuenta, Filtrados por fecha, Sin cuenta, Sin fecha de alta), UC generadas, Sin centro],
     [Personal],
-    [Resumen, Expedientes PDI, Expedientes PTGAS, Expedientes PVI, Expedientes otros, Multiexpediente, Persona, Anomalías PDI],
-    [Regla 23],
-    [Dedicación docente, Docencia no oficial, Estructura estudios, Cargos, Asignaturas sin titulación, Anomalías],
-    [Cargos académicos], [Resumen, Por persona, Personas cargos, Catálogo de cargos],
-    [Superficies], [Resumen, Totales, Presencia centros],
-    [Resultados Fase 1], [Resumen, Todas las UC, Actividades, Centros de coste, Elementos de coste, Anomalías UC],
+    [Resumen, Colectivos (PDI, PVI, PTGAS, Otros), Multiexpediente, Costes sociales calculados, Absentismo, Atrasos a no vinculados, Despidos, Indemnizaciones asistencias, Reducciones sindicales, Anomalías PDI, Cargos académicos (Resumen, Por persona, Personas cargos, Catálogo de cargos), Regla 23 (Resumen, Dedicación docente, Docencia no oficial, Estructura estudios, Cargos, Asignaturas sin titulación, Anomalías)],
+    [Investigación], [Grupos, Horas Kalendas],
+    [Suministros],
+    [UC por suministros, Distribución mantenimientos OTOP, Superficies (Resumen, Totales, Presencia centros)],
+    [Unidades de coste],
+    [Resumen, Todas las UC, Estructuras (Actividades, Centros de coste, Elementos de coste), Anomalías UC],
+    [Reparto de actividades],
+    [Resumen, UC tras reparto, Por actividad dag, Porcentajes por centro, Anomalías],
+    [Informes],
+    [Normalizados (10.1, 10.3, 10.4, 10.5, 10.7), A la carta],
     table.hline(),
 ))
 
@@ -1596,9 +1603,6 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     [Unidades de coste], [#ruta("uc presupuesto.parquet").],
     [Sin clasificar], [#ruta("auxiliares", "sin_clasificar_presupuesto.parquet").],
     [Apuntes filtrados], [#ruta("auxiliares", "filtrados_presupuesto.parquet"), con la regla que descartó cada apunte.],
-    [Suministros], [#ruta("uc suministros.parquet") (energía, agua, gas).],
-    [Distribución mantenimientos OTOP],
-    [Matriz por centro de presencia para los apuntes con #campo("centro") = #val("SC001").],
     [Reglas de actividad / CC / EC],
     [#ruta("auxiliares", "conteo_reglas_presupuesto.parquet"), #ruta("conteo_cc_presupuesto.parquet"), #ruta("conteo_ec_presupuesto.parquet").],
     [Árbol: actividades / centros / elementos],
@@ -1637,10 +1641,12 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     [Los parquets sectoriales (por expediente, no por persona): PTGAS no tiene regla 23, así que mantiene la vista clásica por expediente con pestañas por grupo conceptual de nómina.],
     [Multiexpediente], [#ruta("auxiliares", "nóminas", "multiexpediente.parquet").],
     [Costes sociales calculados], [#ruta("auxiliares", "nóminas", "costes_sociales_calculados.parquet").],
+    [Absentismo], [#ruta("auxiliares", "nóminas", "uc_absentismo.parquet") (UC del mes bonificado por la SS).],
     [Atrasos a no vinculados],
     [#ruta("auxiliares", "nóminas", "atrasos_no_vinculados.parquet"): personas que solo cobran atrasos (CR 30/87) en el año, sin vinculación laboral activa. Su importe queda fuera del reparto y la pantalla cuantifica cuántas personas y cuánto dinero.],
     [Despidos], [#ruta("auxiliares", "nóminas", "uc_despidos.parquet").],
     [Indemnizaciones asistencias], [#ruta("auxiliares", "nóminas", "uc_indemnizaciones_asistencias.parquet").],
+    [Reducciones sindicales], [#ruta("regla23", "reducciones_sindicales_pdi.parquet") + las reducciones PTGAS del preprocesamiento de nóminas.],
     [Anomalías PDI], [Subconjuntos de los parquets sectoriales con marcas de anomalía.],
     table.hline(),
 )
@@ -1653,7 +1659,7 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     y debería ser #val("0") (con tolerancia #val("0,01") €) para toda persona. Cualquier descuadre es síntoma de un problema: un servicio sin mapeo, una UC duplicada, un dato faltante en los catálogos auxiliares.
 ]
 
-=== Bloque «Regla 23»
+=== Bloque «Personal › Regla 23»
 
 #table(
     columns: (auto, 1fr),
@@ -1682,10 +1688,24 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
     [Grupos],
     [#ruta("data", "entrada", "investigación", "grupos investigación.xlsx") enriquecido con instituto (#ruta("grupos a institutos.xlsx")) y miembros (#ruta("investigadores en grupos.xlsx")). Permite ver qué grupos generaron CC.],
+    [Horas Kalendas], [Horas reales por contrato de proyecto (Kalendas), con detalle por persona y contrato.],
     table.hline(),
 )
 
-=== Bloque «Cargos académicos»
+=== Bloque «Suministros»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [UC por suministros], [#ruta("uc suministros.parquet") (energía, agua, gas).],
+    [Distribución mantenimientos OTOP],
+    [Matriz por centro de presencia para los apuntes con #campo("centro") = #val("SC001").],
+    table.hline(),
+)
+
+=== Bloque «Personal › Cargos académicos»
 
 #table(
     columns: (auto, 1fr),
@@ -1699,7 +1719,7 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     table.hline(),
 )
 
-=== Bloque «Superficies»
+=== Bloque «Suministros › Superficies»
 
 #table(
     columns: (auto, 1fr),
@@ -1713,7 +1733,7 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     table.hline(),
 )
 
-=== Bloque «Resultados Fase 1»
+=== Bloque «Unidades de coste»
 
 #table(
     columns: (auto, 1fr),
@@ -1726,6 +1746,33 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     [Actividades · Centros de coste · Elementos de coste *(jerárquicas)*],
     [Pantalla master-detail con dos zonas. *Arriba*: árbol del catálogo correspondiente con expand/collapse, búsqueda con resaltado (insensible a tildes y mayúsculas) y, por cada nodo, código, descripción, identificador, #emph[N UC subárbol] y #emph[Σ importe subárbol] (totales agregados del nodo y todos sus descendientes; los nodos con N=0 se ven atenuados pero no se ocultan). *Abajo* al seleccionar un nodo: tabla de UC imputadas *directamente* a ese nodo (clic-para-ficha igual que la vista plana) y tabla de hijos directos con N UC, importe y % sobre hermanos. Tres rutas: #ruta("/resultados/actividades"), #ruta("/resultados/centros-de-coste"), #ruta("/resultados/elementos-de-coste"). Pinchar en una fila de la tabla de hijos navega al hijo correspondiente.],
     [Anomalías UC], [UC que referencian nodos inexistentes en los árboles finales (integridad referencial).],
+    table.hline(),
+)
+
+=== Bloque «Reparto de actividades»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Resumen], [KPIs del reparto de actividades dag (ver #emph[Fase de reparto de actividades]).],
+    [UC tras reparto], [#ruta("reparto", "uc_post_reparto.parquet").],
+    [Por actividad dag], [Detalle del destino de cada actividad dag (reglas aplicadas y reparto resultante).],
+    [Porcentajes por centro], [Tabla de porcentajes dag→destino por centro de coste.],
+    [Anomalías], [Repartos con destino vacío u otras anomalías de la fase de reparto.],
+    table.hline(),
+)
+
+=== Bloque «Informes»
+
+#table(
+    columns: (auto, 1fr),
+    stroke: 0.5pt + luma(80%),
+    inset: 4pt,
+    table.header(table.hline(), [*Entrada*], [*Origen*], table.hline()),
+    [Normalizados], [Cuadros 10.1, 10.3, 10.4, 10.5 y 10.7 (ver #emph[Fase 2: Informes consolidados]).],
+    [A la carta], [Informes a la carta (ver #emph[Informes a la carta]).],
     table.hline(),
 )
 
@@ -1939,7 +1986,7 @@ Vamos con las reglas de esta sección:
         Si el #campo("tipo de proyecto") es #val("DIPI"), #val("FGVI") o #val("GVI"), y #campo("programa") = #val("541-A") y #campo("tipo de línea de financiación") no es #val("00"), la actividad es #etqact("ai-regional") + #campo("proyecto").
 
     - #nombre-regla[Investigación nacional]
-        Si #campo("tipo de proyecto") es #val("06I"), #val("COBEI"), #val("MCTFE"), #val("MCTI"), #val("MEC"), #val("MECD"), #val("MECI"), #val("MIE"), #val("MIG"), #val("MPEI"), #val("MSI"), #val("MSP"), #val("MTAI") o #val("MTD"), y #campo("programa") = #val("541-A"), y #campo("tipo de línea de financiación") no empieza por #val("00"), la actividad es #etqact("ai-nacional") + #campo("proyecto").
+        Si #campo("tipo de proyecto") es #val("06I"), #val("COBEI"), #val("MCTFE"), #val("MCTI"), #val("MEC"), #val("MECD"), #val("MECI"), #val("MIE"), #val("MIG"), #val("MPEI"), #val("MSI"), #val("MSP"), #val("MTAI") o #val("MTD"), y #campo("programa") = #val("541-A"), y #campo("tipo de línea de financiación") no es #val("00"), la actividad es #etqact("ai-nacional") + #campo("proyecto").
 
     - #nombre-regla[Investigación internacional]
         Si #campo("tipo de proyecto") #val("UEI") o #val("UEGD"), y #campo("programa") = #val("541-A"), y #campo("tipo de línea de financiación") no es #val("00"), la actividad es #etqact("ai-internacional") + #campo("proyecto").
@@ -3926,6 +3973,8 @@ Nos vamos a referir a conceptos que están en tablas de #ruta("data", "entrada",
 
 Las concordancias de prefijos hay que explicarlas bien. Imaginemos que dos prefijos que presentan solapamiento, como #val(" ") y #val("TIN"). Si un coste está asociado a #val("TI0111AL"), está claro que encaja con #val("TI"). Pero ojo con un coste asociado a #val("TIN0111AL"), porque también encaja con #val("TI"). En ese caso, hay que asignar el coste a #val("TIN"), porque es el prefijo más largo que encaja.
 
+El peso de cada centro dentro de un prefijo no son sus m² nominales sin más: cada zona pondera sus m² con el coeficiente de #campo("corrector_energía") del fichero #ruta("corrector superficie.xlsx") (para #ruta("agua.xlsx") se usa #campo("corrección_otros")). Así, una pista deportiva al aire libre con corrector #val("0,1") solo aporta el 10 % de su superficie al peso de su centro.
+
 Imaginemos esta línea del fichero #ruta("energía.xlsx"):
 
 #align(center, table(
@@ -4101,6 +4150,8 @@ Hay ciertos gastos presupuestarios centrales que se pueden asignar a zonas, edif
 El fichero #ruta("distribución OTOP.xlsx") recoge el porcentaje de cada uno de esos gastos que se asigna a cada zona, edificio o complejo. Con las tablas que ya hemos calculado, de presencia de cada centro en cada zona, edificio y complejo, podemos asignar a cada centro de coste un porcentaje de cada uno de esos gastos presupuestarios centrales. Hay que ser cuidadoso porque un centro puede tener presencia en varias zonas, edificios o complejos, y el mismo gasto presupuestario puede estar asociado a varias zonas, edificios o complejos. En ese caso, el centro de coste acumula el porcentaje que le corresponde por cada zona, edificio o complejo.
 
 Si un mismo prefijo tiene dos porcentajes, antes de empezar, simplifica eso con una sola fila con el mismo prefijo y el porcentaje que resulte de sumar los dos porcentajes.
+
+La concordancia entre zonas y prefijos sigue la misma regla del prefijo más largo que la de los suministros: cada zona participa únicamente en la fila más específica que la cubre (con filas #val("D") y #val("DC4"), la zona DC4 solo recibe de #val("DC4")). Los pesos de presencia se calculan con los m² corregidos por #campo("corrección_limpieza") del fichero #ruta("corrector superficie.xlsx").
 
 Si queda algún porcentaje sin asignar a ningún centro de coste, ese porcentaje se ha de repartir entre los centros de coste en función del porcentaje que les ha tocado con el resto de información (parece que eso pasa con costes de la Residencia de Estudiantes).
 
@@ -4845,7 +4896,7 @@ La docencia no oficial (formación permanente, cursos UJI, OAD, idiomas, etc.) s
     val("EPC"), [Estudio propio curso],
     val("EPMI"), [Estudio propio microcredencial],
     val("CUID"), [Cursos universitarios de idiomas],
-    val("CUES"), [Cursos universitarios de español],
+    val("CUEX"), [Cursos para extranjeros],
     val("OAD"), [Otras actividades docentes],
     table.hline(),
 )
@@ -4863,7 +4914,7 @@ El número resultante se llama #campo("horas_efectivas") y es lo que se usa como
 
 - Tipo #val("OAD") y #campo("centro_origen") del proyecto = #val("UMAJ") (#emph[Universitat per a Majors]) → actividad #etqact("universidad-mayores"), centro de coste #etqcen("universidad-mayores").
 - Resto de filas con tipo #val("OAD") con otro #campo("centro_origen") → actividad #etqact("otros-docencia-propia"); para determinar el centro de coste, utiliza las misma reglas que hubieras utilizado para procesar un gasto de este proyecto.
-- El resto de tipos de proyecto, #val("EPM"), #val("EPDE"), #val("EPDEX"), #val("EPC"), #val("EPMI"), #val("CUID"), #val("CUES"), para determinar tanto la actividad como el centro de coste, utiliza las misma reglas que hubieras utilizado para procesar un gasto de este proyecto.
+- El resto de tipos de proyecto, #val("EPM"), #val("EPDE"), #val("EPDEX"), #val("EPC"), #val("EPMI"), #val("CUID"), #val("CUEX"), para determinar tanto la actividad como el centro de coste, utiliza las misma reglas que hubieras utilizado para procesar un gasto de este proyecto.
 
 Las filas se emiten con #campo("grupo") = #val("docencia_no_oficial"), #campo("método") = #val("et") (estimación por tipología) y #campo("origen") = #val("POD_no_oficial"), con #campo("origen_id") = #campo("gre_id") (identificador único de la acción en el fichero). Adicionalmente se persiste en #ruta("auxiliares", "nóminas", "regla_23_horas_no_oficiales.parquet") la tabla completa con #campo("horas_efectivas"), #campo("tipo_proyecto") y #campo("centro_origen") para auditoría desde la #app.
 
@@ -5128,7 +5179,7 @@ Cada UC de SS lleva como #campo("id") un código seriado de la forma `SS-NNNNN`.
 
 - #etqele("ss-ptgas") para expedientes PTGAS.
 - #etqele("ss-pdi-func") para expedientes PDI cuya persona NO está en clases pasivas.
-- #etqele("ss-pvi-otpersonal") para expedientes PVI.
+- #etqele("ss-pi-otpersonal") para expedientes PVI.
 - #etqele("prevsoc-funcs-pdi") cuando la persona del expediente PDI está en clases pasivas (PDI funcionario CU/TU/TEU/CEU sin aplicación #val("12")).
 
 Como consecuencia de pasar a sectorial por expediente, ya no existe la idea de «sector principal» con prelación PTGAS > PVI > PDI > Otros. Cada expediente lleva la SS al elemento de coste que le corresponde directamente.

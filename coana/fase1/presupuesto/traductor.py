@@ -416,7 +416,7 @@ class TraductorPresupuesto:
             (
                 "Material de docencia, deportivo u otro",
                 aplicación.is_in(["2236", "2238"]),
-                pl.when(pl.col("centro").is_in(["ECTEC", "FCCHS", "FCCJS", "FCCS"]))
+                pl.when(pl.col("centro").is_in(["ECTEC", "FCCHS", "FCCJE", "FCCS"]))
                 .then(pl.lit("material-docencia"))
                 .when(pl.col("subcentro").is_in(["C2", "C3"]))
                 .then(pl.lit("material-deportivo-cultural"))

@@ -11,15 +11,21 @@ from pathlib import Path
 
 import polars as pl
 
-from coana.fase1.inventario.procesamiento import ResultadoInventario
+from coana.fase1.inventario.procesamiento import (
+    ResultadoInventario,
+    reparto_por_prefijo_más_largo,
+)
 from coana.util.excel_cache import read_excel
 
 
-# Configuración de los tres ficheros de suministros.
-_SUMINISTROS: list[tuple[str, str, str]] = [
-    ("energía", "energía-eléctrica", "energía"),
-    ("agua", "agua", "agua"),
-    ("gas", "gas", "gas"),
+# Configuración de los tres ficheros de suministros:
+# (fichero, elemento de coste, origen, columna del corrector de superficie).
+# Energía y gas (coste energético) usan `corrector_energía`; agua usa
+# `corrección_otros` (hoy vacía ⇒ sin corrección).
+_SUMINISTROS: list[tuple[str, str, str, str]] = [
+    ("energía", "energía-eléctrica", "energía", "corrector_energía"),
+    ("agua", "agua", "agua", "corrección_otros"),
+    ("gas", "gas", "gas", "corrector_energía"),
 ]
 
 
@@ -43,8 +49,10 @@ def generar_uc_suministros(
 ) -> tuple[pl.DataFrame, list[EstadísticaSuministro]]:
     """Genera unidades de coste de suministros (energía, agua, gas).
 
-    Para cada línea de cada fichero, determina el nivel espacial por
-    la longitud del prefijo y busca centros con presencia en ese nivel.
+    Cada zona del campus se asigna al prefijo más largo del fichero que
+    concuerda con su código, y el coste de cada línea se reparte entre
+    los centros según su presencia (m² corregidos por el corrector de
+    superficie) en las zonas asignadas a su prefijo.
 
     Returns
     -------
@@ -56,7 +64,7 @@ def generar_uc_suministros(
     stats: list[EstadísticaSuministro] = []
     id_counter = 0
 
-    for nombre_fichero, elemento_de_coste, origen_suministro in _SUMINISTROS:
+    for nombre_fichero, elemento_de_coste, origen_suministro, col_corrector in _SUMINISTROS:
         ruta = dir_consumos / f"{nombre_fichero}.xlsx"
         try:
             df = read_excel(ruta)
@@ -67,38 +75,22 @@ def generar_uc_suministros(
         prefijos_sin_match: list[tuple[str, float, str]] = []
         importe_original = float(df["coste"].sum())
 
+        # Cada zona se asigna al prefijo más largo del fichero que
+        # concuerda con su código; los pesos son m² corregidos.
+        tablas = reparto_por_prefijo_más_largo(
+            [str(p).strip() for p in df["prefijo"].drop_nulls().to_list()],
+            resultado_inv.presencia_zona,
+            resultado_inv.corrector_superficie,
+            col_corrector,
+        )
+
         for row in df.iter_rows(named=True):
             prefijo = str(row["prefijo"]).strip()
             coste = float(row["coste"])
             comentario = str(row.get("comentario") or "")
 
-            # Determinar nivel por longitud del prefijo
-            centros_en: pl.DataFrame
-            if len(prefijo) >= 3:
-                # Zona: área = 1er char, edificio = resto
-                área = prefijo[0]
-                edificio = prefijo[1:]
-                centros_en = resultado_inv.presencia_zona.filter(
-                    (pl.col("área") == área) & (pl.col("edificio") == edificio)
-                )
-            elif len(prefijo) == 2:
-                # Edificación: área = 1er char, edificación = 2º char
-                área = prefijo[0]
-                edificación = prefijo[1]
-                centros_en = resultado_inv.presencia_edificación.filter(
-                    (pl.col("área") == área)
-                    & (pl.col("edificación") == edificación)
-                )
-            elif len(prefijo) == 1:
-                # Complejo
-                centros_en = resultado_inv.presencia_complejo.filter(
-                    pl.col("área") == prefijo
-                )
-            else:
-                prefijos_sin_match.append((prefijo, coste, comentario))
-                continue
-
-            if centros_en.is_empty():
+            centros_en = tablas.get(prefijo)
+            if centros_en is None:
                 prefijos_sin_match.append((prefijo, coste, comentario))
                 continue
 
