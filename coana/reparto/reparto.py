@@ -1,52 +1,59 @@
 """Cálculo del reparto de actividades (costes dag → actividades finalistas).
 
 Toma el conjunto consolidado de UC de la fase 1 y reparte cada UC cuya
-**actividad** es dag (subárbol de `dags`, código `02.*`) entre actividades
-**finalistas** (subárbol de `principales`, `01.*`), conservando su elemento de
-coste. El destino se decide por la *tabla de reglas* (`tabla_dag_centro.REGLAS`,
-índice (centro, actividad) → destino (centro, actividades)); si ninguna regla
-casa, por *defecto* se reparte entre las finalistas del propio centro; si no hay
-base, la UC queda como *anomalía* (sin repartir).
+**actividad** es dag (subárbol de `dags`) entre actividades **finalistas**
+(subárbol de `principales`), conservando su elemento de coste.
 
-El peso de cada finalista hoja del destino es su coste no-dag directo sobre el
-total del destino. Para acotar el nº de fragmentos, las UC dag se agregan por
+El destino se decide con la *tabla de reglas por patrones* de
+`tabla_dag_centro.REGLAS`: una lista ordenada de
+``ORIGEN(actividad, centro) → DESTINO(actividad, centro)``; gana la
+**primera** regla cuyo ORIGEN casa la UC dag. La UC origen se reparte entre
+las UC no-dag finalistas que casan el DESTINO, **proporcional a su importe**.
+El comodín ``·mismo·`` del centro destino = el centro del origen y su
+subárbol. Si la regla que casa deja el destino *vacío*, la UC queda como
+*anomalía* (sin repartir, conservada intacta).
+
+Cada fragmento conserva el *elemento de coste del origen*, toma el centro y
+la actividad del destino, y se anota con ``marca_dag`` (la actividad dag de
+procedencia). Para acotar el nº de fragmentos, las UC dag se agregan por
 (centro, actividad, elemento de coste) antes de repartir.
 
 Salidas (en ``data/fase1/reparto/``):
 - ``uc_post_reparto.parquet``: UC no-dag (intactas) + fragmentos + UC dag
-  anómalas (intactas), con la columna ``marca_dag`` (la actividad dag de origen).
-- ``porcentajes_centro.parquet``: % no-dag finalista por (centro, actividad).
+  anómalas (intactas), con la columna ``marca_dag``.
+- ``porcentajes_centro.parquet``: peso no-dag finalista por (centro, actividad).
 - ``anomalias.parquet``: UC dag no repartidas, con su motivo.
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import polars as pl
 
 from coana.util import read_excel, Árbol
 from coana.reparto.tabla_dag_centro import (
-    MISMO_CENTRO, RAÍZ_DAG, RAÍZ_FINALISTAS, REGLAS, ReglaDag,
+    MISMO, RAÍZ_DAG, RAÍZ_FINALISTAS, REGLAS, ReglaDag,
 )
 
-_LEAVES_SCHEMA = {
-    "_destino_id": pl.Utf8, "_c_leaf": pl.Utf8,
-    "_a_leaf": pl.Utf8, "_peso": pl.Float64,
-}
-
 _ORIGEN = "reparto-dag"
-_MOTIVO_SIN_REGLA_NI_BASE = "sin_regla_ni_base"
-_MOTIVO_DESTINO_SIN_BASE = "destino_de_regla_sin_base"
+_MOTIVO_DESTINO_VACÍO = "destino_vacío"
+_MOTIVO_SIN_REGLA = "sin_regla"
 
 _COLS_UC = [
     "id", "elemento_de_coste", "centro_de_coste", "actividad", "importe",
     "origen", "origen_id", "origen_porción", "marca_dag",
 ]
 
+_LEAVES_SCHEMA = {
+    "_destino_id": pl.Utf8, "_c_leaf": pl.Utf8,
+    "_a_leaf": pl.Utf8, "_peso": pl.Float64,
+}
+
 
 # ----------------------------------------------------------------------
-# Árboles y subárboles
+# Árboles, subárboles y patrones
 # ----------------------------------------------------------------------
 
 def _árbol(ruta_base: Path, nombre: str) -> Árbol:
@@ -60,8 +67,8 @@ def _árbol(ruta_base: Path, nombre: str) -> Árbol:
 
 def _descendientes(árbol: Árbol, slug: str) -> set[str]:
     """Identificadores del nodo `slug` y todo su subárbol (por prefijo de
-    código). La raíz (código vacío, p. ej. `UJI`) devuelve todo el árbol.
-    Conjunto vacío si el slug no existe."""
+    código). La raíz (código vacío) devuelve todo el árbol. Conjunto vacío
+    si el slug no existe."""
     nodo = árbol._por_id.get(slug)
     if nodo is None:
         return set()
@@ -73,6 +80,64 @@ def _descendientes(árbol: Árbol, slug: str) -> set[str]:
         ident for ident, n in árbol._por_id.items()
         if ident and (n.código == cod or n.código.startswith(pref))
     }
+
+
+def _ids_patrón(patrón: str, árbol: Árbol) -> set[str]:
+    """Identificadores que casa un patrón: ``*`` (todos), ``etiqueta``
+    (exacto) o ``etiqueta.*`` (nodo + subárbol)."""
+    if patrón == "*":
+        return {ident for ident in árbol._por_id if ident}
+    if patrón.endswith(".*"):
+        return _descendientes(árbol, patrón[:-2])
+    return {patrón} if patrón in árbol._por_id else set()
+
+
+def _ids_patrones(patrones: tuple[str, ...], árbol: Árbol) -> set[str]:
+    """Unión de los conjuntos de varios patrones."""
+    s: set[str] = set()
+    for p in patrones:
+        s |= _ids_patrón(p, árbol)
+    return s
+
+
+def _ident_base(patrón: str) -> str | None:
+    """Identificador base de un patrón (sin `.*`); None para `*`."""
+    if patrón == "*":
+        return None
+    return patrón[:-2] if patrón.endswith(".*") else patrón
+
+
+def _idents_base(patrones: tuple[str, ...], árbol: Árbol) -> list[str]:
+    """Identificadores base de los patrones que existen en el árbol
+    (para materializar el destino nombrado)."""
+    out: list[str] = []
+    for p in patrones:
+        b = _ident_base(p)
+        if b is not None and b in árbol._por_id and b not in out:
+            out.append(b)
+    return out
+
+
+def _parse_grupos(patrones: tuple[str, ...]) -> list[tuple[str, float | None]]:
+    """Parsea los patrones de actividad DESTINO en grupos (patrón, fracción).
+
+    Notación de reparto porcentual por grupo: ``"docencia.* 20% + ai.* 80%"``
+    (el 20 % de la masa al grupo docencia, el 80 % al grupo ai). El ``+`` y
+    el ``%`` pueden venir en una sola cadena o en elementos separados de la
+    tupla. Sin porcentaje → fracción ``None`` (todo el conjunto pondera solo
+    por importe). Devuelve ``[(patrón, fracción|None), …]``."""
+    out: list[tuple[str, float | None]] = []
+    for elem in patrones:
+        for sub in elem.split("+"):
+            sub = sub.strip()
+            if not sub:
+                continue
+            m = re.match(r"^(.*?)\s+(\d+(?:\.\d+)?)\s*%$", sub)
+            if m:
+                out.append((m.group(1).strip(), float(m.group(2)) / 100.0))
+            else:
+                out.append((sub, None))
+    return out
 
 
 def _cargar_uc_fase1(ruta_base: Path) -> pl.DataFrame:
@@ -88,94 +153,6 @@ def _cargar_uc_fase1(ruta_base: Path) -> pl.DataFrame:
 # Reparto
 # ----------------------------------------------------------------------
 
-def _rolldown_centro(
-    directo: dict[str, float], árbol_actividades: Árbol,
-) -> dict[str, float]:
-    """Baja el coste de los nodos intermedios a las HOJAS de un centro.
-
-    `directo` es `{actividad: coste directo}` de un centro (solo finalistas).
-    El coste de cada nodo (el suyo + el que recibe de arriba) se reparte entre
-    sus hijos *relevantes* (los que tienen coste en su subárbol) en proporción
-    al coste directo total del subárbol; si la base es 0, a partes iguales. Un
-    nodo sin hijos relevantes es «hoja para el centro» y acumula el importe.
-    Devuelve `{hoja: importe imputable}` (Σ = Σ directo)."""
-    relevante: set[str] = set()
-    for act in directo:
-        n = árbol_actividades._por_id.get(act)
-        while n is not None:
-            relevante.add(n.identificador)
-            n = n.padre
-
-    cache: dict[str, float] = {}
-
-    def subtree(slug: str) -> float:
-        if slug in cache:
-            return cache[slug]
-        n = árbol_actividades._por_id[slug]
-        s = directo.get(slug, 0.0)
-        for h in n.hijos:
-            if h.identificador in relevante:
-                s += subtree(h.identificador)
-        cache[slug] = s
-        return s
-
-    hojas: dict[str, float] = {}
-
-    def bajar(slug: str, recibido: float) -> None:
-        total = directo.get(slug, 0.0) + recibido
-        n = árbol_actividades._por_id[slug]
-        hijos_rel = [h.identificador for h in n.hijos if h.identificador in relevante]
-        if not hijos_rel:
-            hojas[slug] = hojas.get(slug, 0.0) + total
-            return
-        suma = sum(subtree(c) for c in hijos_rel)
-        for c in hijos_rel:
-            cuota = (total * subtree(c) / suma) if suma > 0 else (total / len(hijos_rel))
-            bajar(c, cuota)
-
-    raíces = [
-        s for s in relevante
-        if (árbol_actividades._por_id[s].padre is None
-            or árbol_actividades._por_id[s].padre.identificador not in relevante)
-    ]
-    for raíz in raíces:
-        bajar(raíz, 0.0)
-    return hojas
-
-
-def _imputable_por_hoja(
-    no_dag: pl.DataFrame, árbol_actividades: Árbol, finalistas: set[str],
-) -> pl.DataFrame:
-    """`(centro_de_coste, actividad, _coste)` con el coste imputable por HOJA
-    finalista (directo + roll-down de ancestros), por centro."""
-    directo_df = (
-        no_dag.filter(pl.col("actividad").cast(pl.Utf8).is_in(list(finalistas)))
-        .group_by("centro_de_coste", "actividad")
-        .agg(pl.col("importe").sum().alias("_coste"))
-        .filter(pl.col("_coste") > 0)
-    )
-    esquema = {"centro_de_coste": pl.Utf8, "actividad": pl.Utf8, "_coste": pl.Float64}
-    if directo_df.is_empty():
-        return pl.DataFrame(schema=esquema)
-
-    por_centro: dict[str, dict[str, float]] = {}
-    for r in directo_df.iter_rows(named=True):
-        por_centro.setdefault(r["centro_de_coste"], {})[r["actividad"]] = float(r["_coste"])
-
-    cs: list[str] = []
-    acts: list[str] = []
-    imps: list[float] = []
-    for centro, directo in por_centro.items():
-        for act, imp in _rolldown_centro(directo, árbol_actividades).items():
-            if imp > 0:
-                cs.append(centro)
-                acts.append(act)
-                imps.append(round(imp, 6))
-    return pl.DataFrame(
-        {"centro_de_coste": cs, "actividad": acts, "_coste": imps}, schema=esquema,
-    )
-
-
 def calcular_reparto(
     uc: pl.DataFrame,
     reglas: list[ReglaDag],
@@ -186,17 +163,17 @@ def calcular_reparto(
     finalistas = _descendientes(árbol_actividades, RAÍZ_FINALISTAS)
     dags = _descendientes(árbol_actividades, RAÍZ_DAG)
 
-    # `fill_null("")` para que las UC con actividad nula cuenten como no-dag
-    # (si no, `is_in` devuelve null y se perderían en ambos filtros).
     es_dag = pl.col("actividad").cast(pl.Utf8).fill_null("").is_in(list(dags))
     no_dag = uc.filter(~es_dag)
     dag = uc.filter(es_dag)
 
-    # --- Base del reparto: coste IMPUTABLE por (centro, actividad HOJA) ---
-    # El dag se reparte solo entre hojas; el peso de cada hoja es su coste
-    # directo + el que le baja («roll-down») de sus ancestros.
-    base = _imputable_por_hoja(no_dag, árbol_actividades, finalistas)
-    centros_con_base = set(base["centro_de_coste"].to_list())
+    # --- Base del reparto: importe no-dag finalista por (centro, actividad) ---
+    base = (
+        no_dag.filter(pl.col("actividad").cast(pl.Utf8).is_in(list(finalistas)))
+        .group_by("centro_de_coste", "actividad")
+        .agg(pl.col("importe").sum().alias("_coste"))
+        .filter(pl.col("_coste") > 0)
+    )
 
     porcentajes = (
         base.with_columns(
@@ -225,130 +202,132 @@ def calcular_reparto(
         })
         return post, porcentajes, anom
 
-    # --- Resolver el destino de cada par (centro, actividad) dag ---
-    reglas_exp = [
-        (
-            {r.centro_índice} if r.índice_exacto_centro
-            else _descendientes(árbol_centros, r.centro_índice),
-            _descendientes(árbol_actividades, r.actividad_índice),
-            i,
-        )
-        for i, r in enumerate(reglas)
-    ]
+    # --- Precomputar los conjuntos de cada regla ---
+    reglas_exp = []
+    for r in reglas:
+        origen_act = _ids_patrones(r.origen_actividad, árbol_actividades) & dags
+        origen_cen = _ids_patrones(r.origen_centro, árbol_centros)
+        # Grupos de actividad destino: (conjunto de ids finalistas, fracción).
+        grupos_parsed = _parse_grupos(r.destino_actividad)
+        destino_grupos = [
+            (_ids_patrón(p, árbol_actividades) & finalistas, frac)
+            for p, frac in grupos_parsed
+        ]
+        cen_fijos = tuple(p for p in r.destino_centro if p != MISMO)
+        destino_cen_fijo = _ids_patrones(cen_fijos, árbol_centros) if cen_fijos else set()
+        tiene_mismo = MISMO in r.destino_centro
+        # Para materializar: identificadores base nombrados del destino.
+        act_mat = _idents_base(tuple(p for p, _ in grupos_parsed), árbol_actividades)
+        cen_mat_fijo = _idents_base(cen_fijos, árbol_centros)
+        reglas_exp.append((
+            origen_act, origen_cen, destino_grupos, destino_cen_fijo, tiene_mismo,
+            r.materializar, act_mat, cen_mat_fijo,
+        ))
+
     pares = dag.select("centro_de_coste", "actividad").unique().rows()
-    finalistas_lista = list(finalistas)
 
-    def _ponderar(t: pl.DataFrame, destino_id: str) -> pl.DataFrame:
-        """Leaves ponderadas por coste (peso = coste / Σ coste)."""
-        total = float(t["_coste"].sum() or 0.0)
-        return t.select(
-            pl.lit(destino_id).alias("_destino_id"),
-            pl.col("centro_de_coste").alias("_c_leaf"),
-            pl.col("actividad").alias("_a_leaf"),
-            (pl.col("_coste") / total).alias("_peso"),
-        )
-
-    def _iguales(centros: list[str], acts: list[str], destino_id: str) -> pl.DataFrame:
-        """Leaves a partes iguales sobre (centros × actividades finalistas
-        nombradas). Materializa los destinos aunque no tengan UCs previas."""
-        combos = [(c, a) for c in centros for a in acts if a in finalistas]
+    def _materializar(centros: list[str], acts: list[str], did: str) -> pl.DataFrame:
+        """Destino nombrado a partes iguales (crea (centro, act) aunque no
+        tengan UCs previas)."""
+        combos = [(c, a) for c in centros for a in acts]
         if not combos:
             return pl.DataFrame(schema=_LEAVES_SCHEMA)
         peso = 1.0 / len(combos)
         return pl.DataFrame({
-            "_destino_id": [destino_id] * len(combos),
+            "_destino_id": [did] * len(combos),
             "_c_leaf": [c for c, _ in combos],
             "_a_leaf": [a for _, a in combos],
             "_peso": [peso] * len(combos),
         }, schema=_LEAVES_SCHEMA)
 
-    def _leaves_regla(i: int) -> pl.DataFrame:
-        r = reglas[i]
-        cset = _descendientes(árbol_centros, r.centro_destino)
-        aset: set[str] = set()
-        for a in r.actividades_destino:
-            aset |= _descendientes(árbol_actividades, a)
+    def _leaves_grupo(centro_set: set[str], act_set: set[str], did: str, factor: float) -> pl.DataFrame:
+        """Destinos de UN grupo, ponderados por importe y escalados por
+        `factor` (la fracción de la masa que le toca al grupo). Vacío si no
+        hay ninguna UC no-dag con coste que case."""
         t = base.filter(
-            pl.col("centro_de_coste").is_in(list(cset))
-            & pl.col("actividad").is_in(list(aset & finalistas))
+            pl.col("centro_de_coste").is_in(list(centro_set))
+            & pl.col("actividad").is_in(list(act_set))
         )
-        if not t.is_empty() and float(t["_coste"].sum() or 0.0) > 0:
-            return _ponderar(t, f"R{i}")
-        # Base cero: a partes iguales entre las actividades nombradas, en el
-        # centro destino de la regla.
-        return _iguales([r.centro_destino], list(r.actividades_destino), f"R{i}")
+        total = float(t["_coste"].sum() or 0.0)
+        if t.is_empty() or total <= 0:
+            return pl.DataFrame(schema=_LEAVES_SCHEMA)
+        return t.select(
+            pl.lit(did).alias("_destino_id"),
+            pl.col("centro_de_coste").alias("_c_leaf"),
+            pl.col("actividad").alias("_a_leaf"),
+            (factor * pl.col("_coste") / total).alias("_peso"),
+        )
 
-    def _leaves_mismo(i: int, c: str) -> pl.DataFrame:
-        """Destino «mismo centro»: reparte entre TODAS las finalistas del propio
-        centro `c` (= comportamiento por defecto); si `c` no tiene base
-        finalista, transforma a las actividades nombradas (a partes iguales)."""
-        did = f"R{i}:{c}"
-        t = base.filter(
-            (pl.col("centro_de_coste") == c)
-            & pl.col("actividad").is_in(finalistas_lista)
-        )
-        if not t.is_empty() and float(t["_coste"].sum() or 0.0) > 0:
-            return _ponderar(t, did)
-        return _iguales([c], list(reglas[i].actividades_destino), did)
+    def _leaves(centro_set: set[str], grupos: list, did: str) -> pl.DataFrame:
+        """Destinos de una regla. Si algún grupo lleva fracción (porcentaje),
+        cada grupo recibe su fracción de la masa y, dentro, pondera por
+        importe; si un grupo con fracción queda vacío, el destino es
+        *incompleto* → se devuelve vacío (anomalía, para no romper la
+        conservación). Sin fracciones, todos los grupos forman un único
+        conjunto ponderado solo por importe."""
+        pesado = any(frac is not None for _, frac in grupos)
+        if not pesado:
+            act_all: set[str] = set()
+            for act_set, _ in grupos:
+                act_all |= act_set
+            return _leaves_grupo(centro_set, act_all, did, 1.0)
+        partes: list[pl.DataFrame] = []
+        for act_set, frac in grupos:
+            f = frac or 0.0
+            if f <= 0:
+                continue
+            lv = _leaves_grupo(centro_set, act_set, did, f)
+            if lv.is_empty():
+                return pl.DataFrame(schema=_LEAVES_SCHEMA)  # grupo vacío → anomalía
+            partes.append(lv)
+        if not partes:
+            return pl.DataFrame(schema=_LEAVES_SCHEMA)
+        return pl.concat(partes, how="vertical")
 
     leaves_cache: dict[str, pl.DataFrame] = {}
-
-    asignación: list[dict] = []          # (centro, actividad) -> _destino_id
+    asignación: list[dict] = []
     anom_pares: set[tuple[str, str]] = set()
     motivo_par: dict[tuple[str, str], str] = {}
 
     for c, a in pares:
         destino_id = None
-        for cset, aset, i in reglas_exp:
-            if c in cset and a in aset:
-                if reglas[i].centro_destino == MISMO_CENTRO:
-                    did = f"R{i}:{c}"
-                    if did not in leaves_cache:
-                        leaves_cache[did] = _leaves_mismo(i, c)
-                else:
-                    did = f"R{i}"
-                    if did not in leaves_cache:
-                        leaves_cache[did] = _leaves_regla(i)
-                if leaves_cache[did].is_empty():
-                    anom_pares.add((c, a))
-                    motivo_par[(c, a)] = _MOTIVO_DESTINO_SIN_BASE
-                else:
-                    destino_id = did
-                break
-        else:
-            # ninguna regla casó
-            if c in centros_con_base:
-                destino_id = f"C:{c}"
+        for i, (oa, oc, grupos, dcf, mismo, materializar, act_mat, cen_mat_fijo) in enumerate(reglas_exp):
+            if a not in oa or c not in oc:
+                continue
+            # Primera regla que casa el ORIGEN.
+            if mismo:
+                centro_set = dcf | _descendientes(árbol_centros, c)
+                did = f"R{i}:{c}"
             else:
+                centro_set = dcf
+                did = f"R{i}"
+            if did not in leaves_cache:
+                lv = _leaves(centro_set, grupos, did)
+                if lv.is_empty() and materializar:
+                    # Materializar el destino nombrado a partes iguales.
+                    centros_mat = ([c] if mismo else []) + cen_mat_fijo
+                    lv = _materializar(centros_mat, act_mat, did)
+                leaves_cache[did] = lv
+            if leaves_cache[did].is_empty():
                 anom_pares.add((c, a))
-                motivo_par[(c, a)] = _MOTIVO_SIN_REGLA_NI_BASE
+                motivo_par[(c, a)] = _MOTIVO_DESTINO_VACÍO
+            else:
+                destino_id = did
+            break
+        else:
+            # No casó ninguna regla (centro fuera del árbol, etc.).
+            anom_pares.add((c, a))
+            motivo_par[(c, a)] = _MOTIVO_SIN_REGLA
         if destino_id is not None:
             asignación.append({"centro_de_coste": c, "actividad": a, "_destino_id": destino_id})
 
-    # --- Tabla de leaves destino (reglas + defecto) ---
     leaves_parts = [df for df in leaves_cache.values() if not df.is_empty()]
-    centros_defecto = sorted({
-        r["centro_de_coste"] for r in asignación if r["_destino_id"].startswith("C:")
-    })
-    if centros_defecto:
-        leaves_parts.append(
-            porcentajes.filter(pl.col("centro_de_coste").is_in(centros_defecto)).select(
-                (pl.lit("C:") + pl.col("centro_de_coste")).alias("_destino_id"),
-                pl.col("centro_de_coste").alias("_c_leaf"),
-                pl.col("actividad").alias("_a_leaf"),
-                pl.col("porcentaje").alias("_peso"),
-            )
-        )
     leaves = (
         pl.concat(leaves_parts, how="vertical")
-        if leaves_parts else
-        pl.DataFrame(schema={
-            "_destino_id": pl.Utf8, "_c_leaf": pl.Utf8,
-            "_a_leaf": pl.Utf8, "_peso": pl.Float64,
-        })
+        if leaves_parts else pl.DataFrame(schema=_LEAVES_SCHEMA)
     )
 
-    # --- Fragmentos: dag agregado por (centro, actividad, EC) × leaves ---
+    # --- Fragmentos: dag agregado por (centro, actividad, EC) × destinos ---
     dag_g = (
         dag.group_by("centro_de_coste", "actividad", "elemento_de_coste")
         .agg(pl.col("importe").sum().alias("importe"))
@@ -411,7 +390,7 @@ def calcular_reparto(
             .join(mapa_motivo, on="_k", how="left")
             .select(
                 "id", "centro_de_coste", "actividad", "importe",
-                pl.col("motivo").fill_null(_MOTIVO_SIN_REGLA_NI_BASE),
+                pl.col("motivo").fill_null(_MOTIVO_DESTINO_VACÍO),
                 pl.lit(None, dtype=pl.Utf8).alias("centro_esperado"),
             )
         )

@@ -1,31 +1,30 @@
-"""Tabla 1 del reparto de actividades dag: reglas (índice → destino).
+"""Tabla de reglas de reparto DAGs: reglas por *patrones de etiqueta*.
 
 *Artefacto de diseño* (no proviene de la base de datos corporativa): lo
 definimos al especificar el sistema, por eso vive como literal aquí y se
-documenta en la especificación.
+documenta en la especificación (§«Fase de reparto de actividades»).
 
-Cada UC cuya **actividad** es dag (subárbol de `dags`, código `02.*`) se
-reparte entre actividades **finalistas** (subárbol de `principales`, `01.*`),
-conservando su elemento de coste. El destino se decide así (ver
-`coana/reparto/reparto.py`):
+Cada UC cuya **actividad** es dag (subárbol de `dags`) se reparte entre las
+UC **finalistas** (subárbol de `principales`), conservando su elemento de
+coste. El destino se decide con una *lista ordenada* de reglas: gana la
+**primera** cuyo ORIGEN casa la UC (sin puntuar especificidad). El
+atrapalotodo por defecto va el último.
 
-1. *Tabla de reglas* (`REGLAS`, lista ORDENADA): la **primera** regla cuyo
-   índice case `(centro, actividad)` de la UC manda.
-2. *Defecto*: si ninguna regla casa y el centro de la UC tiene actividades
-   finalistas propias, se reparte entre ellas (dentro del centro).
-3. *Anomalía*: si ni regla ni base, la UC queda sin repartir (se conserva
-   intacta) y se lista para revisión → material para diseñar nuevas reglas.
+Patrones (para actividad y para centro):
 
-Una `ReglaDag` tiene:
+- ``"*"``            — cualquier nodo.
+- ``"<etiqueta>"``   — exactamente ese nodo.
+- ``"<etiqueta>.*"`` — ese nodo y todo su subárbol.
 
-- **índice** `(centro_índice, actividad_índice)`: captura las UC dag con
-  `centro ∈ subárbol(centro_índice)` y `actividad ∈ subárbol(actividad_índice)`.
-- **destino** `(centro_destino, actividades_destino)`: reparte a las finalistas
-  hoja con `centro ∈ subárbol(centro_destino)` y
-  `actividad ∈ ⋃ subárbol(actividades_destino)`, ponderando por su coste no-dag.
+Se resuelven por *etiqueta → código → prefijo* (robusto al reordenado del
+árbol, porque la regla se escribe con identificadores estables). El centro
+**destino** admite además el comodín relacional ``MISMO`` (= el centro del
+propio origen y su subárbol).
 
-`cc-uji` es la raíz del árbol de centros (toda la universidad); `principales`
-la raíz de las finalistas; `dags` la raíz de las dag.
+Una `ReglaDag` es ``ORIGEN(actividad, centro) → DESTINO(actividad, centro)``.
+En cada lado, actividad y centro son *tuplas* de patrones; varios patrones
+= *unión* de sus conjuntos (p. ej. destino actividad ``("docencia.*",
+"ai.*")`` = todas las finalistas de docencia ∪ investigación).
 """
 
 from __future__ import annotations
@@ -33,71 +32,64 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-RAÍZ_CENTROS = "cc-uji"
+# Raíces (identificadores) de los subárboles dag y finalista.
 RAÍZ_DAG = "dags"
 RAÍZ_FINALISTAS = "principales"
 
-# Centinela para `centro_destino`: «el mismo centro de la UC dag». La regla
-# reparte entre las finalistas del propio centro (= comportamiento por
-# defecto); si ese centro NO tiene actividad finalista propia (grupos e
-# institutos sin actividad, sin UCs previas), la UC dag se *transforma* en una
-# UC no-dag con las `actividades_destino` nombradas (a partes iguales),
-# conservando su centro y recordando su procedencia en `marca_dag`.
-MISMO_CENTRO = "·mismo·"
+# Comodín relacional para el centro DESTINO: el centro del origen y su
+# subárbol. Permite expresar «repártelo dentro de su propio centro».
+MISMO = "·mismo·"
 
 
 @dataclass(frozen=True)
 class ReglaDag:
-    centro_índice: str
-    actividad_índice: str
-    centro_destino: str
-    actividades_destino: tuple[str, ...]
-    # Si es True, el índice casa SOLO el centro `centro_índice` exacto (no
-    # su subárbol). Necesario para reglas ancladas en la raíz `cc-uji`: un
-    # índice por subárbol de `cc-uji` capturaría TODOS los centros (sería un
-    # catch-all que anularía el defecto «reparte dentro del propio centro»
-    # de las facultades). Con match exacto, la regla solo afecta a las UC
-    # dag imputadas literalmente al centro raíz.
-    índice_exacto_centro: bool = False
+    origen_actividad: tuple[str, ...]
+    origen_centro: tuple[str, ...]
+    destino_actividad: tuple[str, ...]
+    destino_centro: tuple[str, ...]
+    # Si el destino queda vacío (ninguna UC no-dag finalista casa), en vez
+    # de marcar la UC como anomalía se *materializa*: se crea el destino
+    # nombrado (las actividades de `destino_actividad`, sin `.*`) en el
+    # centro destino, a partes iguales. Para grupos/institutos sin
+    # actividad finalista propia, cuyo coste es su investigación propia.
+    materializar: bool = False
 
 
-# Reglas para los centros SIN actividad finalista propia (servicios, apoyo,
-# anexos, edificios…), cuya dag no puede repartirse «dentro del centro». Orden =
-# prioridad (primera que casa). Semilla inicial: todo el dag de esas ramas se
-# reparte a las finalistas de toda la UJI ponderando por coste. Se irá
-# refinando analizando las anomalías (p. ej. acotar a `["ai","docencia"]`, o
-# dirigir un edificio concreto a su facultad).
+def _regla(oa, oc, da, dc, materializar: bool = False) -> ReglaDag:
+    """Constructor cómodo: acepta str o iterable de str en cada campo."""
+    norm = lambda x: (x,) if isinstance(x, str) else tuple(x)
+    return ReglaDag(norm(oa), norm(oc), norm(da), norm(dc), materializar)
+
+
+# Lista ORDENADA: gana la primera cuyo ORIGEN casa. El defecto va el último.
 REGLAS: list[ReglaDag] = [
-    # Costes generales imputados al centro RAÍZ `cc-uji` (código «», padre de
-    # 01, 02, 03…): primas de seguros, gastos financieros, material de
-    # oficina, tributos, etc. Son costes de toda la organización; se
-    # reparten entre TODAS las actividades finalistas de la UJI ponderando
-    # por su coste no-dag. Match EXACTO del centro raíz (no su subárbol,
-    # que sería un catch-all sobre todos los centros).
-    ReglaDag("cc-uji", "dags", "cc-uji", ("principales",), índice_exacto_centro=True),
-    # Extensión universitaria (paraninfo, llotja): su dag a actividades de cultura.
-    ReglaDag("paraninfo", "dags", "cc-uji", ("cultura",)),
-    ReglaDag("llotja-cànem", "dags", "cc-uji", ("cultura",)),
-    # Unidad de divulgación científica: su dag (soporte a divulgación) se
-    # transforma en la actividad finalista `divulgación-científica` del propio
-    # centro (sin base previa → reparto a partes iguales sobre la nombrada).
-    ReglaDag(
-        "unidad-divulgación-científica", "dag-divulgación-científica",
-        "unidad-divulgación-científica", ("divulgación-científica",),
-    ),
-    # Centros de soporte (servicios: gerencia, secretaría general, SGIT…).
-    ReglaDag("soporte", "dags", "cc-uji", ("principales",)),
-    # Centros de apoyo a docencia e investigación (bibliotecas, OPP…).
-    ReglaDag("apoyo-docencia-investigación", "dags", "cc-uji", ("principales",)),
-    # Centros anexos.
-    ReglaDag("anexos", "dags", "cc-uji", ("principales",)),
-    # Agrupaciones de costes (locales de fundaciones, etc.).
-    ReglaDag("centros-agrupaciones-costes", "dags", "cc-uji", ("principales",)),
-    # Centros intermedios de coste (edificios).
-    ReglaDag("centros-intermedios-coste", "dags", "cc-uji", ("principales",)),
-    # Centros de investigación (grupos e institutos): si el grupo tiene
-    # actividad finalista propia, su dag se reparte entre ellas (mismo centro);
-    # si no tiene ninguna (sin UCs previas), la dag se transforma en una UC de
-    # `otras-ait-financiación-propia` en el propio grupo.
-    ReglaDag("investigación", "dags", MISMO_CENTRO, ("otras-ait-financiación-propia",)),
+    # --- Reglas por ACTIVIDAD (cada dag a su finalista homóloga) ---
+    _regla("dag-deportes.*", "*", "deportes.*", "*"),
+    _regla("dag-cultura.*", "*", "cultura.*", "*"),
+    _regla("dag-cooperación.*", "*", "cooperación.*", "*"),
+    _regla("dag-apoyo-estudiantes.*", "*", "apoyo-estudiantes.*", "*"),
+    _regla("dag-divulgación-científica.*", "*", "divulgación-científica.*", MISMO,
+           materializar=True),
+    _regla("dag-escuela-doctorado.*", "*", "doctorado.*", "ed.*"),
+    _regla("dag-biblioteca.*", "*", "docencia.* 20% + ai.* 80%", "*"),
+    _regla("dag-apoyo-docencia-oficial.*", "*", "estudios-oficiales.*", "*"),
+    _regla("dag-sgit.*", "*", "ai-financiación-propia.* + ait-financiación-externa.*", "*"),
+    _regla("dag-estce.*", "*", "estudios-oficiales.*", "estce.*"),
+    _regla("dag-fchs.*", "*", "estudios-oficiales.*", "fchs.*"),
+    _regla("dag-fcje.*", "*", "estudios-oficiales.*", "fcje.*"),
+    _regla("dag-fcs.*", "*", "estudios-oficiales.*", "fcs.*"),
+    # Conserjerías de facultad (ANTES de dag-general-universidad, del que
+    # cuelgan por código, para que no las capture esa regla general).
+    _regla("dag-conserjería-estce", "*", "estudios-oficiales.*", "estce.*"),
+    _regla("dag-conserjería-fcje", "*", "estudios-oficiales.*", "fcje.*"),
+    _regla("dag-conserjería-fchs", "*", "estudios-oficiales.*", "fchs.*"),
+    _regla("dag-conserjería-fcs", "*", "estudios-oficiales.*", "fcs.*"),
+    _regla("dag-general-universidad.*", "*", "principales.*", "*"),
+    # --- Reglas por CENTRO para la dag GENÉRICA (`dags`, amortizaciones) ---
+    _regla("dags.*", "deportes.*", "deportes.*", "*"),
+    _regla("dags.*", "ed.*", "doctorado.*", "*"),
+    _regla("dags.*", "cooperación.*", "cooperación.*", "*"),
+    _regla("dags.*", "fcje.*", "principales.*", "fcje.*"),
+    # DEFECTO (último): cada dag entre las finalistas de su PROPIO centro.
+    _regla("dags.*", "*", "principales.*", MISMO),
 ]

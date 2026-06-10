@@ -18,6 +18,15 @@ log = logging.getLogger(__name__)
 # Constantes para clasificación de centros de coste
 # ======================================================================
 
+# Proyectos cuyo centro de coste se fuerza por encima de todo lo demás
+# (independiente del centro/subcentro del apunte). Caso: tesis doctorales
+# (8G033), presupuestariamente en departamentos por reparto de cargas pero
+# conceptualmente coste de la Escuela de Doctorado (`ed`); su actividad se
+# fija a `dag-escuela-doctorado` en clasificador_actividades.
+_CC_POR_PROYECTO: dict[str, str] = {
+    "8G033": "ed",
+}
+
 # Cátedras: CENTRO=INVES + proyecto en lista → "cátedras-investigación-{proyecto}"
 _CC_CÁTEDRAS_PROYECTOS: list[str] = [
     "1I235", "12I327", "13I037", "15I116", "15I129", "16I028", "18I352",
@@ -598,7 +607,16 @@ def clasificar_centros_coste(
                 except ValueError as e:
                     log.warning("No se pudo crear nodo CC: %s", e)
 
+    # Centro forzado por proyecto (máxima prioridad: independiente de
+    # centro/subcentro). P. ej. tesis doctorales 8G033 → `ed`.
+    df = df.with_columns(
+        pl.col("proyecto").cast(pl.Utf8).replace_strict(
+            _CC_POR_PROYECTO, default=None,
+        ).alias("_cc_proy")
+    )
+
     # Conteo por nivel de regla (antes de coalescer)
+    proy = pl.col("_cc_proy")
     summ = pl.col("_cc_sum")
     cát = pl.col("_cc_cát")
     grupo = pl.col("_cc_grupo")
@@ -614,8 +632,10 @@ def clasificar_centros_coste(
         imp = float(filtrado.select(pl.col("importe").sum()).item()) if n > 0 else 0.0
         return n, imp
 
-    n_sum, i_sum = _cc_stats(summ.is_not_null())
-    no_sum = summ.is_null()
+    n_proy, i_proy = _cc_stats(proy.is_not_null())
+    no_proy = proy.is_null()
+    n_sum, i_sum = _cc_stats(no_proy & summ.is_not_null())
+    no_sum = no_proy & summ.is_null()
     n_cát, i_cát = _cc_stats(no_sum & cát.is_not_null())
     no_cát = no_sum & cát.is_null()
     n_grp, i_grp = _cc_stats(no_cát & grupo.is_not_null())
@@ -632,6 +652,7 @@ def clasificar_centros_coste(
     n_sin, i_sin = _cc_stats(no_sub & gen.is_null())
 
     conteo_cc: list[tuple[str, int, float]] = [
+        ("[Centro forzado por proyecto]", n_proy, i_proy),
         ("[Suministros distribuidos] SC001 + aplicación", n_sum, i_sum),
         ("[Cátedras y aulas de empresa] INVES + proyecto", n_cát, i_cát),
         ("INVES → grupo de investigación del IP", n_grp, i_grp),
@@ -645,7 +666,8 @@ def clasificar_centros_coste(
 
     # Regla CC aplicada a cada fila
     df = df.with_columns(
-        pl.when(summ.is_not_null()).then(pl.lit("[Suministros distribuidos] SC001 + aplicación"))
+        pl.when(proy.is_not_null()).then(pl.lit("[Centro forzado por proyecto]"))
+        .when(summ.is_not_null()).then(pl.lit("[Suministros distribuidos] SC001 + aplicación"))
         .when(cát.is_not_null()).then(pl.lit("[Cátedras y aulas de empresa] INVES + proyecto"))
         .when(grupo.is_not_null()).then(pl.lit("INVES → grupo de investigación del IP"))
         .when(inv_co.is_not_null()).then(pl.lit("INVES → centro_origen del proyecto"))
@@ -657,10 +679,10 @@ def clasificar_centros_coste(
         .alias("_regla_cc")
     )
 
-    # Coalescer: suministros > cátedras > grupo-investig. > inves_co > específico > servicio > subcentro > genérico
+    # Coalescer: proyecto-forzado > suministros > cátedras > grupo-investig. > inves_co > específico > servicio > subcentro > genérico
     df = df.with_columns(
-        pl.coalesce("_cc_sum", "_cc_cát", "_cc_grupo", "_cc_inv_co", "_cc_esp", "_cc_servicio", "_cc_sub", "_cc_gen")
+        pl.coalesce("_cc_proy", "_cc_sum", "_cc_cát", "_cc_grupo", "_cc_inv_co", "_cc_esp", "_cc_servicio", "_cc_sub", "_cc_gen")
         .alias("_centro_de_coste")
-    ).drop("_cc_sum", "_cc_cát", "_cc_grupo", "_cc_inv_co", "_cc_esp", "_cc_servicio", "_cc_sub", "_cc_gen")
+    ).drop("_cc_proy", "_cc_sum", "_cc_cát", "_cc_grupo", "_cc_inv_co", "_cc_esp", "_cc_servicio", "_cc_sub", "_cc_gen")
 
     return df, conteo_cc

@@ -249,6 +249,10 @@ _MÁSTERES_OFICIALES: dict[str, str] = {
 
 # Proyectos con tratamiento especial: proyecto → actividad
 _PROYECTOS_ESPECIALES: dict[str, str] = {
+    # Tesis doctorales: presupuestariamente en departamentos por reparto de
+    # cargas, pero conceptualmente es DAG de la Escuela de Doctorado (su
+    # centro se fuerza a `ed` en clasificador_centros_coste).
+    "8G033": "dag-escuela-doctorado",
     "25G032": "grado-medicina",
     "06G008": "acceso-enseñanzas-oficiales",
     "1G041": "acceso-enseñanzas-oficiales",

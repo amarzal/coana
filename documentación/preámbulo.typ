@@ -93,19 +93,24 @@
 
 #let etq(v, clave-color: "") = text(fill: color.at(clave-color))[#raw(get.text(v))] // Etiqueta
 
-#let etqcod(diccionario, clave, clave-color: "") = (
+#let etqcod(diccionario, clave, clave-color: "") = {
     if clave-color != "" {
+        // Patrón "etiqueta.*": el subíndice es código(etiqueta) + ".*".
+        let base = clave
+        let sufijo = ""
+        if clave.ends-with(".*") {
+            base = clave.slice(0, clave.len() - 2)
+            sufijo = ".*"
+        }
+        let cod = diccionario.at(base, default: "?") + sufijo
         (
             etq(clave, clave-color: clave-color)
-                + text(size: 0.65em, baseline: 0.25em, font: "Fira Code", raw(get.text(diccionario.at(
-                    clave,
-                    default: "?",
-                ))))
+                + text(size: 0.65em, baseline: 0.25em, font: "Fira Code", raw(get.text(cod)))
         )
     } else {
         etq(clave, clave-color: "")
     }
-)
+}
 
 #let etqact(clave) = etqcod(act, clave, clave-color: "act")
 #let etqele(clave) = etqcod(ele, clave, clave-color: "ele")

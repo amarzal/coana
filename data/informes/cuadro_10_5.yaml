@@ -11,8 +11,8 @@ centros:
     nombre: Costes de personal
     nivel: 1
     directo: 27495286.42
-    indirecto: 110029.6
-    primario: 27605316.02
+    indirecto: 107371.84
+    primario: 27602658.26
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
@@ -68,8 +68,8 @@ centros:
     nombre: Indemnizaciones por razón de servicio
     nivel: 2
     directo: 0.0
-    indirecto: 56326.22
-    primario: 56326.22
+    indirecto: 53668.46
+    primario: 53668.46
   - código: '01.09'
     slug: otras-indemnizaciones
     nombre: Otras indemnizaciones
@@ -89,8 +89,8 @@ centros:
     nombre: Coste de adquisición de bienes y servicios
     nivel: 1
     directo: 0.0
-    indirecto: 485157.65
-    primario: 485157.65
+    indirecto: 452240.04
+    primario: 452240.04
   - código: '03.03'
     slug: material-laboratorio
     nombre: Coste de material e instrumental de laboratorio y experimentación
@@ -124,22 +124,22 @@ centros:
     nombre: Trabajos realizados por otras empresas
     nivel: 2
     directo: 0.0
-    indirecto: 400693.8
-    primario: 400693.8
+    indirecto: 367888.19
+    primario: 367888.19
   - código: '03.13'
     slug: otros-bienes-servicios
     nombre: Otras adquisiciones de bienes y servicios
     nivel: 2
     directo: 0.0
-    indirecto: 12341.23
-    primario: 12341.23
+    indirecto: 12229.23
+    primario: 12229.23
   - código: '04'
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
     directo: 688443.99
-    indirecto: 3323976.44
-    primario: 4012420.43
+    indirecto: 3285385.21
+    primario: 3973829.2
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
@@ -187,8 +187,8 @@ centros:
     nombre: Costes diversos
     nivel: 2
     directo: 0.0
-    indirecto: 99932.2
-    primario: 99932.2
+    indirecto: 62145.97
+    primario: 62145.97
   - código: '05'
     slug: tributos
     nombre: Coste de tributos
@@ -261,8 +261,8 @@ centros:
     primario: 0.0
   total_coste_primario:
     directo: 30286767.44
-    indirecto: 4022010.07
-    primario: 34308777.5
+    indirecto: 3947843.47
+    primario: 34234610.9
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -275,8 +275,8 @@ centros:
     pendiente: true
   total:
     directo: 30286767.44
-    indirecto: 4022010.07
-    primario: 34308777.5
+    indirecto: 3947843.47
+    primario: 34234610.9
 - código_sue: '02'
   slug: investigación
   nombre: Centros de investigación
@@ -286,8 +286,8 @@ centros:
     nombre: Costes de personal
     nivel: 1
     directo: 40126098.66
-    indirecto: 1011649.29
-    primario: 41137747.95
+    indirecto: 1011396.15
+    primario: 41137494.81
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
@@ -343,8 +343,8 @@ centros:
     nombre: Indemnizaciones por razón de servicio
     nivel: 2
     directo: 0.0
-    indirecto: 815779.83
-    primario: 815779.83
+    indirecto: 815526.69
+    primario: 815526.69
   - código: '01.09'
     slug: otras-indemnizaciones
     nombre: Otras indemnizaciones
@@ -364,8 +364,8 @@ centros:
     nombre: Coste de adquisición de bienes y servicios
     nivel: 1
     directo: 0.0
-    indirecto: 2052394.15
-    primario: 2052394.15
+    indirecto: 2052265.65
+    primario: 2052265.65
   - código: '03.03'
     slug: material-laboratorio
     nombre: Coste de material e instrumental de laboratorio y experimentación
@@ -399,8 +399,8 @@ centros:
     nombre: Trabajos realizados por otras empresas
     nivel: 2
     directo: 0.0
-    indirecto: 803974.18
-    primario: 803974.18
+    indirecto: 803845.68
+    primario: 803845.68
   - código: '03.13'
     slug: otros-bienes-servicios
     nombre: Otras adquisiciones de bienes y servicios
@@ -412,16 +412,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 260827.49
-    indirecto: 1282108.86
-    primario: 1542936.35
+    directo: 259941.34
+    indirecto: 1277308.65
+    primario: 1537249.99
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 365866.59
-    primario: 365866.59
+    indirecto: 363438.18
+    primario: 363438.18
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -433,9 +433,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 260827.49
+    directo: 259941.34
     indirecto: 102086.06
-    primario: 362913.55
+    primario: 362027.4
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -448,15 +448,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 156509.79
-    primario: 156509.79
+    indirecto: 154818.87
+    primario: 154818.87
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 63021.76
-    primario: 63021.76
+    indirecto: 62340.88
+    primario: 62340.88
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -482,16 +482,16 @@ centros:
     slug: amortizaciones
     nombre: Amortizaciones (costes calculados)
     nivel: 1
-    directo: 378709.13
+    directo: 377901.49
     indirecto: 0.0
-    primario: 378709.13
+    primario: 377901.49
   - código: '07.01'
     slug: amortización-inmovilizado-material
     nombre: Del inmovilizado material
     nivel: 2
-    directo: 378709.13
+    directo: 377901.49
     indirecto: 0.0
-    primario: 378709.13
+    primario: 377901.49
   - código: '07.02'
     slug: amortización-inmovilizado-inmaterial
     nombre: Del inmovilizado inmaterial
@@ -535,9 +535,9 @@ centros:
     indirecto: 4500.0
     primario: 4500.0
   total_coste_primario:
-    directo: 40765635.29
-    indirecto: 4542815.94
-    primario: 45308451.23
+    directo: 40763941.5
+    indirecto: 4537634.09
+    primario: 45301575.59
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -549,9 +549,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 40765635.29
-    indirecto: 4542815.94
-    primario: 45308451.23
+    directo: 40763941.5
+    indirecto: 4537634.09
+    primario: 45301575.59
 - código_sue: '03'
   slug: docencia-investigación
   nombre: Centros de docencia e investigación
@@ -561,8 +561,8 @@ centros:
     nombre: Costes de personal
     nivel: 1
     directo: 12685035.35
-    indirecto: 991326.26
-    primario: 13676361.61
+    indirecto: 994237.16
+    primario: 13679272.51
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
@@ -618,8 +618,8 @@ centros:
     nombre: Indemnizaciones por razón de servicio
     nivel: 2
     directo: 0.0
-    indirecto: 486151.39
-    primario: 486151.39
+    indirecto: 489062.29
+    primario: 489062.29
   - código: '01.09'
     slug: otras-indemnizaciones
     nombre: Otras indemnizaciones
@@ -639,8 +639,8 @@ centros:
     nombre: Coste de adquisición de bienes y servicios
     nivel: 1
     directo: 0.0
-    indirecto: 1193464.4
-    primario: 1193464.4
+    indirecto: 1226510.51
+    primario: 1226510.51
   - código: '03.03'
     slug: material-laboratorio
     nombre: Coste de material e instrumental de laboratorio y experimentación
@@ -674,22 +674,22 @@ centros:
     nombre: Trabajos realizados por otras empresas
     nivel: 2
     directo: 0.0
-    indirecto: 533292.47
-    primario: 533292.47
+    indirecto: 566226.58
+    primario: 566226.58
   - código: '03.13'
     slug: otros-bienes-servicios
     nombre: Otras adquisiciones de bienes y servicios
     nivel: 2
     directo: 0.0
-    indirecto: 95917.35
-    primario: 95917.35
+    indirecto: 96029.35
+    primario: 96029.35
   - código: '04'
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
     directo: 406473.49
-    indirecto: 2035820.21
-    primario: 2442293.69
+    indirecto: 2074411.44
+    primario: 2480884.92
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
@@ -737,8 +737,8 @@ centros:
     nombre: Costes diversos
     nivel: 2
     directo: 0.0
-    indirecto: 218577.57
-    primario: 218577.57
+    indirecto: 256363.8
+    primario: 256363.8
   - código: '05'
     slug: tributos
     nombre: Coste de tributos
@@ -811,8 +811,8 @@ centros:
     primario: 0.0
   total_coste_primario:
     directo: 14908955.22
-    indirecto: 4358197.57
-    primario: 19267152.78
+    indirecto: 4432745.81
+    primario: 19341701.02
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -825,8 +825,8 @@ centros:
     pendiente: true
   total:
     directo: 14908955.22
-    indirecto: 4358197.57
-    primario: 19267152.78
+    indirecto: 4432745.81
+    primario: 19341701.02
 - código_sue: '04'
   slug: apoyo-docencia-investigación
   nombre: Centros de apoyo a docencia e investigación
@@ -835,9 +835,9 @@ centros:
     slug: costes-personal
     nombre: Costes de personal
     nivel: 1
-    directo: 8154049.13
+    directo: 9234657.89
     indirecto: 45763.01
-    primario: 8199812.14
+    primario: 9280420.9
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
@@ -850,9 +850,9 @@ centros:
     nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
       y Servicios (PTGAS)
     nivel: 2
-    directo: 6310448.47
+    directo: 7157914.42
     indirecto: 0.0
-    primario: 6310448.47
+    primario: 7157914.42
   - código: '01.03'
     slug: salario-piyotper
     nombre: Costes del Personal Investigador laboral y de otro personal
@@ -864,9 +864,9 @@ centros:
     slug: ss
     nombre: Cotizaciones sociales a cargo del empleador
     nivel: 2
-    directo: 1681118.53
+    directo: 1911645.17
     indirecto: 0.0
-    primario: 1681118.53
+    primario: 1911645.17
   - código: '01.05'
     slug: prevsoc-funcs
     nombre: Previsión social de funcionarios (costes calculados)
@@ -899,9 +899,9 @@ centros:
     slug: otras-indemnizaciones
     nombre: Otras indemnizaciones
     nivel: 2
-    directo: 3394.46
+    directo: 6010.64
     indirecto: 0.0
-    primario: 3394.46
+    primario: 6010.64
   - código: '01.10'
     slug: transp-personal
     nombre: Transporte de personal
@@ -962,16 +962,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 362068.42
-    indirecto: 944906.87
-    primario: 1306975.29
+    directo: 366345.7
+    indirecto: 959655.93
+    primario: 1326001.63
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 448707.64
-    primario: 448707.64
+    indirecto: 456169.14
+    primario: 456169.14
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -983,9 +983,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 362068.42
+    directo: 366345.7
     indirecto: 12928.13
-    primario: 374996.55
+    primario: 379273.83
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -998,15 +998,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 284800.41
-    primario: 284800.41
+    indirecto: 289995.9
+    primario: 289995.9
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 97087.92
-    primario: 97087.92
+    indirecto: 99179.99
+    primario: 99179.99
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -1032,16 +1032,16 @@ centros:
     slug: amortizaciones
     nombre: Amortizaciones (costes calculados)
     nivel: 1
-    directo: 529608.53
+    directo: 535820.02
     indirecto: 0.0
-    primario: 529608.53
+    primario: 535820.02
   - código: '07.01'
     slug: amortización-inmovilizado-material
     nombre: Del inmovilizado material
     nivel: 2
-    directo: 529608.53
+    directo: 535820.02
     indirecto: 0.0
-    primario: 529608.53
+    primario: 535820.02
   - código: '07.02'
     slug: amortización-inmovilizado-inmaterial
     nombre: Del inmovilizado inmaterial
@@ -1085,9 +1085,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 9045726.08
-    indirecto: 1496714.99
-    primario: 10542441.06
+    directo: 10136823.61
+    indirecto: 1511464.05
+    primario: 11648287.66
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -1099,9 +1099,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 9045726.08
-    indirecto: 1496714.99
-    primario: 10542441.06
+    directo: 10136823.61
+    indirecto: 1511464.05
+    primario: 11648287.66
 - código_sue: '05'
   slug: extensión-universitaria-deportes
   nombre: Centros de extensión universitaria y deportes
@@ -1385,9 +1385,9 @@ centros:
     slug: costes-personal
     nombre: Costes de personal
     nivel: 1
-    directo: 20173416.44
+    directo: 19092807.67
     indirecto: 279076.91
-    primario: 20452493.35
+    primario: 19371884.58
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
@@ -1400,9 +1400,9 @@ centros:
     nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
       y Servicios (PTGAS)
     nivel: 2
-    directo: 12741181.36
+    directo: 11893715.42
     indirecto: 0.0
-    primario: 12741181.36
+    primario: 11893715.42
   - código: '01.03'
     slug: salario-piyotper
     nombre: Costes del Personal Investigador laboral y de otro personal
@@ -1414,9 +1414,9 @@ centros:
     slug: ss
     nombre: Cotizaciones sociales a cargo del empleador
     nivel: 2
-    directo: 3888558.43
+    directo: 3658031.79
     indirecto: 0.0
-    primario: 3888558.43
+    primario: 3658031.79
   - código: '01.05'
     slug: prevsoc-funcs
     nombre: Previsión social de funcionarios (costes calculados)
@@ -1449,9 +1449,9 @@ centros:
     slug: otras-indemnizaciones
     nombre: Otras indemnizaciones
     nivel: 2
-    directo: 32154.14
+    directo: 29537.96
     indirecto: 0.0
-    primario: 32154.14
+    primario: 29537.96
   - código: '01.10'
     slug: transp-personal
     nombre: Transporte de personal
@@ -1512,16 +1512,16 @@ centros:
     slug: servicios-exteriores
     nombre: Coste de servicios exteriores
     nivel: 1
-    directo: 309295.54
-    indirecto: 3288407.68
-    primario: 3597703.22
+    directo: 305904.41
+    indirecto: 3278458.83
+    primario: 3584363.24
   - código: '04.02'
     slug: conservación
     nombre: Reparaciones y conservación
     nivel: 2
     directo: 0.0
-    indirecto: 813106.99
-    primario: 813106.99
+    indirecto: 808073.89
+    primario: 808073.89
   - código: '04.03'
     slug: servicios-profesionales
     nombre: Servicios de profesionales independientes
@@ -1533,9 +1533,9 @@ centros:
     slug: suministros
     nombre: Suministros
     nivel: 2
-    directo: 309295.54
+    directo: 305904.41
     indirecto: 187427.05
-    primario: 496722.59
+    primario: 493331.46
   - código: '04.10'
     slug: comunicaciones
     nombre: Comunicaciones
@@ -1548,15 +1548,15 @@ centros:
     nombre: Limpieza y aseo
     nivel: 2
     directo: 0.0
-    indirecto: 308472.19
-    primario: 308472.19
+    indirecto: 304967.62
+    primario: 304967.62
   - código: '04.12'
     slug: seguridad
     nombre: Seguridad y vigilancia
     nivel: 2
     directo: 0.0
-    indirecto: 124212.43
-    primario: 124212.43
+    indirecto: 122801.24
+    primario: 122801.24
   - código: '04.13'
     slug: costes-diversos
     nombre: Costes diversos
@@ -1582,16 +1582,16 @@ centros:
     slug: amortizaciones
     nombre: Amortizaciones (costes calculados)
     nivel: 1
-    directo: 654085.97
+    directo: 648682.12
     indirecto: 0.0
-    primario: 654085.97
+    primario: 648682.12
   - código: '07.01'
     slug: amortización-inmovilizado-material
     nombre: Del inmovilizado material
     nivel: 2
-    directo: 654085.97
+    directo: 648682.12
     indirecto: 0.0
-    primario: 654085.97
+    primario: 648682.12
   - código: '07.02'
     slug: amortización-inmovilizado-inmaterial
     nombre: Del inmovilizado inmaterial
@@ -1635,9 +1635,9 @@ centros:
     indirecto: 80219.25
     primario: 80219.25
   total_coste_primario:
-    directo: 21136797.94
-    indirecto: 11357283.32
-    primario: 32494081.27
+    directo: 20047394.21
+    indirecto: 11347334.47
+    primario: 31394728.67
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -1649,9 +1649,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 21136797.94
-    indirecto: 11357283.32
-    primario: 32494081.27
+    directo: 20047394.21
+    indirecto: 11347334.47
+    primario: 31394728.67
 - código_sue: '07'
   slug: anexos
   nombre: Centros anexos
