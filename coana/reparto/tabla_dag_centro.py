@@ -48,31 +48,56 @@ class ReglaDag:
     destino_actividad: tuple[str, ...]
     destino_centro: tuple[str, ...]
     # Si el destino queda vacío (ninguna UC no-dag finalista casa), en vez
-    # de marcar la UC como anomalía se *materializa*: se crea el destino
-    # nombrado (las actividades de `destino_actividad`, sin `.*`) en el
-    # centro destino, a partes iguales. Para grupos/institutos sin
-    # actividad finalista propia, cuyo coste es su investigación propia.
+    # de marcar la UC como anomalía se *materializa*: se crea una actividad
+    # nombrada en el centro destino, a partes iguales. Para grupos/institutos
+    # sin actividad finalista propia, cuyo coste es su investigación propia.
     materializar: bool = False
+    # Actividad(es) a materializar cuando el destino queda vacío. Vacío =
+    # usar las bases de `destino_actividad` (comportamiento histórico). Permite
+    # *repartir* entre las principales reales del centro (`destino_actividad =
+    # principales.*`) y, solo si no hay ninguna, *crear* una actividad de
+    # reserva distinta (p. ej. `otras-ait-financiación-propia`).
+    materializar_actividad: tuple[str, ...] = ()
 
 
-def _regla(oa, oc, da, dc, materializar: bool = False) -> ReglaDag:
+def _regla(oa, oc, da, dc, materializar: bool = False,
+           materializar_actividad=()) -> ReglaDag:
     """Constructor cómodo: acepta str o iterable de str en cada campo."""
     norm = lambda x: (x,) if isinstance(x, str) else tuple(x)
-    return ReglaDag(norm(oa), norm(oc), norm(da), norm(dc), materializar)
+    return ReglaDag(norm(oa), norm(oc), norm(da), norm(dc),
+                    materializar, norm(materializar_actividad))
 
 
 # Lista ORDENADA: gana la primera cuyo ORIGEN casa. El defecto va el último.
 REGLAS: list[ReglaDag] = [
     # --- Reglas por ACTIVIDAD (cada dag a su finalista homóloga) ---
+    # Cosas de extensión
     _regla("dag-deportes.*", "*", "deportes.*", "*"),
     _regla("dag-cultura.*", "*", "cultura.*", "*"),
     _regla("dag-cooperación.*", "*", "cooperación.*", "*"),
-    _regla("dag-apoyo-estudiantes.*", "*", "apoyo-estudiantes.*", "*"),
     _regla("dag-divulgación-científica.*", "*", "divulgación-científica.*", MISMO,
            materializar=True),
-    _regla("dag-escuela-doctorado.*", "*", "doctorado.*", "ed.*"),
+    _regla("dag-apoyo-estudiantes.*", "*", "apoyo-estudiantes.*", "*"),
     _regla("dag-biblioteca.*", "*", "docencia.* 20% + ai.* 80%", "*"),
     _regla("dag-apoyo-docencia-oficial.*", "*", "estudios-oficiales.*", "*"),
+    # Estudios propios y microcredenciales
+    _regla("dag-encargos-gestión-estudios-propios.*", "*",
+           "másteres-formación-permanente.* + diplomas-especialización"
+           " + diplomas-experto + cursos-formación-permanente", "*"),
+    _regla("dag-encargos-gestión-microcredenciales.*", "*", "microcredenciales.*", "*"),
+    # Actividades Europa / internacional
+    _regla("dag-apoyo-proyectos-internacionales.*", "*", "ai-internacional.*", "*"),
+    _regla("dag-encargos-proyectos-investigación-europeos.*", "*", "ai-internacional.*", "*"),
+    # Algunos centros especiales. El destino CENTRO con varios patrones va
+    # como tupla (no como cadena «a + b»: el «+» solo lo parsea el destino
+    # ACTIVIDAD para repartos porcentuales).
+    _regla("dag-scic", "*", "principales.*", ("inam.*", "iupa.*", "iutc.*")),
+    _regla("dag-sea", "*", "principales.*", (
+        "grupo-investigación-311", "grupo-investigación-278", "grupo-investigación-206",
+        "grupo-investigación-222", "grupo-investigación-326", "grupo-investigación-317",
+        "grupo-investigación-207", "grupo-investigación-307",
+    )),
+    _regla("dag-escuela-doctorado.*", "*", "doctorado.*", "ed.*"),
     _regla("dag-sgit.*", "*", "ai-financiación-propia.* + ait-financiación-externa.*", "*"),
     _regla("dag-estce.*", "*", "estudios-oficiales.*", "estce.*"),
     _regla("dag-fchs.*", "*", "estudios-oficiales.*", "fchs.*"),
@@ -84,12 +109,31 @@ REGLAS: list[ReglaDag] = [
     _regla("dag-conserjería-fcje", "*", "estudios-oficiales.*", "fcje.*"),
     _regla("dag-conserjería-fchs", "*", "estudios-oficiales.*", "fchs.*"),
     _regla("dag-conserjería-fcs", "*", "estudios-oficiales.*", "fcs.*"),
+    # Generales universidad
     _regla("dag-general-universidad.*", "*", "principales.*", "*"),
     # --- Reglas por CENTRO para la dag GENÉRICA (`dags`, amortizaciones) ---
     _regla("dags.*", "deportes.*", "deportes.*", "*"),
-    _regla("dags.*", "ed.*", "doctorado.*", "*"),
+    _regla("dags.*", "ed.*", "principales.*", "*"),
     _regla("dags.*", "cooperación.*", "cooperación.*", "*"),
     _regla("dags.*", "fcje.*", "principales.*", "fcje.*"),
+    _regla("dags.*", "fchs.*", "principales.*", "fchs.*"),
+    _regla("dags.*", "estce.*", "principales.*", "estce.*"),
+    _regla("dags.*", "fcs.*", "principales.*", "fcs.*"),
+    _regla("dags.*", "paraninfo.*", "cultura.*", "*"),
+    _regla("dags.*", "llotja-cànem.*", "cultura.*", "*"),
+    _regla("dags.*", "soporte.*", "principales.*", "*"),
+    _regla("dags.*", "apoyo-docencia-investigación.*", "principales.*", "*"),
+    _regla("dags.*", "anexos.*", "principales.*", "*"),
+    _regla("dags.*", "centros-agrupaciones-costes.*", "principales.*", "*"),
+    _regla("dags.*", "centros-intermedios-coste.*", "principales.*", "*"),
+    # Familias de centros que reparten dentro de sí mismas (·mismo·) entre sus
+    # principales REALES y, si un centro no tiene ninguna, materializan una
+    # actividad de reserva propia de la familia. Cubre investigación (institutos,
+    # grupos, laboratorios y cátedras de investigación) y departamentos.
+    _regla("dags.*", "investigación.*", "principales.*", MISMO,
+           materializar=True, materializar_actividad="otras-ait-financiación-propia"),
+    _regla("dags.*", "departamentos.*", "principales.*", MISMO,
+           materializar=True, materializar_actividad="estudios-oficiales"),
     # DEFECTO (último): cada dag entre las finalistas de su PROPIO centro.
     _regla("dags.*", "*", "principales.*", MISMO),
 ]

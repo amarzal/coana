@@ -1646,7 +1646,8 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     [#ruta("auxiliares", "nóminas", "atrasos_no_vinculados.parquet"): personas que solo cobran atrasos (CR 30/87) en el año, sin vinculación laboral activa. Su importe queda fuera del reparto y la pantalla cuantifica cuántas personas y cuánto dinero.],
     [Despidos], [#ruta("auxiliares", "nóminas", "uc_despidos.parquet").],
     [Indemnizaciones asistencias], [#ruta("auxiliares", "nóminas", "uc_indemnizaciones_asistencias.parquet").],
-    [Reducciones sindicales], [#ruta("regla23", "reducciones_sindicales_pdi.parquet") + las reducciones PTGAS del preprocesamiento de nóminas.],
+    [Reducciones sindicales],
+    [#ruta("regla23", "reducciones_sindicales_pdi.parquet") + las reducciones PTGAS del preprocesamiento de nóminas.],
     [Anomalías PDI], [Subconjuntos de los parquets sectoriales con marcas de anomalía.],
     table.hline(),
 )
@@ -5249,14 +5250,56 @@ El *defecto* (última fila) reparte cada dag entre las finalistas de su *propio 
         [*destino centro*],
         table.hline(),
     ),
+    // Cosas de extensi´n
     etqact("dag-deportes.*"), etqcen("*"), etqact("deportes.*"), etqcen("*"),
     etqact("dag-cultura.*"), etqcen("*"), etqact("cultura.*"), etqcen("*"),
     etqact("dag-cooperación.*"), etqcen("*"), etqact("cooperación.*"), etqcen("*"),
-    etqact("dag-apoyo-estudiantes.*"), etqcen("*"), etqact("apoyo-estudiantes.*"), etqcen("*"),
     etqact("dag-divulgación-científica.*"), etqcen("*"), etqact("divulgación-científica.*"), etqcen("·mismo·"),
-    etqact("dag-escuela-doctorado.*"), etqcen("*"), etqact("doctorado.*"), etqcen("ed.*"),
+
+    etqact("dag-apoyo-estudiantes.*"), etqcen("*"), etqact("apoyo-estudiantes.*"), etqcen("*"),
     etqact("dag-biblioteca.*"), etqcen("*"), etqact("docencia.* 20% + ai.* 80%"), etqcen("*"),
     etqact("dag-apoyo-docencia-oficial.*"), etqcen("*"), etqact("estudios-oficiales.*"), etqcen("*"),
+
+    // Encargos de gestión y similares
+    etqact("dag-apoyo-proyectos-internacionales.*"), etqcen("*"), etqact("ai-internacional.*"), etqcen("*"),
+    // -- Estudios propios
+    etqact("dag-encargos-gestión-estudios-propios.*"),
+    etqcen("*"),
+    etqact(
+        "másteres-formación-permanente.* + diplomas-especialización + diplomas-experto + cursos-formación-permanente",
+    ),
+    etqcen("*"),
+    etqact("dag-encargos-gestión-microcredenciales.*"), etqcen("*"), etqact("microcredenciales.*"), etqcen("*"),
+    // -- Actividades Europa / internacional
+    etqact("dag-encargos-proyectos-investigación-europeos.*"), etqcen("*"), etqact("ai-internacional.*"), etqcen("*"),
+    // -- Actividades transferencia
+    etqact("dag-apoyo-transferencia-conocimiento.*"),
+    etqcen("*"),
+    etqact("otras-ait-financiación-propia.* + transf.*"),
+    etqcen("*"),
+
+    // PENDIENTE: VER QUÉ PASA CN EL DAG DE ESPAITEC QUE NO TIENE NADA
+
+    // Algunos centros especiales
+    // -- scic
+    etqact("dag-scic"), etqcen("*"), etqact("principales.*"), etqcen("inam.* + iupa.* + iutc.*"),
+    // Sabemos que hay más que usan el SCIC, pero no es fácil de documentar
+    // -- sea
+    etqact("dag-sea"),
+    etqcen("*"),
+    etqact("principales.*"),
+    etqcen(
+        "grupo-investigación-311 + grupo-investigación-278 + grupo-investigación-206 + grupo-investigación-222 + grupo-investigación-326 + grupo-investigación-317 + grupo-investigación-207 + grupo-investigación-307",
+    ),
+    // -- labcom
+    etqact("dag-labcom"), etqcen("*"), etqact("principales.*"), etqcen("ámbito-periodismo.*"),
+    // -- sala disección
+    etqact("dag-sala-disección"),
+    etqcen("*"),
+    etqact("principales.*"),
+    etqcen("ámbito-medicina.* + cursos-formación-permanente-24G056.*"),
+
+    etqact("dag-escuela-doctorado.*"), etqcen("*"), etqact("doctorado.*"), etqcen("ed.*"),
     etqact("dag-sgit.*"), etqcen("*"), etqact("ai-financiación-propia.* + ait-financiación-externa.*"), etqcen("*"),
     etqact("dag-estce.*"), etqcen("*"), etqact("estudios-oficiales.*"), etqcen("estce.*"),
     etqact("dag-fchs.*"), etqcen("*"), etqact("estudios-oficiales.*"), etqcen("fchs.*"),
@@ -5273,23 +5316,30 @@ El *defecto* (última fila) reparte cada dag entre las finalistas de su *propio 
     etqact("dag-general-universidad.*"), etqcen("*"), etqact("principales.*"), etqcen("*"),
 
     etqact("dags.*"), etqcen("deportes.*"), etqact("deportes.*"), etqcen("*"),
-    etqact("dags.*"), etqcen("ed.*"), etqact("doctorado.*"), etqcen("*"),
+    etqact("dags.*"), etqcen("ed.*"), etqact("principales.*"), etqcen("*"),
     etqact("dags.*"), etqcen("cooperación.*"), etqact("cooperación.*"), etqcen("*"),
-    etqact("dags.*"), etqcen("fcje.*"), etqact("principales.*"), etqcen("fcje.*"),
 
-    // etqact("dags.*"), etqcen("paraninfo.*"), etqact("cultura.*"), etqcen("*"),
-    // etqact("dags.*"), etqcen("llotja-cànem.*"), etqact("cultura.*"), etqcen("*"),
-    // etqact("dags.*"), etqcen("soporte.*"), etqact("principales.*"), etqcen("*"),
-    // etqact("dags.*"), etqcen("apoyo-docencia-investigación.*"), etqact("principales.*"), etqcen("*"),
-    // etqact("dags.*"), etqcen("anexos.*"), etqact("principales.*"), etqcen("*"),
-    // etqact("dags.*"), etqcen("centros-agrupaciones-costes.*"), etqact("principales.*"), etqcen("*"),
-    // etqact("dags.*"), etqcen("centros-intermedios-coste.*"), etqact("principales.*"), etqcen("*"),
-    // etqact("dags.*"), etqcen("investigación.*"), etqact("otras-ait-financiación-propia"), etqcen("·mismo·"),
+    etqact("dags.*"), etqcen("fcje.*"), etqact("principales.*"), etqcen("fcje.*"),
+    etqact("dags.*"), etqcen("fchs.*"), etqact("principales.*"), etqcen("fchs.*"),
+    etqact("dags.*"), etqcen("estce.*"), etqact("principales.*"), etqcen("estce.*"),
+    etqact("dags.*"), etqcen("fcs.*"), etqact("principales.*"), etqcen("fcs.*"),
+
+    etqact("dags.*"), etqcen("paraninfo.*"), etqact("cultura.*"), etqcen("*"),
+    etqact("dags.*"), etqcen("llotja-cànem.*"), etqact("cultura.*"), etqcen("*"),
+    etqact("dags.*"), etqcen("soporte.*"), etqact("principales.*"), etqcen("*"),
+    etqact("dags.*"), etqcen("apoyo-docencia-investigación.*"), etqact("principales.*"), etqcen("*"),
+    etqact("dags.*"), etqcen("anexos.*"), etqact("principales.*"), etqcen("*"),
+    etqact("dags.*"), etqcen("centros-agrupaciones-costes.*"), etqact("principales.*"), etqcen("*"),
+    etqact("dags.*"), etqcen("centros-intermedios-coste.*"), etqact("principales.*"), etqcen("*"),
+    etqact("dags.*"), etqcen("investigación.*"), [#etqact("principales.*") #text(0.85em)[(reserva #etqact("otras-ait-financiación-propia"))]], etqcen("·mismo·"),
+    etqact("dags.*"), etqcen("departamentos.*"), [#etqact("principales.*") #text(0.85em)[(reserva #etqact("estudios-oficiales"))]], etqcen("·mismo·"),
     etqact("dags.*"), val("*"), etqact("principales.*"), val("·mismo·"),
     table.hline(),
 )
 
-(La última fila es el *defecto*.) Las reglas de #etqact("dag-divulgación-científica.*") y de #etqcen("investigación.*") llevan el flag #campo("materializar"): cuando su destino #val("·mismo·") queda vacío (unidad de divulgación / grupo / instituto sin esa actividad finalista propia), *crean* la actividad nombrada en el propio centro en vez de dejar anomalía.
+(La última fila es el *defecto*.) Varias reglas llevan el flag #campo("materializar"): cuando su destino #val("·mismo·") queda vacío (el centro no tiene esa familia de actividad finalista propia), en vez de dejar anomalía *crean* una actividad de reserva en el propio centro, a partes iguales.
+
+Las familias #etqcen("investigación.*") (institutos, grupos, laboratorios y cátedras de investigación) y #etqcen("departamentos.*") usan este mecanismo con la forma general «repartir entre las principales reales del centro y, solo si no hay ninguna, materializar una actividad de reserva»: el destino es #etqact("principales.*") (con #val("·mismo·"), las finalistas que el propio centro ya tenga) y la *reserva* es una actividad distinta del destino —#etqact("otras-ait-financiación-propia") para investigación, #etqact("estudios-oficiales") para departamentos— que solo se crea cuando ese centro carece de finalistas. Esto exige separar «a dónde reparto» de «qué materializo si está vacío»: en el código, el campo #campo("materializar_actividad") de #campo("ReglaDag") fija la actividad de reserva con independencia de #campo("destino_actividad"). La regla #etqact("dag-divulgación-científica.*") es el caso simple (destino y reserva coinciden: #etqact("divulgación-científica.*")).
 
 A partir de aquí el trabajo es *iterativo*: ejecutar el reparto, revisar el visor de anomalías (UC dag cuya regla dejó destino vacío), y añadir reglas —más específicas antes, pues gana la primera que casa— hasta vaciar las anomalías.
 

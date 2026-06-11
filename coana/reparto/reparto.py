@@ -216,8 +216,10 @@ def calcular_reparto(
         cen_fijos = tuple(p for p in r.destino_centro if p != MISMO)
         destino_cen_fijo = _ids_patrones(cen_fijos, árbol_centros) if cen_fijos else set()
         tiene_mismo = MISMO in r.destino_centro
-        # Para materializar: identificadores base nombrados del destino.
-        act_mat = _idents_base(tuple(p for p, _ in grupos_parsed), árbol_actividades)
+        # Para materializar: actividad(es) de reserva explícitas si se dieron;
+        # si no, las bases nombradas del propio destino (comportamiento previo).
+        mat_pat = r.materializar_actividad or tuple(p for p, _ in grupos_parsed)
+        act_mat = _idents_base(mat_pat, árbol_actividades)
         cen_mat_fijo = _idents_base(cen_fijos, árbol_centros)
         reglas_exp.append((
             origen_act, origen_cen, destino_grupos, destino_cen_fijo, tiene_mismo,
