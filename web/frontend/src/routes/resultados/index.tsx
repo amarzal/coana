@@ -21,8 +21,11 @@ function Cabecera({ title, subtitle }: { title: string; subtitle?: string }) {
 /** Modal con la ficha de una UC: campos completos + sección con el
  * registro de origen (apunte presupuestario, bien inventariable…). */
 function UcDetalleModal({
-    origen, ucId, onClose,
-}: { origen: string; ucId: string; onClose: () => void }) {
+    origen, ucId, onClose, anomalia,
+}: {
+    origen: string; ucId: string; onClose: () => void;
+    anomalia?: { campo?: string; valor?: string };
+}) {
     useEffect(() => {
         const onKey = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
@@ -55,7 +58,20 @@ function UcDetalleModal({
                         ✕ Cerrar
                     </button>
                 </div>
-                <div className="overflow-auto p-4">
+                <div className="overflow-auto p-4 flex flex-col gap-3">
+                    {anomalia?.campo && (
+                        <aside className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                            <span className="font-medium">Anomalía de integridad referencial.</span>{" "}
+                            {anomalia.valor
+                                ? <>El campo <span className="font-mono">{anomalia.campo}</span> referencia
+                                    el identificador <span className="font-mono">«{anomalia.valor}»</span>,
+                                    que no existe en el árbol final.</>
+                                : <>El campo <span className="font-mono">{anomalia.campo}</span> está vacío:
+                                    la UC no está clasificada en ese eje.</>}
+                            {" "}Más abajo, en <em>Información relacionada</em>, tienes el detalle (si el
+                            identificador existía en el árbol original y posibles identificadores correctos).
+                        </aside>
+                    )}
                     <RecordCard
                         endpoint={`/api/resultados/uc/${encodeURIComponent(origen)}/{id}`}
                         id={ucId}
@@ -479,12 +495,15 @@ function AnomaliasUnicosModal({ onClose }: { onClose: () => void }) {
 
 export function ResultadosAnomalias() {
     const [verUnicos, setVerUnicos] = useState(false);
+    const [sel, setSel] = useState<
+        { origen: string; id: string; campo?: string; valor?: string } | null
+    >(null);
 
     return (
         <div className="flex flex-col gap-6">
             <Cabecera
                 title="Resultados Fase 1 · Anomalías UC"
-                subtitle="Comprobación de integridad referencial: UC que referencian nodos inexistentes en los árboles finales."
+                subtitle="Comprobación de integridad referencial: UC que referencian nodos inexistentes en los árboles finales. Pincha una fila para ver la ficha completa de la UC y el detalle de la anomalía."
             />
             <div>
                 <button
@@ -499,7 +518,27 @@ export function ResultadosAnomalias() {
                 endpoint="/api/resultados/anomalias"
                 queryKey="resultados:anomalias"
                 rowKey="id"
+                onRowSelect={(row) => {
+                    const id = row.id;
+                    const origen = row._origen;
+                    if (id == null || origen == null) return;
+                    setSel({
+                        origen: String(origen),
+                        id: String(id),
+                        campo: row.campo == null ? undefined : String(row.campo),
+                        valor: row.valor_inexistente == null
+                            ? undefined : String(row.valor_inexistente),
+                    });
+                }}
             />
+            {sel && (
+                <UcDetalleModal
+                    origen={sel.origen}
+                    ucId={sel.id}
+                    anomalia={{ campo: sel.campo, valor: sel.valor }}
+                    onClose={() => setSel(null)}
+                />
+            )}
             {verUnicos && <AnomaliasUnicosModal onClose={() => setVerUnicos(false)} />}
         </div>
     );

@@ -10,16 +10,16 @@ centros:
     slug: costes-personal
     nombre: Costes de personal
     nivel: 1
-    directo: 27495286.42
+    directo: 27474278.56
     indirecto: 107371.84
-    primario: 27602658.26
+    primario: 27581650.4
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
     nivel: 2
-    directo: 19733139.54
+    directo: 19717106.75
     indirecto: 0.0
-    primario: 19733139.54
+    primario: 19717106.75
   - código: '01.02'
     slug: salario-ptgas
     nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
@@ -39,9 +39,9 @@ centros:
     slug: ss
     nombre: Cotizaciones sociales a cargo del empleador
     nivel: 2
-    directo: 4104709.61
+    directo: 4099734.54
     indirecto: 0.0
-    primario: 4104709.61
+    primario: 4099734.54
   - código: '01.05'
     slug: prevsoc-funcs
     nombre: Previsión social de funcionarios (costes calculados)
@@ -260,9 +260,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 30297168.92
+    directo: 30276161.07
     indirecto: 4037645.27
-    primario: 34334814.19
+    primario: 34313806.34
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -274,9 +274,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 30297168.92
+    directo: 30276161.07
     indirecto: 4037645.27
-    primario: 34334814.19
+    primario: 34313806.34
 - código_sue: '02'
   slug: investigación
   nombre: Centros de investigación
@@ -285,16 +285,16 @@ centros:
     slug: costes-personal
     nombre: Costes de personal
     nivel: 1
-    directo: 40126098.66
+    directo: 40225250.7
     indirecto: 1011396.15
-    primario: 41137494.81
+    primario: 41236646.85
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
     nivel: 2
-    directo: 25880163.45
+    directo: 25983358.07
     indirecto: 0.0
-    primario: 25880163.45
+    primario: 25983358.07
   - código: '01.02'
     slug: salario-ptgas
     nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
@@ -314,16 +314,16 @@ centros:
     slug: ss
     nombre: Cotizaciones sociales a cargo del empleador
     nivel: 2
-    directo: 4923733.26
+    directo: 4928708.33
     indirecto: 0.0
-    primario: 4923733.26
+    primario: 4928708.33
   - código: '01.05'
     slug: prevsoc-funcs
     nombre: Previsión social de funcionarios (costes calculados)
     nivel: 2
-    directo: 2668423.44
+    directo: 2659405.79
     indirecto: 0.0
-    primario: 2668423.44
+    primario: 2659405.79
   - código: '01.06'
     slug: indem
     nombre: Indemnizaciones
@@ -535,9 +535,9 @@ centros:
     indirecto: 4500.0
     primario: 4500.0
   total_coste_primario:
-    directo: 40763973.76
+    directo: 40863125.79
     indirecto: 4537526.19
-    primario: 45301499.95
+    primario: 45400651.98
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -549,9 +549,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 40763973.76
+    directo: 40863125.79
     indirecto: 4537526.19
-    primario: 45301499.95
+    primario: 45400651.98
 - código_sue: '03'
   slug: docencia-investigación
   nombre: Centros de docencia e investigación
@@ -560,16 +560,16 @@ centros:
     slug: costes-personal
     nombre: Costes de personal
     nivel: 1
-    directo: 12685035.35
+    directo: 12679031.6
     indirecto: 994237.16
-    primario: 13679272.51
+    primario: 13673268.76
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
     nivel: 2
-    directo: 5849601.49
+    directo: 5844380.86
     indirecto: 0.0
-    primario: 5849601.49
+    primario: 5844380.86
   - código: '01.02'
     slug: salario-ptgas
     nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
@@ -596,9 +596,9 @@ centros:
     slug: prevsoc-funcs
     nombre: Previsión social de funcionarios (costes calculados)
     nivel: 2
-    directo: 546838.0
+    directo: 546054.88
     indirecto: 0.0
-    primario: 546838.0
+    primario: 546054.88
   - código: '01.06'
     slug: indem
     nombre: Indemnizaciones
@@ -810,9 +810,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 14894145.32
+    directo: 14888141.57
     indirecto: 4314532.6
-    primario: 19208677.92
+    primario: 19202674.16
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -824,9 +824,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 14894145.32
+    directo: 14888141.57
     indirecto: 4314532.6
-    primario: 19208677.92
+    primario: 19202674.16
 - código_sue: '04'
   slug: apoyo-docencia-investigación
   nombre: Centros de apoyo a docencia e investigación
@@ -1110,16 +1110,16 @@ centros:
     slug: costes-personal
     nombre: Costes de personal
     nivel: 1
-    directo: 2266836.5
+    directo: 2314286.27
     indirecto: 24069.71
-    primario: 2290906.21
+    primario: 2338355.98
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
     nivel: 2
-    directo: 45430.65
+    directo: 85555.19
     indirecto: 0.0
-    primario: 45430.65
+    primario: 85555.19
   - código: '01.02'
     slug: salario-ptgas
     nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
@@ -1146,9 +1146,9 @@ centros:
     slug: prevsoc-funcs
     nombre: Previsión social de funcionarios (costes calculados)
     nivel: 2
-    directo: 238.14
+    directo: 7563.38
     indirecto: 0.0
-    primario: 238.14
+    primario: 7563.38
   - código: '01.06'
     slug: indem
     nombre: Indemnizaciones
@@ -1360,9 +1360,9 @@ centros:
     indirecto: 0.0
     primario: 0.0
   total_coste_primario:
-    directo: 3008266.18
+    directo: 3055715.95
     indirecto: 2084303.31
-    primario: 5092569.48
+    primario: 5140019.25
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -1374,9 +1374,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 3008266.18
+    directo: 3055715.95
     indirecto: 2084303.31
-    primario: 5092569.48
+    primario: 5140019.25
 - código_sue: '06'
   slug: soporte
   nombre: Centros de soporte
@@ -1385,16 +1385,16 @@ centros:
     slug: costes-personal
     nombre: Costes de personal
     nivel: 1
-    directo: 19092807.67
+    directo: 19116824.11
     indirecto: 279076.91
-    primario: 19371884.58
+    primario: 19395901.02
   - código: '01.01'
     slug: salario-pdi
     nombre: Sueldos y salarios del Personal Docente e Investigador (PDI)
     nivel: 2
-    directo: 1473887.3
+    directo: 1495428.21
     indirecto: 0.0
-    primario: 1473887.3
+    primario: 1495428.21
   - código: '01.02'
     slug: salario-ptgas
     nombre: Sueldos y salarios del Personal Técnico, de Gestión y de Administración
@@ -1421,9 +1421,9 @@ centros:
     slug: prevsoc-funcs
     nombre: Previsión social de funcionarios (costes calculados)
     nivel: 2
-    directo: 164838.09
+    directo: 167313.63
     indirecto: 0.0
-    primario: 164838.09
+    primario: 167313.63
   - código: '01.06'
     slug: indem
     nombre: Indemnizaciones
@@ -1635,9 +1635,9 @@ centros:
     indirecto: 80219.25
     primario: 80219.25
   total_coste_primario:
-    directo: 20052767.54
+    directo: 20076783.98
     indirecto: 11374130.95
-    primario: 31426898.49
+    primario: 31450914.93
   centros_superiores:
     directo: 0.0
     indirecto: 0.0
@@ -1649,9 +1649,9 @@ centros:
     primario: 0.0
     pendiente: true
   total:
-    directo: 20052767.54
+    directo: 20076783.98
     indirecto: 11374130.95
-    primario: 31426898.49
+    primario: 31450914.93
 - código_sue: '07'
   slug: anexos
   nombre: Centros anexos

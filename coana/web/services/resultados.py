@@ -312,9 +312,85 @@ def _fields_proyecto(proyecto) -> list[FieldValue]:
     return out
 
 
+def _arbol_original(name: str) -> Árbol | None:
+    p = DIR_ENTRADA / "estructuras" / f"{name}.tree"
+    return _arbol(str(p), _mtime_ns(p))
+
+
+def _coincidencias(valor: str, arb: Árbol | None, máx: int = 6) -> list[str]:
+    """Identificadores del árbol «parecidos» a *valor* (mismo prefijo hasta
+    el último guion, o relación de prefijo), para sugerir el correcto."""
+    if arb is None:
+        return []
+    base = valor.rsplit("-", 1)[0] if "-" in valor else valor
+    cand = [
+        i for i in arb._por_id
+        if i and i != valor and (
+            i.startswith(base) or valor.startswith(i) or i.startswith(valor)
+        )
+    ]
+    return sorted(cand, key=len)[:máx]
+
+
+def _campo_eje(col: str, label: str, árbol_name: str, v: str) -> list[FieldValue]:
+    """Describe un eje (actividad/centro/EC) de la UC. Si el identificador
+    no existe en el árbol final, lo marca como anomalía y añade contexto:
+    si existía en el árbol original (eliminado/renombrado en la traducción)
+    y posibles identificadores correctos."""
+    arb = _arbol_cached(árbol_name)
+    nodo = arb._por_id.get(str(v)) if arb is not None else None
+    if nodo is not None:
+        return [FieldValue(
+            name=f"{col}__desc", label=label,
+            value=f"{v} → {nodo.código} · {nodo.descripción}", format="text",
+        )]
+    # Identificador inexistente en el árbol final → detalle de la anomalía.
+    out = [FieldValue(
+        name=f"{col}__desc", label=label,
+        value=f"⚠ «{v}» no existe en el árbol final de {label.lower()}",
+        format="text",
+    )]
+    orig = _arbol_original(árbol_name)
+    nodo_orig = orig._por_id.get(str(v)) if orig is not None else None
+    if nodo_orig is not None:
+        out.append(FieldValue(
+            name=f"{col}__orig", label=f"{label} (árbol original)",
+            value=(f"sí existía: {nodo_orig.código} · {nodo_orig.descripción} "
+                   "— eliminado o renombrado en la traducción"),
+            format="text",
+        ))
+    # ¿El identificador es válido pero en OTRO eje? (p. ej. un centro puesto
+    # como actividad). Pista habitual de una asignación cruzada.
+    for otro_nombre, otro_label in (
+        ("actividades", "actividades"),
+        ("centros de coste", "centros de coste"),
+        ("elementos de coste", "elementos de coste"),
+    ):
+        if otro_nombre == árbol_name:
+            continue
+        otro = _arbol_cached(otro_nombre)
+        nodo_otro = otro._por_id.get(str(v)) if otro is not None else None
+        if nodo_otro is not None:
+            out.append(FieldValue(
+                name=f"{col}__en_{otro_nombre}", label=f"{label} (otro árbol)",
+                value=(f"«{v}» sí existe en el árbol de {otro_label}: "
+                       f"{nodo_otro.código} · {nodo_otro.descripción} "
+                       "— posible asignación cruzada de eje"),
+                format="text",
+            ))
+    sugeridos = _coincidencias(str(v), arb)
+    if sugeridos:
+        out.append(FieldValue(
+            name=f"{col}__sugeridos", label=f"{label} (¿quizá?)",
+            value=", ".join(sugeridos), format="text",
+        ))
+    return out
+
+
 def _seccion_relacionada(row: dict) -> list[RecordSection]:
-    """Información cruzada de la UC: descripciones de árbol de sus tres ejes,
-    nombre del proyecto (si lo lleva) y persona (si lleva per_id)."""
+    """Información cruzada de la UC: descripciones de árbol de sus tres ejes
+    (marcando los identificadores inexistentes), nombre del proyecto (si lo
+    lleva) y persona (si lleva per_id)."""
     fields: list[FieldValue] = []
     for col, label, árbol_name in (
         ("actividad", "Actividad", "actividades"),
@@ -323,14 +399,16 @@ def _seccion_relacionada(row: dict) -> list[RecordSection]:
     ):
         v = row.get(col)
         if v in (None, ""):
+            # Eje vacío: solo es relevante como anomalía (UC sin clasificar
+            # en ese eje). Para UCs normales los tres ejes vienen rellenos.
+            if col in row:
+                fields.append(FieldValue(
+                    name=f"{col}__desc", label=label,
+                    value=f"⚠ vacío — UC sin clasificar en {label.lower()}",
+                    format="text",
+                ))
             continue
-        arb = _arbol_cached(árbol_name)
-        nodo = arb._por_id.get(str(v)) if arb is not None else None
-        if nodo is not None:
-            fields.append(FieldValue(
-                name=f"{col}__desc", label=label,
-                value=f"{nodo.código} · {nodo.descripción}", format="text",
-            ))
+        fields += _campo_eje(col, label, árbol_name, str(v))
 
     fields += _fields_proyecto(row.get("proyecto"))
 

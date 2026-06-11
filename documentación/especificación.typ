@@ -1746,7 +1746,7 @@ Refleja los ficheros de #ruta("data", "entrada"): un sub-menú por cada subdirec
     [Lista consolidada de todas las UC de la fase 1. Cada fila es clicable y abre un modal con la ficha completa de la UC (sus cuatro valores principales — elemento de coste, centro de coste, actividad e importe — más la traza al registro de origen: apunte presupuestario, expediente, contrato, etc.). Visión plana, sin estructura jerárquica.],
     [Actividades · Centros de coste · Elementos de coste *(jerárquicas)*],
     [Pantalla master-detail con dos zonas. *Arriba*: árbol del catálogo correspondiente con expand/collapse, búsqueda con resaltado (insensible a tildes y mayúsculas) y, por cada nodo, código, descripción, identificador, #emph[N UC subárbol] y #emph[Σ importe subárbol] (totales agregados del nodo y todos sus descendientes; los nodos con N=0 se ven atenuados pero no se ocultan). *Abajo* al seleccionar un nodo: tabla de UC imputadas *directamente* a ese nodo (clic-para-ficha igual que la vista plana) y tabla de hijos directos con N UC, importe y % sobre hermanos. Tres rutas: #ruta("/resultados/actividades"), #ruta("/resultados/centros-de-coste"), #ruta("/resultados/elementos-de-coste"). Pinchar en una fila de la tabla de hijos navega al hijo correspondiente.],
-    [Anomalías UC], [UC que referencian nodos inexistentes en los árboles finales (integridad referencial).],
+    [Anomalías UC], [UC que referencian nodos inexistentes en los árboles finales o que tienen algún eje sin clasificar (integridad referencial). Cada fila es clicable y abre la ficha completa de la UC con un aviso del motivo y, en #emph[Información relacionada], el detalle del eje afectado: si el identificador existía en el árbol original (eliminado/renombrado en la traducción), si es válido pero en otro eje (asignación cruzada) y posibles identificadores correctos. Botón #emph[Ver identificadores únicos] para la lista agregada de qué arreglar en los árboles.],
     table.hline(),
 )
 
@@ -4800,9 +4800,11 @@ El criterio se aplica fila a fila:
             - `_OVERRIDES_TITULACION_CARGO: (per_id, cargo) → titulación`. Se inyecta *antes* de la propagación, así que tiene prioridad sobre el histórico (útil cuando el histórico apunta a otra titulación distinta de la que la persona coordina ahora). A partir de ahí el resolver actúa con normalidad y produce actividad+centro vía #ruta("titulaciones actividad centro.xlsx").
             - `_OVERRIDES_CENTRO_CARGO: (per_id, cargo) → centro`. Es la última red: si tras todo lo anterior siguen presentes #val("SERVICIO") o #val("CENTROTITULACION"), se sustituyen por este centro. Aplica también cuando el cargo no es de docencia (p. ej. una vicedecana que opera «de centro» sin coordinar titulación, o una subdirectora de calidad adscrita a un centro que no concuerda con el servicio académico de la persona).
 
+            *Fallback de direcciones de proyecto.* Los cargos cuyo nombre contiene #val("projecte")/#val("proyecto") (Direcció de projecte tipus I-V, Director/a de projecte, Director/a del projecte estratègic…) suelen venir en #ruta("cargos.xlsx") con #campo("actividad") y #campo("centro") vacíos: su cobro sale del *pool general* (PLANTILLA, projecte general), que no lleva ningún proyecto clasificable, y corresponde a gasto residual de investigación (proyectos extintos que tuvo el grupo). Cuando uno de estos cargos queda sin clasificar tras todos los pasos anteriores, se imputa al *grupo de investigación principal* del #campo("per_id") con actividad #etqact("otras-ait-financiación-propia"): por cada persona se recorren sus grupos de #ruta("entrada", "investigación", "investigadores en grupos.xlsx") por prioridad —#campo("principal") = #val("S"), luego #campo("coordinador") = #val("S"), luego mayor #campo("participación")— y se toma el primero que exista como centro de coste en el árbol enriquecido (#etqcen("grupo-investigación-NNN") o, para institutos, su identificador en minúsculas); los grupos extintos, sin centro este año, se saltan.
+
             Si tras todos los pasos persiste algún patrón en mayúsculas, la UC se marca con la anomalía #val("patrón sin resolver (servicio/titulación faltante)") y se muestra en la #app para depuración manual.
 
-            *Resumen del orden de resolución* (de mayor a menor prioridad): (1) override de titulación, (2) propagación por moda, (3) resolver de patrones con titulación/servicio según catálogos, (4) fallback cruzado titulación↔servicio, (5) override de centro.
+            *Resumen del orden de resolución* (de mayor a menor prioridad): (1) override de titulación, (2) propagación por moda, (3) resolver de patrones con titulación/servicio según catálogos, (4) fallback cruzado titulación↔servicio, (5) override de centro, (6) fallback de direcciones de proyecto al grupo de investigación principal.
 
             *Cargos vigentes sin periodo de cobro* (cargos no remunerados, como direcciones de cátedras no retribuidas): aparecen en la #app como informativos pero no entran al reparto.
 
@@ -5278,7 +5280,9 @@ El *defecto* (última fila) reparte cada dag entre las finalistas de su *propio 
     etqact("otras-ait-financiación-propia.* + transf.*"),
     etqcen("*"),
 
-    // PENDIENTE: VER QUÉ PASA CN EL DAG DE ESPAITEC QUE NO TIENE NADA
+    // Nota: los encargos de gestión de Espaitec (dag-encargos-gestión-espaitec)
+    // cuelgan de dag-apoyo-transferencia-conocimiento, así que la regla anterior
+    // también los captura.
 
     // Algunos centros especiales
     // -- scic
@@ -5292,12 +5296,12 @@ El *defecto* (última fila) reparte cada dag entre las finalistas de su *propio 
         "grupo-investigación-311 + grupo-investigación-278 + grupo-investigación-206 + grupo-investigación-222 + grupo-investigación-326 + grupo-investigación-317 + grupo-investigación-207 + grupo-investigación-307",
     ),
     // -- labcom
-    etqact("dag-labcom"), etqcen("*"), etqact("principales.*"), etqcen("ámbito-periodismo.*"),
+    etqact("dag-labcom"), etqcen("*"), etqact("ámbito-periodismo.*"), etqcen("*"),
     // -- sala disección
     etqact("dag-sala-disección"),
     etqcen("*"),
-    etqact("principales.*"),
-    etqcen("ámbito-medicina.* + cursos-formación-permanente-24G056.*"),
+    etqact("ámbito-medicina.* + cursos-formación-permanente-24G056.*"),
+    etqcen("*"),
 
     etqact("dag-escuela-doctorado.*"), etqcen("*"), etqact("doctorado.*"), etqcen("ed.*"),
     etqact("dag-sgit.*"), etqcen("*"), etqact("ai-financiación-propia.* + ait-financiación-externa.*"), etqcen("*"),

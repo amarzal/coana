@@ -248,14 +248,64 @@ def calcular_extras_cargos_por_persona(
     return {int(r["per_id"]): float(r["extra_total"]) for r in df.iter_rows(named=True)}
 
 
+def _centro_grupo_principal(ruta_base: Path, árbol_cc) -> dict[int, str]:
+    """`{per_id: centro de su grupo de investigación principal}`.
+
+    Para resolver el centro de las *direcciones de proyecto* sin clasificar
+    (gasto residual de investigación del grupo). Por cada persona se recorren
+    sus grupos por prioridad —principal, luego coordinador/interlocutor, luego
+    mayor participación— y se toma el primero que exista como centro en el
+    árbol (`grupo-investigación-NNN` o, para institutos, su identificador en
+    minúsculas). Los grupos extintos —sin centro este año— se saltan.
+    """
+    p = Path(ruta_base) / "entrada" / "investigación" / "investigadores en grupos.xlsx"
+    if not p.exists() or árbol_cc is None:
+        return {}
+    ig = read_excel(p)
+    if ig.is_empty():
+        return {}
+    ig = ig.with_columns(
+        (
+            (pl.col("principal") == "S").cast(pl.Int8) * 2
+            + (pl.col("coordinador") == "S").cast(pl.Int8)
+        ).alias("_prio"),
+        pl.col("participación").fill_null(0.0),
+    ).sort(["_prio", "participación"], descending=[True, True])
+
+    def _centro(id_grupo: str) -> str | None:
+        g = str(id_grupo)
+        for cand in (f"grupo-investigación-{g}", g.lower()):
+            if cand in árbol_cc._por_id:
+                return cand
+        return None
+
+    out: dict[int, str] = {}
+    for per_id, grupo in ig.group_by("per_id", maintain_order=True):
+        pid = per_id[0] if isinstance(per_id, tuple) else per_id
+        if pid is None:
+            continue
+        for id_grupo in grupo["id_grupo"]:
+            c = _centro(id_grupo)
+            if c:
+                out[int(pid)] = c
+                break
+    return out
+
+
 def generar_cargos_uc(
     ruta_base: Path,
     dir_salida: Path,
     año: int = 2025,
     extras_aplicadas_por_persona: dict[int, float] | None = None,
+    árbol_cc=None,
 ) -> pl.DataFrame:
     """Genera `cargos_uc.parquet` con el reparto del cobro CR 19/64 en
     proyecto general entre los cargos asimilados al RD.
+
+    Si se pasa `árbol_cc` (árbol de centros ya enriquecido con los grupos de
+    investigación), las *direcciones de proyecto* que queden sin clasificar
+    se imputan al grupo de investigación principal del per_id, con actividad
+    #etqact("otras-ait-financiación-propia") (gasto residual de investigación).
     """
     nom_path = Path(ruta_base) / "entrada" / "nóminas" / "nóminas y seguridad social.xlsx"
     exp_path = Path(ruta_base) / "entrada" / "nóminas" / "expedientes recursos humanos.xlsx"
@@ -590,6 +640,31 @@ def generar_cargos_uc(
         pl.col("_resuelto").struct.field("act_resuelta").alias("act_cargo"),
         pl.col("_resuelto").struct.field("cc_resuelto").alias("cc_cargo"),
     ).drop("_resuelto")
+
+    # 7-bis) Fallback de direcciones de proyecto sin clasificar → grupo de
+    # investigación principal del per_id. Son gasto residual de investigación
+    # (proyectos extintos del grupo) que el catálogo deja sin actividad/centro.
+    centro_grupo = _centro_grupo_principal(ruta_base, árbol_cc)
+    if centro_grupo:
+        cg = pl.col("per_id").map_elements(
+            lambda p: centro_grupo.get(int(p)) if p is not None else None,
+            return_dtype=pl.Utf8,
+        )
+        es_proyecto = pl.col("nombre_cargo").cast(pl.Utf8).str.contains(
+            r"(?i)projecte|proyecto"
+        )
+        act_vacía = pl.col("act_cargo").fill_null("") == ""
+        cc_vacío = pl.col("cc_cargo").fill_null("") == ""
+        activas = activas.with_columns(
+            pl.when(es_proyecto & act_vacía & cg.is_not_null())
+            .then(pl.lit("otras-ait-financiación-propia"))
+            .otherwise(pl.col("act_cargo"))
+            .alias("act_cargo"),
+            pl.when(es_proyecto & cc_vacío & cg.is_not_null())
+            .then(cg)
+            .otherwise(pl.col("cc_cargo"))
+            .alias("cc_cargo"),
+        )
 
     # 8) origen_id seriado.
     activas = activas.sort("per_id", "cargo")

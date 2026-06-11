@@ -80,14 +80,19 @@ REGLAS: list[ReglaDag] = [
     _regla("dag-apoyo-estudiantes.*", "*", "apoyo-estudiantes.*", "*"),
     _regla("dag-biblioteca.*", "*", "docencia.* 20% + ai.* 80%", "*"),
     _regla("dag-apoyo-docencia-oficial.*", "*", "estudios-oficiales.*", "*"),
+    # Encargos de gestión y similares
+    _regla("dag-apoyo-proyectos-internacionales.*", "*", "ai-internacional.*", "*"),
     # Estudios propios y microcredenciales
     _regla("dag-encargos-gestión-estudios-propios.*", "*",
            "másteres-formación-permanente.* + diplomas-especialización"
            " + diplomas-experto + cursos-formación-permanente", "*"),
     _regla("dag-encargos-gestión-microcredenciales.*", "*", "microcredenciales.*", "*"),
     # Actividades Europa / internacional
-    _regla("dag-apoyo-proyectos-internacionales.*", "*", "ai-internacional.*", "*"),
     _regla("dag-encargos-proyectos-investigación-europeos.*", "*", "ai-internacional.*", "*"),
+    # Actividades de transferencia (incluye los encargos de gestión de
+    # Espaitec, que cuelgan de este subárbol).
+    _regla("dag-apoyo-transferencia-conocimiento.*", "*",
+           "otras-ait-financiación-propia.* + transf.*", "*"),
     # Algunos centros especiales. El destino CENTRO con varios patrones va
     # como tupla (no como cadena «a + b»: el «+» solo lo parsea el destino
     # ACTIVIDAD para repartos porcentuales).
@@ -97,6 +102,11 @@ REGLAS: list[ReglaDag] = [
         "grupo-investigación-222", "grupo-investigación-326", "grupo-investigación-317",
         "grupo-investigación-207", "grupo-investigación-307",
     )),
+    # Laboratorios singulares: su coste va a las actividades del ámbito al
+    # que sirven (en cualquier centro).
+    _regla("dag-labcom", "*", "ámbito-periodismo.*", "*"),
+    _regla("dag-sala-disección", "*",
+           "ámbito-medicina.* + cursos-formación-permanente-24G056.*", "*"),
     _regla("dag-escuela-doctorado.*", "*", "doctorado.*", "ed.*"),
     _regla("dag-sgit.*", "*", "ai-financiación-propia.* + ait-financiación-externa.*", "*"),
     _regla("dag-estce.*", "*", "estudios-oficiales.*", "estce.*"),

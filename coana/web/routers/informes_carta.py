@@ -207,9 +207,19 @@ def _construir_estructura(
         directo_n[s] = int(r["_n"])
         directo_imp[s] = float(r["_imp"] or 0.0)
 
+    # Slugs que forman la estructura del árbol: los que tienen coste directo y,
+    # si hay foco, también la espina + subárbol de cada nodo enfocado tomados
+    # del árbol real. Así un nodo enfocado SIN coste (p. ej. una actividad dag,
+    # cuyo coste ya se repartió a las finalistas) sigue apareciendo en su sitio
+    # en vez de perderse y dejar que la vista colapse a la raíz con el total.
+    slugs_estructura: set[str] = set(directo_n)
+    for s in foco_slugs:
+        slugs_estructura.update(_camino_árbol(árbol, s, raíces_ámbito))
+        slugs_estructura.update(descendientes_inclusivo(árbol, s))
+
     hijos_de: dict[str, set[str]] = {}
     raíz_nodos: set[str] = set()
-    for s in directo_n:
+    for s in slugs_estructura:
         cam = _camino_árbol(árbol, s, raíces_ámbito)
         raíz_nodos.add(cam[0])
         for padre, hijo in zip(cam, cam[1:]):
@@ -244,7 +254,10 @@ def _construir_estructura(
             total = sum(subtree_d[c] for c in hijos)
             anc_n_hijos = anc_n + directo_n.get(slug, 0)
             for c in hijos:
-                _bajar(c, salida * subtree_d[c] / total, anc_n_hijos)
+                # Si el subárbol no tiene coste (todos los hijos a 0, p. ej. una
+                # rama dag ya repartida), no hay nada que bajar.
+                frac = salida * subtree_d[c] / total if total > 0 else 0.0
+                _bajar(c, frac, anc_n_hijos)
 
     for r in raíz_nodos:
         _bajar(r, 0.0, 0)

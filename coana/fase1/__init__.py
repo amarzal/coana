@@ -249,6 +249,7 @@ def ejecutar(ruta_base: Path = Path("data"), año: int = 2025) -> None:
     dir_cargos = dir_salida / "auxiliares" / "nóminas"
     cargos_uc = generar_cargos_uc(
         ruta_base, dir_cargos, año=año,
+        árbol_cc=ctx.centros_de_coste,
         extras_aplicadas_por_persona=getattr(
             ctx_nom, "_extras_aplicadas_por_persona", {},
         ),
